@@ -1,0 +1,18 @@
+# Logs
+*.log
+*.log.*
+logs/
+**/logs/
+
+# Large JAR files
+*.jar
+**/target/*.jar
+runtime/lib/*.jar
+
+# Build directories
+target/
+**/target/
+build/
+
+# Node modules
+node_modules/
