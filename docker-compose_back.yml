@@ -1,0 +1,275 @@
+version: "3.8"
+
+services:
+  # Zookeeper服务
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.1
+    container_name: crypto-zookeeper
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-logs:/var/lib/zookeeper/log
+    healthcheck:
+      test: ["CMD", "echo", "ruok", "|", "nc", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - crypto-network
+    profiles: ["ingest"]
+
+  # Kafka服务
+  kafka:
+    image: confluentinc/cp-kafka:7.4.1
+    container_name: crypto-kafka
+    hostname: kafka
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    restart: on-failure:3
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-broker-api-versions --bootstrap-server localhost:9092",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - crypto-network
+    profiles: ["ingest"]
+  # Kafka UI服务
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: crypto-kafka-ui
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: crypto-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - crypto-network
+    profiles: ["ingest"]
+  # Redis服务
+  redis:
+    image: redis:7.2
+    container_name: crypto-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - redis-data:/data
+    networks:
+      - crypto-network
+    profiles: ["ingest"]
+  # Redis Commander - Redis管理界面
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: crypto-redis-commander
+    ports:
+      - "8082:8081"
+    depends_on:
+      - redis
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    networks:
+      - crypto-network
+    profiles: ["ingest"]
+  # PostgreSQL数据库
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: twilight
+      POSTGRES_PASSWORD: twilight123
+      POSTGRES_DB: twilight
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts:/scripts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U twilight"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    profiles: ["ingest"]
+  init-db:
+    image: postgres:15
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: twilight
+      POSTGRES_PASSWORD: twilight123
+      TEST_ENV: "true"
+    volumes:
+      - ./scripts:/scripts
+    command: ["/scripts/init.sh"]
+    profiles: ["ingest"]
+  jobmanager:
+    image: flink:1.19.1-java11
+    container_name: jobmanager
+    ports:
+      - "8081:8081"
+      - "9250:9250"
+    command: jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        state.backend: filesystem
+        state.checkpoints.dir: file:///aggregator/flink-checkpoints
+        rest.bind-port: 8081
+        rest.address: 0.0.0.0
+        jobmanager.bind-host: 0.0.0.0
+        taskmanager.bind-host: 0.0.0.0
+        jobmanager.rpc.bind-port: 6123
+        metrics.reporters: prom
+        metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+        metrics.reporter.prom.port: 9250
+        metrics.reporter.prom.host: 0.0.0.0
+    volumes:
+      - ./flink-checkpoints:/flink-checkpoints
+      - ./aggregator/target:/opt/flink/jobs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/overview"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    profiles: ["flink"]
+    networks:
+      - crypto-network
+      - default
+  taskmanager:
+    image: flink:1.19.1-java11
+    container_name: taskmanager
+    depends_on:
+      - jobmanager
+    command: taskmanager
+    deploy:
+      replicas: 1
+    ports:
+      - "9251:9250"
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        state.backend: filesystem
+        state.checkpoints.dir: file:///flink-checkpoints
+        taskmanager.bind-host: 0.0.0.0
+        taskmanager.host: taskmanager
+        taskmanager.memory.process.size: 1024m
+        metrics.reporters: prom
+        metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+        metrics.reporter.prom.port: 9250
+        metrics.reporter.prom.host: 0.0.0.0
+    volumes:
+      - ./flink-checkpoints:/flink-checkpoints
+      - ./aggregator/target:/opt/flink/jobs
+    profiles: ["flink"]
+    networks:
+      - crypto-network
+      - default
+  job-deployer:
+    image: flink:1.19.1-java11
+    depends_on:
+      jobmanager:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: on-failure:3
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - INPUT_TOPIC=dex_transaction
+      - KAFKA_GROUP_ID=pair_metrics_processor
+      - JDBC_URL=jdbc:postgresql://postgres:5432/twilight
+      - JDBC_USER=twilight
+      - JDBC_PASSWORD=twilight123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+    command: >
+      /bin/bash -c "
+        echo 'Waiting for JobManager to be ready...' &&
+        until curl -s jobmanager:8081/overview; do
+          echo 'Waiting for JobManager...' &&
+          sleep 5;
+        done &&
+        echo 'JobManager is ready!' &&
+        echo 'Checking for existing jobs...' &&
+        if ! flink list -m jobmanager:8081 | grep 'aggregator'; then
+          echo 'Deploying Flink job...' &&
+          flink run -d -m jobmanager:8081 -c com.twilight.aggregator.AggregatorJob /opt/flink/jobs/aggregator-1.0-SNAPSHOT.jar;
+        else
+          echo 'Job is already running';
+        fi
+      "
+    volumes:
+      - ./aggregator/target:/opt/flink/jobs
+    profiles: ["flink"]
+    networks:
+      - crypto-network
+      - default
+# 数据卷
+volumes:
+  zookeeper-data:
+    driver: local
+  zookeeper-logs:
+    driver: local
+  kafka-data:
+    driver: local
+  redis-data:
+    driver: local
+  postgres-data:
+    driver: local
+  pgadmin-data:
+    driver: local
+
+# 网络配置
+networks:
+  crypto-network:
+    driver: bridge

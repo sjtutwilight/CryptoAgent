@@ -1,0 +1,21 @@
+server:
+  host: "localhost"
+  port: 8090
+
+fault:
+  http:
+    enabled: true
+    failure_probability: 0.05        # 5%的HTTP请求失败概率
+    rate_limit_probability: 0.05     # 2%的429限流错误概率
+    server_error_probability: 0.05   # 3%的5xx服务器错误概率
+    
+  websocket:
+    enabled: true
+    disconnection_probability: 0.1     # 1%的连接断开概率
+    data_loss_probability: 0.02           # 2%的数据丢失概率
+    heartbeat_anomaly_probability: 0.01   # 1%的心跳异常概率
+
+data:
+  ethereum:
+    block_interval: 2          # 区块间隔（秒）
+    start_block_number: 1000000 # 起始区块号

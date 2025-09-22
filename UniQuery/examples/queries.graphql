@@ -1,0 +1,407 @@
+# 查询单个账户信息
+query GetAccount {
+  account(id: "1") {
+    id
+    chainName
+    address
+    entity
+    labels
+    ethBalance
+    erc20Balances {
+      tokenSymbol
+      tokenAddress
+      balance
+      price
+      valueUSD
+    }
+    defiPositions {
+      protocol
+      contractAddress
+      position
+      valueUSD
+    }
+  }
+}
+
+# 查询账户列表
+query GetAccounts {
+  accounts(page: 1, limit: 10) {
+    id
+    chainName
+    address
+    entity
+    labels
+  }
+}
+
+# 查询账户转账事件
+query GetAccountTransferEvents {
+  accountTransferEvents(
+    accountId: "1"
+    page: 1
+    limit: 10
+    buyOrSell: "buy"
+    sortBy: "blockTimestamp"
+  ) {
+    transactionHash
+    blockTimestamp
+    fromAddress
+    toAddress
+    tokenSymbol
+    tokenAddress
+    value
+    valueUSD
+    buyOrSell
+  }
+}
+
+# 查询账户内部转账事件
+query GetAccountTransferEventsNested {
+  account(id: "1") {
+    id
+    address
+    accountTransferEvents(
+      page: 1
+      limit: 10
+      buyOrSell: "buy"
+      sortBy: "blockTimestamp"
+    ) {
+      transactionHash
+      blockTimestamp
+      fromAddress
+      toAddress
+      tokenSymbol
+      tokenAddress
+      value
+      valueUSD
+      buyOrSell
+    }
+  }
+}
+
+# 查询账户转账历史
+query GetAccountTransferHistory {
+  accountTransferHistory(
+    accountId: "1"
+    page: 1
+    limit: 10
+    buyOrSell: "buy"
+    sortBy: "endTime"
+  ) {
+    endTime
+    buyOrSell
+    txCnt
+    totalvalueUSD
+  }
+}
+
+# 查询账户内部转账历史
+query GetAccountTransferHistoryNested {
+  account(id: "1") {
+    id
+    address
+    accountTransferHistory(
+      page: 1
+      limit: 10
+      buyOrSell: "buy"
+      sortBy: "endTime"
+    ) {
+      endTime
+      buyOrSell
+      txCnt
+      totalvalueUSD
+    }
+  }
+}
+
+# 查询单个代币信息
+query GetToken {
+  token(id: "1") {
+    id
+    chainName
+    tokenSymbol
+    tokenAddress
+    tokenDetail {
+      id
+      chainName
+      tokenSymbol
+      # 大盘信息
+      price
+      mcap
+      liquidity
+      fdv
+      # token额外信息
+      issuer
+      tokenAge
+      tokenCatagory
+      securityScore
+      # 实时指标（1分钟）
+      recentMetrics(timeWindow: ONE_MINUTE) {
+        timeWindow
+        txcnt
+        volume
+        priceChange
+        buys
+        sells
+        buyVolume
+        sellVolume
+        freshWalletInflow
+        smartMoneyInflow
+        smartMoneyOutflow
+        exchangeInflow
+        exchangeOutflow
+        buyPressure
+      }
+    }
+  }
+}
+
+# 查询代币列表
+query GetTokens {
+  tokens(page: 1, limit: 10, sortBy: "mcap") {
+    id
+    chainName
+    tokenSymbol
+    tokenAddress
+    tokenDetail {
+      price
+      mcap
+      liquidity
+      fdv
+    }
+  }
+}
+
+# 查询代币实时指标（20秒）
+query GetTokenRecentMetrics20s {
+  token(id: "1") {
+    id
+    tokenSymbol
+    tokenDetail {
+      recentMetrics(timeWindow: TWENTY_SECONDS) {
+        timeWindow
+        txcnt
+        volume
+        priceChange
+        buys
+        sells
+        buyVolume
+        sellVolume
+        freshWalletInflow
+        smartMoneyInflow
+        smartMoneyOutflow
+        exchangeInflow
+        exchangeOutflow
+        buyPressure
+      }
+    }
+  }
+}
+
+# 查询代币实时指标（1分钟）
+query GetTokenRecentMetrics1m {
+  token(id: "1") {
+    id
+    tokenSymbol
+    tokenDetail {
+      recentMetrics(timeWindow: ONE_MINUTE) {
+        timeWindow
+        txcnt
+        volume
+        priceChange
+        buys
+        sells
+        buyVolume
+        sellVolume
+        freshWalletInflow
+        smartMoneyInflow
+        smartMoneyOutflow
+        exchangeInflow
+        exchangeOutflow
+        buyPressure
+      }
+    }
+  }
+}
+
+# 查询代币实时指标（5分钟）
+query GetTokenRecentMetrics5m {
+  token(id: "1") {
+    id
+    tokenSymbol
+    tokenDetail {
+      recentMetrics(timeWindow: FIVE_MINUTES) {
+        timeWindow
+        txcnt
+        volume
+        priceChange
+        buys
+        sells
+        buyVolume
+        sellVolume
+        freshWalletInflow
+        smartMoneyInflow
+        smartMoneyOutflow
+        exchangeInflow
+        exchangeOutflow
+        buyPressure
+      }
+    }
+  }
+}
+
+# 查询代币实时指标（1小时）
+query GetTokenRecentMetrics1h {
+  token(id: "1") {
+    id
+    tokenSymbol
+    tokenDetail {
+      recentMetrics(timeWindow: ONE_HOUR) {
+        timeWindow
+        txcnt
+        volume
+        priceChange
+        buys
+        sells
+        buyVolume
+        sellVolume
+        freshWalletInflow
+        smartMoneyInflow
+        smartMoneyOutflow
+        exchangeInflow
+        exchangeOutflow
+        buyPressure
+      }
+    }
+  }
+}
+
+# 查询代币历史走势数据
+query GetTokenRollingMetrics {
+  token(id: "1") {
+    id
+    tokenSymbol
+    tokenDetail {
+      rollingMetrics(limit: 100, startTime: "2025-03-01 00:00:00", endTime: "2025-03-06 23:59:59") {
+        endTime
+        price
+        mcap
+      }
+    }
+  }
+}
+
+# 查询代币转账事件
+query GetTokenTransferEvents {
+  tokenTransferEvents(
+    tokenId: "1"
+    page: 1
+    limit: 10
+    buyOrSell: "buy"
+    onlySmartMoney: false
+    onlyWithCex: false
+    onlyWithDex: false
+    sortBy: "blockTimestamp"
+  ) {
+    transactionHash
+    blockTimestamp
+    fromAddress
+    toAddress
+    valueUSD
+  }
+}
+
+# 查询代币内部转账事件
+query GetTokenTransferEventsNested {
+  token(id: "1") {
+    id
+    tokenSymbol
+    tokenDetail {
+      tokenTransferEvents(
+        page: 1
+        limit: 10
+        buyOrSell: "buy"
+        onlySmartMoney: false
+        onlyWithCex: false
+        onlyWithDex: false
+        sortBy: "blockTimestamp"
+      ) {
+        transactionHash
+        blockTimestamp
+        fromAddress
+        toAddress
+        valueUSD
+      }
+    }
+  }
+}
+
+# 查询代币持有者
+query GetTokenHolders {
+  tokenHolders(
+    tokenId: "1"
+    page: 1
+    limit: 10
+    sortBy: "ownership"
+  ) {
+    address
+    ownership
+    valueUSD
+  }
+}
+
+# 查询代币内部持有者
+query GetTokenHoldersNested {
+  token(id: "1") {
+    id
+    tokenSymbol
+    tokenDetail {
+      tokenHolders(
+        page: 1
+        limit: 10
+        sortBy: "ownership"
+      ) {
+        address
+        ownership
+        valueUSD
+      }
+    }
+  }
+}
+
+# 查询代币流动性指标
+query GetTokenFlowMetrics {
+  tokens(page: 1, limit: 10, sortBy: "mcap") {
+    id
+    tokenSymbol
+    tokenDetail {
+      recentMetrics(timeWindow: FIVE_MINUTES) {
+        freshWalletInflow
+        smartMoneyInflow
+        smartMoneyOutflow
+        exchangeInflow
+        exchangeOutflow
+      }
+    }
+  }
+}
+
+# 查询代币信息
+query GetTokenInfoMetrics {
+  tokens(page: 1, limit: 10, sortBy: "mcap") {
+    id
+    chainName
+    tokenSymbol
+    tokenDetail {
+      price
+      mcap
+      liquidity
+      fdv
+      recentMetrics(timeWindow: FIVE_MINUTES) {
+        priceChange
+        buyPressure
+      }
+    }
+  }
+}
+

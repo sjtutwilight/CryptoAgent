@@ -1,0 +1,1010 @@
+2025-08-24 06:07:54,013 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] - --------------------------------------------------------------------------------
+2025-08-24 06:07:54,014 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -  Preconfiguration: 
+2025-08-24 06:07:54,014 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] - 
+
+
+RESOURCE_PARAMS extraction logs:
+jvm_params: -Xmx1073741824 -Xms1073741824 -XX:MaxMetaspaceSize=268435456
+dynamic_configs: -D jobmanager.memory.off-heap.size=134217728b -D jobmanager.memory.jvm-overhead.min=201326592b -D jobmanager.memory.jvm-metaspace.size=268435456b -D jobmanager.memory.heap.size=1073741824b -D jobmanager.memory.jvm-overhead.max=201326592b
+logs: INFO  [] - Using standard YAML parser to load flink configuration file from /opt/flink/conf/config.yaml.
+INFO  [] - Loading configuration property: flink.parallelism, 2
+INFO  [] - Loading configuration property: flink.checkpoint.interval_ms, 10000
+INFO  [] - Loading configuration property: jobmanager.rpc.address, jobmanager
+INFO  [] - Loading configuration property: contracts.pair, 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+INFO  [] - Loading configuration property: postgres.host, localhost
+INFO  [] - Loading configuration property: chain.polling.max_blocks_per_poll, 100
+INFO  [] - Loading configuration property: kafka.topics.chain_transactions, dex_transaction
+INFO  [] - Loading configuration property: parallelism.default, 2
+INFO  [] - Loading configuration property: postgres.pool.min_connections, 5
+INFO  [] - Loading configuration property: chain.processed_txs_ttl_ms, 3600000
+INFO  [] - Loading configuration property: kafka.consumer.poll_timeout_ms, 1000
+INFO  [] - Loading configuration property: taskmanager.memory.process.size, 1728m
+INFO  [] - Loading configuration property: execution.checkpointing.mode, EXACTLY_ONCE
+INFO  [] - Loading configuration property: table.exec.source.idle-timeout, 30s
+INFO  [] - Loading configuration property: kafka.consumer.session_timeout_ms, 30000
+INFO  [] - Loading configuration property: postgres.pool.max_idle_time_seconds, 300
+INFO  [] - Loading configuration property: #Paimon相关配置, 
+INFO  [] - Loading configuration property: postgres.port, 5432
+INFO  [] - Loading configuration property: services.strategy.update_interval_ms, 5000
+INFO  [] - Loading configuration property: rest.bind-address, 0.0.0.0
+INFO  [] - Loading configuration property: kafka.brokers, ['localhost:9092']
+INFO  [] - Loading configuration property: execution.checkpointing.interval, 10s
+INFO  [] - Loading configuration property: services.strategy.port, 8081
+INFO  [] - Loading configuration property: chain.confirmation.timeout_ms, 30000
+INFO  [] - Loading configuration property: web.submit.enable, true
+INFO  [] - Loading configuration property: state.backend, rocksdb
+INFO  [] - Loading configuration property: services.datamanager.port, 8082
+INFO  [] - Loading configuration property: blob.server.port, 6124
+INFO  [] - Loading configuration property: flink.checkpoint.min_pause_ms, 5000
+INFO  [] - Loading configuration property: flink.window.slide_ms, 10000
+INFO  [] - Loading configuration property: flink.window.size_ms, 60000
+INFO  [] - Loading configuration property: chain.block_time_ms, 2000
+INFO  [] - Loading configuration property: #Paimonrelated, 
+INFO  [] - Loading configuration property: state.savepoints.dir, file:///opt/flink/savepoints
+INFO  [] - Loading configuration property: query.server.port, 6125
+INFO  [] - Loading configuration property: chain.node_url, http://127.0.0.1:8545
+INFO  [] - Loading configuration property: services.listener.worker_threads, 4
+INFO  [] - Loading configuration property: chain.polling.interval_ms, 1000
+INFO  [] - Loading configuration property: taskmanager.numberOfTaskSlots, 8
+INFO  [] - Loading configuration property: flink.jobmanager_url, http://localhost:8081
+INFO  [] - Loading configuration property: postgres.user, twilight
+INFO  [] - Loading configuration property: chain.confirmation.required_blocks, 0
+INFO  [] - Loading configuration property: postgres.pool.max_connections, 20
+INFO  [] - Loading configuration property: services.listener.batch_size, 100
+INFO  [] - Loading configuration property: flink.watermark.delay_ms, 5000
+INFO  [] - Loading configuration property: jobmanager.memory.process.size, 1600m
+INFO  [] - Loading configuration property: services.datamanager.cache_size, 1000
+INFO  [] - Loading configuration property: flink.checkpoint.timeout_ms, 60000
+INFO  [] - Loading configuration property: services.listener.port, 8080
+INFO  [] - Loading configuration property: chain.polling.retry_interval_ms, 5000
+INFO  [] - Loading configuration property: postgres.password, ******
+INFO  [] - Loading configuration property: postgres.database, twilight
+INFO  [] - Loading configuration property: chain.chain_id, 31337
+INFO  [] - Loading configuration property: services.listener.queue_capacity, 1000
+INFO  [] - Loading configuration property: kafka.consumer.max_poll_records, 500
+INFO  [] - Loading configuration property: kafka.consumer.heartbeat_interval_ms, 10000
+INFO  [] - Loading configuration property: postgres.sslmode, disable
+INFO  [] - Loading configuration property: kafka.topic, dex_transaction
+INFO  [] - Loading configuration property: chain.reorg.max_blocks_to_keep, 100
+INFO  [] - Loading configuration property: services.datamanager.cleanup_interval_ms, 300000
+INFO  [] - Loading configuration property: state.checkpoints.dir, file:///opt/flink/checkpoints
+INFO  [] - The derived from fraction jvm overhead memory (160.000mb (167772162 bytes)) is less than its min value 192.000mb (201326592 bytes), min value will be used instead
+INFO  [] - Final Master Memory configuration:
+INFO  [] -   Total Process Memory: 1.563gb (1677721600 bytes)
+INFO  [] -     Total Flink Memory: 1.125gb (1207959552 bytes)
+INFO  [] -       JVM Heap:         1024.000mb (1073741824 bytes)
+INFO  [] -       Off-heap:         128.000mb (134217728 bytes)
+INFO  [] -     JVM Metaspace:      256.000mb (268435456 bytes)
+INFO  [] -     JVM Overhead:       192.000mb (201326592 bytes)
+
+2025-08-24 06:07:54,015 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] - --------------------------------------------------------------------------------
+2025-08-24 06:07:54,016 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -  Starting StandaloneSessionClusterEntrypoint (Version: 1.20.2, Scala: 2.12, Rev:1641cb9, Date:2025-06-12T21:40:37+02:00)
+2025-08-24 06:07:54,016 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -  OS current user: flink
+2025-08-24 06:07:54,111 WARN  org.apache.hadoop.util.NativeCodeLoader                      [] - Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+2025-08-24 06:07:54,179 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -  Current Hadoop/Kerberos user: flink
+2025-08-24 06:07:54,179 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -  JVM: OpenJDK 64-Bit Server VM - Eclipse Adoptium - 17/17.0.16+8
+2025-08-24 06:07:54,180 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -  Arch: aarch64
+2025-08-24 06:07:54,180 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -  Maximum heap size: 1024 MiBytes
+2025-08-24 06:07:54,180 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -  JAVA_HOME: /opt/java/openjdk
+2025-08-24 06:07:54,182 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -  Hadoop version: 3.3.4
+2025-08-24 06:07:54,183 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -  JVM Options:
+2025-08-24 06:07:54,184 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     -Xmx1073741824
+2025-08-24 06:07:54,184 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     -Xms1073741824
+2025-08-24 06:07:54,185 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     -XX:MaxMetaspaceSize=268435456
+2025-08-24 06:07:54,185 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     -XX:+IgnoreUnrecognizedVMOptions
+2025-08-24 06:07:54,186 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     -Dlog.file=/opt/flink/log/flink--standalonesession-1-jobmanager.log
+2025-08-24 06:07:54,186 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     -Dlog4j.configuration=file:/opt/flink/conf/log4j-console.properties
+2025-08-24 06:07:54,186 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     -Dlog4j.configurationFile=file:/opt/flink/conf/log4j-console.properties
+2025-08-24 06:07:54,186 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     -Dlogback.configurationFile=file:/opt/flink/conf/logback-console.xml
+2025-08-24 06:07:54,186 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -  Program Arguments:
+2025-08-24 06:07:54,187 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     -D
+2025-08-24 06:07:54,189 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     jobmanager.memory.off-heap.size=134217728b
+2025-08-24 06:07:54,190 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     -D
+2025-08-24 06:07:54,190 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     jobmanager.memory.jvm-overhead.min=201326592b
+2025-08-24 06:07:54,191 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     -D
+2025-08-24 06:07:54,191 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     jobmanager.memory.jvm-metaspace.size=268435456b
+2025-08-24 06:07:54,191 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     -D
+2025-08-24 06:07:54,191 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     jobmanager.memory.heap.size=1073741824b
+2025-08-24 06:07:54,191 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     -D
+2025-08-24 06:07:54,194 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     jobmanager.memory.jvm-overhead.max=201326592b
+2025-08-24 06:07:54,195 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     --configDir
+2025-08-24 06:07:54,195 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     /opt/flink/conf
+2025-08-24 06:07:54,195 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     --executionMode
+2025-08-24 06:07:54,195 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -     cluster
+2025-08-24 06:07:54,195 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] -  Classpath: /opt/flink/lib/flink-cep-1.20.2.jar:/opt/flink/lib/flink-connector-datagen-1.20.0.jar:/opt/flink/lib/flink-connector-files-1.20.0.jar:/opt/flink/lib/flink-connector-files-1.20.2.jar:/opt/flink/lib/flink-csv-1.20.2.jar:/opt/flink/lib/flink-json-1.20.2.jar:/opt/flink/lib/flink-s3-fs-hadoop-1.20.0.jar:/opt/flink/lib/flink-scala_2.12-1.20.2.jar:/opt/flink/lib/flink-statebackend-rocksdb-1.20.0.jar:/opt/flink/lib/flink-table-api-java-uber-1.20.2.jar:/opt/flink/lib/flink-table-planner-loader-1.20.2.jar:/opt/flink/lib/flink-table-runtime-1.20.2.jar:/opt/flink/lib/hadoop-client-api-3.3.4.jar:/opt/flink/lib/hadoop-client-runtime-3.3.4.jar:/opt/flink/lib/log4j-1.2-api-2.24.3.jar:/opt/flink/lib/log4j-api-2.24.3.jar:/opt/flink/lib/log4j-core-2.24.3.jar:/opt/flink/lib/log4j-slf4j-impl-2.24.3.jar:/opt/flink/lib/paimon-flink-1.20-1.2.0.jar:/opt/flink/lib/paimon-s3-1.2.0.jar:/opt/flink/lib/flink-dist-1.20.2.jar::::
+2025-08-24 06:07:54,196 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] - --------------------------------------------------------------------------------
+2025-08-24 06:07:54,196 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] - Registered UNIX signal handlers for [TERM, HUP, INT]
+2025-08-24 06:07:54,202 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Using standard YAML parser to load flink configuration file from /opt/flink/conf/config.yaml.
+2025-08-24 06:07:54,247 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: flink.parallelism, 2
+2025-08-24 06:07:54,247 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: flink.checkpoint.interval_ms, 10000
+2025-08-24 06:07:54,249 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: jobmanager.rpc.address, jobmanager
+2025-08-24 06:07:54,249 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: contracts.pair, 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+2025-08-24 06:07:54,249 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: postgres.host, localhost
+2025-08-24 06:07:54,249 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: chain.polling.max_blocks_per_poll, 100
+2025-08-24 06:07:54,249 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: kafka.topics.chain_transactions, dex_transaction
+2025-08-24 06:07:54,249 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: parallelism.default, 2
+2025-08-24 06:07:54,249 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: postgres.pool.min_connections, 5
+2025-08-24 06:07:54,249 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: chain.processed_txs_ttl_ms, 3600000
+2025-08-24 06:07:54,250 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: kafka.consumer.poll_timeout_ms, 1000
+2025-08-24 06:07:54,250 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: taskmanager.memory.process.size, 1728m
+2025-08-24 06:07:54,250 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: execution.checkpointing.mode, EXACTLY_ONCE
+2025-08-24 06:07:54,251 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: table.exec.source.idle-timeout, 30s
+2025-08-24 06:07:54,251 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: kafka.consumer.session_timeout_ms, 30000
+2025-08-24 06:07:54,251 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: postgres.pool.max_idle_time_seconds, 300
+2025-08-24 06:07:54,251 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: #Paimon相关配置, 
+2025-08-24 06:07:54,251 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: postgres.port, 5432
+2025-08-24 06:07:54,251 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: services.strategy.update_interval_ms, 5000
+2025-08-24 06:07:54,252 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: rest.bind-address, 0.0.0.0
+2025-08-24 06:07:54,252 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: kafka.brokers, ['localhost:9092']
+2025-08-24 06:07:54,252 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: execution.checkpointing.interval, 10s
+2025-08-24 06:07:54,253 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: services.strategy.port, 8081
+2025-08-24 06:07:54,253 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: chain.confirmation.timeout_ms, 30000
+2025-08-24 06:07:54,253 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: web.submit.enable, true
+2025-08-24 06:07:54,253 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: state.backend, rocksdb
+2025-08-24 06:07:54,253 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: services.datamanager.port, 8082
+2025-08-24 06:07:54,253 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: blob.server.port, 6124
+2025-08-24 06:07:54,254 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: flink.checkpoint.min_pause_ms, 5000
+2025-08-24 06:07:54,254 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: flink.window.slide_ms, 10000
+2025-08-24 06:07:54,254 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: flink.window.size_ms, 60000
+2025-08-24 06:07:54,254 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: chain.block_time_ms, 2000
+2025-08-24 06:07:54,254 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: #Paimonrelated, 
+2025-08-24 06:07:54,254 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: state.savepoints.dir, file:///opt/flink/savepoints
+2025-08-24 06:07:54,254 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: query.server.port, 6125
+2025-08-24 06:07:54,254 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: chain.node_url, http://127.0.0.1:8545
+2025-08-24 06:07:54,254 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: services.listener.worker_threads, 4
+2025-08-24 06:07:54,254 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: chain.polling.interval_ms, 1000
+2025-08-24 06:07:54,255 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: taskmanager.numberOfTaskSlots, 8
+2025-08-24 06:07:54,256 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: flink.jobmanager_url, http://localhost:8081
+2025-08-24 06:07:54,256 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: postgres.user, twilight
+2025-08-24 06:07:54,256 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: chain.confirmation.required_blocks, 0
+2025-08-24 06:07:54,256 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: postgres.pool.max_connections, 20
+2025-08-24 06:07:54,256 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: services.listener.batch_size, 100
+2025-08-24 06:07:54,256 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: flink.watermark.delay_ms, 5000
+2025-08-24 06:07:54,256 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: jobmanager.memory.process.size, 1600m
+2025-08-24 06:07:54,257 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: services.datamanager.cache_size, 1000
+2025-08-24 06:07:54,257 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: flink.checkpoint.timeout_ms, 60000
+2025-08-24 06:07:54,257 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: services.listener.port, 8080
+2025-08-24 06:07:54,257 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: chain.polling.retry_interval_ms, 5000
+2025-08-24 06:07:54,257 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: postgres.password, ******
+2025-08-24 06:07:54,257 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: postgres.database, twilight
+2025-08-24 06:07:54,257 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: chain.chain_id, 31337
+2025-08-24 06:07:54,257 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: services.listener.queue_capacity, 1000
+2025-08-24 06:07:54,257 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: kafka.consumer.max_poll_records, 500
+2025-08-24 06:07:54,258 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: kafka.consumer.heartbeat_interval_ms, 10000
+2025-08-24 06:07:54,258 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: postgres.sslmode, disable
+2025-08-24 06:07:54,258 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: kafka.topic, dex_transaction
+2025-08-24 06:07:54,258 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: chain.reorg.max_blocks_to_keep, 100
+2025-08-24 06:07:54,258 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: services.datamanager.cleanup_interval_ms, 300000
+2025-08-24 06:07:54,258 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading configuration property: state.checkpoints.dir, file:///opt/flink/checkpoints
+2025-08-24 06:07:54,258 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading dynamic configuration property: jobmanager.memory.off-heap.size, 134217728b
+2025-08-24 06:07:54,258 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading dynamic configuration property: jobmanager.memory.jvm-overhead.min, 201326592b
+2025-08-24 06:07:54,258 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading dynamic configuration property: jobmanager.memory.jvm-metaspace.size, 268435456b
+2025-08-24 06:07:54,259 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading dynamic configuration property: jobmanager.memory.heap.size, 1073741824b
+2025-08-24 06:07:54,259 INFO  org.apache.flink.configuration.GlobalConfiguration           [] - Loading dynamic configuration property: jobmanager.memory.jvm-overhead.max, 201326592b
+2025-08-24 06:07:54,276 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] - Starting StandaloneSessionClusterEntrypoint.
+2025-08-24 06:07:54,295 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] - Install default filesystem.
+2025-08-24 06:07:54,309 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID not found, creating it: metrics-influx
+2025-08-24 06:07:54,316 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID not found, creating it: metrics-datadog
+2025-08-24 06:07:54,316 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID not found, creating it: metrics-graphite
+2025-08-24 06:07:54,316 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID not found, creating it: metrics-slf4j
+2025-08-24 06:07:54,316 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID not found, creating it: metrics-statsd
+2025-08-24 06:07:54,316 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID not found, creating it: metrics-jmx
+2025-08-24 06:07:54,317 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID not found, creating it: external-resource-gpu
+2025-08-24 06:07:54,317 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID not found, creating it: metrics-prometheus
+2025-08-24 06:07:54,326 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] - Install security context.
+2025-08-24 06:07:54,339 WARN  org.apache.flink.runtime.util.HadoopUtils                    [] - Could not find Hadoop configuration via any of the supported methods (Flink configuration, environment variables).
+2025-08-24 06:07:54,383 INFO  org.apache.flink.runtime.security.modules.HadoopModule       [] - Hadoop user set to flink (auth:SIMPLE)
+2025-08-24 06:07:54,384 INFO  org.apache.flink.runtime.security.modules.HadoopModule       [] - Kerberos security is disabled.
+2025-08-24 06:07:54,395 INFO  org.apache.flink.runtime.security.modules.JaasModule         [] - Jaas file will be created as /tmp/jaas-1405430901726161598.conf.
+2025-08-24 06:07:54,403 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] - Initializing cluster services.
+2025-08-24 06:07:54,408 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] - Using working directory: WorkingDirectory(/tmp/jm_5ba0d9114a1112dc886bc3fd533d4b94).
+2025-08-24 06:07:54,668 INFO  org.apache.flink.runtime.rpc.pekko.PekkoRpcServiceUtils      [] - Trying to start actor system, external address jobmanager:6123, bind address 0.0.0.0:6123.
+2025-08-24 06:07:55,003 INFO  org.apache.pekko.event.slf4j.Slf4jLogger                     [] - Slf4jLogger started
+2025-08-24 06:07:55,019 INFO  org.apache.pekko.remote.RemoteActorRefProvider               [] - Pekko Cluster not in use - enabling unsafe features anyway because `pekko.remote.use-unsafe-remote-features-outside-cluster` has been enabled.
+2025-08-24 06:07:55,020 INFO  org.apache.pekko.remote.Remoting                             [] - Starting remoting
+2025-08-24 06:07:55,135 INFO  org.apache.pekko.remote.Remoting                             [] - Remoting started; listening on addresses :[pekko.tcp://flink@jobmanager:6123]
+2025-08-24 06:07:55,174 INFO  org.apache.flink.runtime.rpc.pekko.PekkoRpcServiceUtils      [] - Actor system started at pekko.tcp://flink@jobmanager:6123
+2025-08-24 06:07:55,179 INFO  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager [] - Loading delegation token providers
+2025-08-24 06:07:55,180 INFO  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager [] - Delegation token provider s3-hadoop loaded and initialized
+2025-08-24 06:07:55,181 WARN  org.apache.flink.runtime.util.HadoopUtils                    [] - Could not find Hadoop configuration via any of the supported methods (Flink configuration, environment variables).
+2025-08-24 06:07:55,181 INFO  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager [] - Delegation token provider hadoopfs loaded and initialized
+2025-08-24 06:07:55,181 WARN  org.apache.flink.runtime.util.HadoopUtils                    [] - Could not find Hadoop configuration via any of the supported methods (Flink configuration, environment variables).
+2025-08-24 06:07:55,182 INFO  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager [] - Delegation token provider hbase loaded and initialized
+2025-08-24 06:07:55,182 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID found, reusing it: metrics-influx
+2025-08-24 06:07:55,182 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID found, reusing it: metrics-datadog
+2025-08-24 06:07:55,182 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID found, reusing it: metrics-graphite
+2025-08-24 06:07:55,182 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID found, reusing it: metrics-slf4j
+2025-08-24 06:07:55,182 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID found, reusing it: metrics-statsd
+2025-08-24 06:07:55,182 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID found, reusing it: metrics-jmx
+2025-08-24 06:07:55,183 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID found, reusing it: external-resource-gpu
+2025-08-24 06:07:55,183 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID found, reusing it: metrics-prometheus
+2025-08-24 06:07:55,183 INFO  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager [] - Delegation token providers loaded successfully
+2025-08-24 06:07:55,183 INFO  org.apache.flink.runtime.security.token.DelegationTokenReceiverRepository [] - Loading delegation token receivers
+2025-08-24 06:07:55,184 INFO  org.apache.flink.runtime.security.token.DelegationTokenReceiverRepository [] - Delegation token receiver s3-hadoop loaded and initialized
+2025-08-24 06:07:55,185 INFO  org.apache.flink.runtime.security.token.DelegationTokenReceiverRepository [] - Delegation token receiver hadoopfs loaded and initialized
+2025-08-24 06:07:55,186 INFO  org.apache.flink.runtime.security.token.DelegationTokenReceiverRepository [] - Delegation token receiver hbase loaded and initialized
+2025-08-24 06:07:55,186 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID found, reusing it: metrics-influx
+2025-08-24 06:07:55,186 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID found, reusing it: metrics-datadog
+2025-08-24 06:07:55,186 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID found, reusing it: metrics-graphite
+2025-08-24 06:07:55,186 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID found, reusing it: metrics-slf4j
+2025-08-24 06:07:55,186 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID found, reusing it: metrics-statsd
+2025-08-24 06:07:55,186 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID found, reusing it: metrics-jmx
+2025-08-24 06:07:55,187 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID found, reusing it: external-resource-gpu
+2025-08-24 06:07:55,187 INFO  org.apache.flink.core.plugin.DefaultPluginManager            [] - Plugin loader with ID found, reusing it: metrics-prometheus
+2025-08-24 06:07:55,187 INFO  org.apache.flink.runtime.security.token.DelegationTokenReceiverRepository [] - Delegation token receivers loaded successfully
+2025-08-24 06:07:55,187 INFO  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager [] - Checking provider and receiver instances consistency
+2025-08-24 06:07:55,187 INFO  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager [] - Provider and receiver instances are consistent
+2025-08-24 06:07:55,187 INFO  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager [] - Obtaining delegation tokens
+2025-08-24 06:07:55,188 INFO  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager [] - Delegation tokens obtained successfully
+2025-08-24 06:07:55,188 WARN  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager [] - No tokens obtained so skipping notifications
+2025-08-24 06:07:55,192 INFO  org.apache.flink.configuration.Configuration                 [] - Config uses fallback configuration key 'jobmanager.rpc.address' instead of key 'rest.address'
+2025-08-24 06:07:55,195 INFO  org.apache.flink.runtime.blob.BlobServer                     [] - Created BLOB server storage directory /tmp/jm_5ba0d9114a1112dc886bc3fd533d4b94/blobStorage
+2025-08-24 06:07:55,197 INFO  org.apache.flink.runtime.blob.BlobServer                     [] - Started BLOB server at 0.0.0.0:6124 - max concurrent requests: 50 - max backlog: 1000
+2025-08-24 06:07:55,204 INFO  org.apache.flink.runtime.metrics.MetricRegistryImpl          [] - No metrics reporter configured, no metrics will be exposed/reported.
+2025-08-24 06:07:55,204 INFO  org.apache.flink.runtime.metrics.MetricRegistryImpl          [] - No trace reporter configured, no metrics will be exposed/reported.
+2025-08-24 06:07:55,205 INFO  org.apache.flink.runtime.rpc.pekko.PekkoRpcServiceUtils      [] - Trying to start actor system, external address jobmanager:0, bind address 0.0.0.0:0.
+2025-08-24 06:07:55,217 INFO  org.apache.pekko.event.slf4j.Slf4jLogger                     [] - Slf4jLogger started
+2025-08-24 06:07:55,219 INFO  org.apache.pekko.remote.RemoteActorRefProvider               [] - Pekko Cluster not in use - enabling unsafe features anyway because `pekko.remote.use-unsafe-remote-features-outside-cluster` has been enabled.
+2025-08-24 06:07:55,220 INFO  org.apache.pekko.remote.Remoting                             [] - Starting remoting
+2025-08-24 06:07:55,226 INFO  org.apache.pekko.remote.Remoting                             [] - Remoting started; listening on addresses :[pekko.tcp://flink-metrics@jobmanager:37603]
+2025-08-24 06:07:55,231 INFO  org.apache.flink.runtime.rpc.pekko.PekkoRpcServiceUtils      [] - Actor system started at pekko.tcp://flink-metrics@jobmanager:37603
+2025-08-24 06:07:55,240 INFO  org.apache.flink.runtime.rpc.pekko.PekkoRpcService           [] - Starting RPC endpoint for org.apache.flink.runtime.metrics.dump.MetricQueryService at pekko://flink-metrics/user/rpc/MetricQueryService .
+2025-08-24 06:07:55,273 INFO  org.apache.flink.runtime.dispatcher.FileExecutionGraphInfoStore [] - Initializing FileExecutionGraphInfoStore: Storage directory /tmp/executionGraphStore-ac35c1c9-2bdf-4a67-8298-d5d85a415282, expiration time 3600000, maximum cache size 52428800 bytes.
+2025-08-24 06:07:55,311 INFO  org.apache.flink.configuration.Configuration                 [] - Config uses fallback configuration key 'jobmanager.rpc.address' instead of key 'rest.address'
+2025-08-24 06:07:55,313 INFO  org.apache.flink.runtime.dispatcher.DispatcherRestEndpoint   [] - Upload directory /tmp/flink-web-fdbfc846-5b9f-49de-9ba3-b82c18a5aadc/flink-web-upload does not exist. 
+2025-08-24 06:07:55,313 INFO  org.apache.flink.runtime.dispatcher.DispatcherRestEndpoint   [] - Created directory /tmp/flink-web-fdbfc846-5b9f-49de-9ba3-b82c18a5aadc/flink-web-upload for file uploads.
+2025-08-24 06:07:55,314 INFO  org.apache.flink.runtime.dispatcher.DispatcherRestEndpoint   [] - Starting rest endpoint.
+2025-08-24 06:07:55,391 WARN  org.apache.flink.configuration.Configuration                 [] - Config uses deprecated configuration key 'state.savepoints.dir' instead of proper key 'execution.checkpointing.savepoint-dir'
+2025-08-24 06:07:55,400 INFO  org.apache.flink.runtime.webmonitor.WebMonitorUtils          [] - Determined location of main cluster component log file: /opt/flink/log/flink--standalonesession-1-jobmanager.log
+2025-08-24 06:07:55,400 INFO  org.apache.flink.runtime.webmonitor.WebMonitorUtils          [] - Determined location of main cluster component stdout file: /opt/flink/log/flink--standalonesession-1-jobmanager.out
+2025-08-24 06:07:55,406 INFO  org.apache.flink.runtime.dispatcher.DispatcherRestEndpoint   [] - Rest endpoint listening at jobmanager:8081
+2025-08-24 06:07:55,407 INFO  org.apache.flink.runtime.dispatcher.DispatcherRestEndpoint   [] - http://jobmanager:8081 was granted leadership with leaderSessionID=00000000-0000-0000-0000-000000000000
+2025-08-24 06:07:55,408 INFO  org.apache.flink.runtime.dispatcher.DispatcherRestEndpoint   [] - Web frontend listening at http://jobmanager:8081.
+2025-08-24 06:07:55,415 INFO  org.apache.flink.runtime.dispatcher.runner.DefaultDispatcherRunner [] - DefaultDispatcherRunner was granted leadership with leader id 00000000-0000-0000-0000-000000000000. Creating new DispatcherLeaderProcess.
+2025-08-24 06:07:55,417 INFO  org.apache.flink.runtime.dispatcher.runner.SessionDispatcherLeaderProcess [] - Start SessionDispatcherLeaderProcess.
+2025-08-24 06:07:55,417 INFO  org.apache.flink.runtime.resourcemanager.ResourceManagerServiceImpl [] - Starting resource manager service.
+2025-08-24 06:07:55,418 INFO  org.apache.flink.runtime.resourcemanager.ResourceManagerServiceImpl [] - Resource manager service is granted leadership with session id 00000000-0000-0000-0000-000000000000.
+2025-08-24 06:07:55,424 INFO  org.apache.flink.runtime.dispatcher.runner.SessionDispatcherLeaderProcess [] - Recover all persisted job graphs that are not finished, yet.
+2025-08-24 06:07:55,424 INFO  org.apache.flink.runtime.dispatcher.runner.SessionDispatcherLeaderProcess [] - Successfully recovered 0 persisted job graphs.
+2025-08-24 06:07:55,427 INFO  org.apache.flink.runtime.rpc.pekko.PekkoRpcService           [] - Starting RPC endpoint for org.apache.flink.runtime.resourcemanager.StandaloneResourceManager at pekko://flink/user/rpc/resourcemanager_0 .
+2025-08-24 06:07:55,431 INFO  org.apache.flink.runtime.resourcemanager.StandaloneResourceManager [] - Starting the resource manager.
+2025-08-24 06:07:55,435 INFO  org.apache.flink.runtime.rpc.pekko.PekkoRpcService           [] - Starting RPC endpoint for org.apache.flink.runtime.dispatcher.StandaloneDispatcher at pekko://flink/user/rpc/dispatcher_1 .
+2025-08-24 06:07:55,437 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Starting the slot manager.
+2025-08-24 06:07:55,437 INFO  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager [] - Starting tokens update task
+2025-08-24 06:07:55,438 WARN  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager [] - No tokens obtained so skipping notifications
+2025-08-24 06:07:55,438 WARN  org.apache.flink.runtime.security.token.DefaultDelegationTokenManager [] - Tokens update task not started because either no tokens obtained or none of the tokens specified its renewal date
+2025-08-24 06:07:57,671 INFO  org.apache.flink.runtime.resourcemanager.StandaloneResourceManager [] - Registering TaskManager with ResourceID 172.19.0.3:43433-4872c6 (pekko.tcp://flink@172.19.0.3:43433/user/rpc/taskmanager_0) at ResourceManager
+2025-08-24 06:07:57,704 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Registering task executor 172.19.0.3:43433-4872c6 under 529f74fa50bb07cae0d2b4a18a16e842 at the slot manager.
+2025-08-24 06:08:18,062 INFO  org.apache.flink.runtime.dispatcher.StandaloneDispatcher     [] - Received JobGraph submission 'insert-into_paimon_catalog1.demo_db.tx_logs' (493f2d5a73f7f81b3d66cb7d8a8cfc12).
+2025-08-24 06:08:18,065 INFO  org.apache.flink.runtime.dispatcher.StandaloneDispatcher     [] - Submitting job 'insert-into_paimon_catalog1.demo_db.tx_logs' (493f2d5a73f7f81b3d66cb7d8a8cfc12).
+2025-08-24 06:08:18,073 INFO  org.apache.flink.runtime.jobmaster.JobMasterServiceLeadershipRunner [] - JobMasterServiceLeadershipRunner for job 493f2d5a73f7f81b3d66cb7d8a8cfc12 was granted leadership with leader id 00000000-0000-0000-0000-000000000000. Creating new JobMasterServiceProcess.
+2025-08-24 06:08:18,079 INFO  org.apache.flink.runtime.rpc.pekko.PekkoRpcService           [] - Starting RPC endpoint for org.apache.flink.runtime.jobmaster.JobMaster at pekko://flink/user/rpc/jobmanager_2 .
+2025-08-24 06:08:18,084 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Initializing job 'insert-into_paimon_catalog1.demo_db.tx_logs' (493f2d5a73f7f81b3d66cb7d8a8cfc12).
+2025-08-24 06:08:18,108 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using restart back off time strategy ExponentialDelayRestartBackoffTimeStrategy(initialBackoffMS=1000, maxBackoffMS=60000, backoffMultiplier=1.5, resetBackoffThresholdMS=3600000, jitterFactor=0.1, attemptsBeforeResetBackoff=2147483647, currentRestartAttempt=0, nextRestartTimestamp=-2147483648) for insert-into_paimon_catalog1.demo_db.tx_logs (493f2d5a73f7f81b3d66cb7d8a8cfc12).
+2025-08-24 06:08:18,123 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Created execution graph 84c0c990a2bac6fa623840281c7cd993 for job 493f2d5a73f7f81b3d66cb7d8a8cfc12.
+2025-08-24 06:08:18,131 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Running initialization on master for job insert-into_paimon_catalog1.demo_db.tx_logs (493f2d5a73f7f81b3d66cb7d8a8cfc12).
+2025-08-24 06:08:18,132 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Successfully ran initialization on master in 0 ms.
+2025-08-24 06:08:18,142 INFO  org.apache.flink.runtime.scheduler.adapter.DefaultExecutionTopology [] - Built 1 new pipelined regions in 0 ms, total 1 pipelined regions currently.
+2025-08-24 06:08:18,144 WARN  org.apache.flink.configuration.Configuration                 [] - Config uses deprecated configuration key 'state.backend' instead of proper key 'state.backend.type'
+2025-08-24 06:08:18,144 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Loading state backend via factory org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackendFactory
+2025-08-24 06:08:18,150 INFO  org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend [] - Using predefined options: DEFAULT.
+2025-08-24 06:08:18,151 INFO  org.apache.flink.runtime.state.StateBackendLoader            [] - State backend loader loads the state backend as EmbeddedRocksDBStateBackend
+2025-08-24 06:08:18,153 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using job/cluster config to configure application-defined checkpoint storage: org.apache.flink.runtime.state.storage.FileSystemCheckpointStorage@6d0d2a8b
+2025-08-24 06:08:18,153 WARN  org.apache.flink.configuration.Configuration                 [] - Config uses deprecated configuration key 'state.savepoints.dir' instead of proper key 'execution.checkpointing.savepoint-dir'
+2025-08-24 06:08:18,167 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - No checkpoint found during restore.
+2025-08-24 06:08:18,170 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using failover strategy org.apache.flink.runtime.executiongraph.failover.RestartPipelinedRegionFailoverStrategy@27dc1657 for insert-into_paimon_catalog1.demo_db.tx_logs (493f2d5a73f7f81b3d66cb7d8a8cfc12).
+2025-08-24 06:08:18,174 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Starting execution of job 'insert-into_paimon_catalog1.demo_db.tx_logs' (493f2d5a73f7f81b3d66cb7d8a8cfc12) under job master id 00000000000000000000000000000000.
+2025-08-24 06:08:18,175 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Starting scheduling with scheduling strategy [org.apache.flink.runtime.scheduler.strategy.PipelinedRegionSchedulingStrategy]
+2025-08-24 06:08:18,176 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Job insert-into_paimon_catalog1.demo_db.tx_logs (493f2d5a73f7f81b3d66cb7d8a8cfc12) switched from state CREATED to RUNNING.
+2025-08-24 06:08:18,177 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: tx_logs_src[1] -> Calc[2] -> Map (1/2) (84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:18,177 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: tx_logs_src[1] -> Calc[2] -> Map (2/2) (84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:18,177 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : tx_logs (1/2) (84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:18,177 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : tx_logs (2/2) (84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:18,178 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : tx_logs -> end: Writer (1/1) (84c0c990a2bac6fa623840281c7cd993_fbb4ef531e002f8fb3a2052db255adf5_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:18,185 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Connecting to ResourceManager pekko.tcp://flink@jobmanager:6123/user/rpc/resourcemanager_*(00000000000000000000000000000000)
+2025-08-24 06:08:18,189 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Resolved ResourceManager address, beginning registration
+2025-08-24 06:08:18,191 INFO  org.apache.flink.runtime.resourcemanager.StandaloneResourceManager [] - Registering job manager 00000000000000000000000000000000@pekko.tcp://flink@jobmanager:6123/user/rpc/jobmanager_2 for job 493f2d5a73f7f81b3d66cb7d8a8cfc12.
+2025-08-24 06:08:18,193 INFO  org.apache.flink.runtime.resourcemanager.StandaloneResourceManager [] - Registered job manager 00000000000000000000000000000000@pekko.tcp://flink@jobmanager:6123/user/rpc/jobmanager_2 for job 493f2d5a73f7f81b3d66cb7d8a8cfc12.
+2025-08-24 06:08:18,196 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - JobManager successfully registered at ResourceManager, leader id: 00000000000000000000000000000000.
+2025-08-24 06:08:18,197 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Received resource requirements from job 493f2d5a73f7f81b3d66cb7d8a8cfc12: [ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}]
+2025-08-24 06:08:18,268 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Matching resource requirements against available resources.
+Missing resources:
+	 Job 493f2d5a73f7f81b3d66cb7d8a8cfc12
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+Current resources:
+	TaskManager 172.19.0.3:43433-4872c6
+		Available: ResourceProfile{cpuCores=8, taskHeapMemory=384.000mb (402653174 bytes), taskOffHeapMemory=0 bytes, managedMemory=512.000mb (536870920 bytes), networkMemory=128.000mb (134217730 bytes)}
+		Total:     ResourceProfile{cpuCores=8, taskHeapMemory=384.000mb (402653174 bytes), taskOffHeapMemory=0 bytes, managedMemory=512.000mb (536870920 bytes), networkMemory=128.000mb (134217730 bytes)}
+2025-08-24 06:08:18,270 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.DefaultSlotStatusSyncer [] - Starting allocation of slot 228e6f0a6eca5c5ba61e13ac18167557 from 172.19.0.3:43433-4872c6 for job 493f2d5a73f7f81b3d66cb7d8a8cfc12 with resource profile ResourceProfile{cpuCores=1, taskHeapMemory=48.000mb (50331646 bytes), taskOffHeapMemory=0 bytes, managedMemory=64.000mb (67108865 bytes), networkMemory=16.000mb (16777216 bytes)}.
+2025-08-24 06:08:18,273 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.DefaultSlotStatusSyncer [] - Starting allocation of slot b7f1a6c84e1d2c1767c6e724881d03cb from 172.19.0.3:43433-4872c6 for job 493f2d5a73f7f81b3d66cb7d8a8cfc12 with resource profile ResourceProfile{cpuCores=1, taskHeapMemory=48.000mb (50331646 bytes), taskOffHeapMemory=0 bytes, managedMemory=64.000mb (67108865 bytes), networkMemory=16.000mb (16777216 bytes)}.
+2025-08-24 06:08:18,363 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: tx_logs_src[1] -> Calc[2] -> Map (1/2) (84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:18,366 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Source: tx_logs_src[1] -> Calc[2] -> Map (1/2) (attempt #0) with attempt id 84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_0_0 and vertex id cbc357ccb763df2852fee8c4fc7d55f2_0 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id b7f1a6c84e1d2c1767c6e724881d03cb
+2025-08-24 06:08:18,369 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: tx_logs_src[1] -> Calc[2] -> Map (2/2) (84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:18,369 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Source: tx_logs_src[1] -> Calc[2] -> Map (2/2) (attempt #0) with attempt id 84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_1_0 and vertex id cbc357ccb763df2852fee8c4fc7d55f2_1 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 228e6f0a6eca5c5ba61e13ac18167557
+2025-08-24 06:08:18,370 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : tx_logs (1/2) (84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_0_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:18,372 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Writer : tx_logs (1/2) (attempt #0) with attempt id 84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_0_0 and vertex id 306d8342cb5b2ad8b53f1be57f65bee8_0 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id b7f1a6c84e1d2c1767c6e724881d03cb
+2025-08-24 06:08:18,379 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : tx_logs (2/2) (84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_1_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:18,380 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Writer : tx_logs (2/2) (attempt #0) with attempt id 84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_1_0 and vertex id 306d8342cb5b2ad8b53f1be57f65bee8_1 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 228e6f0a6eca5c5ba61e13ac18167557
+2025-08-24 06:08:18,383 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : tx_logs -> end: Writer (1/1) (84c0c990a2bac6fa623840281c7cd993_fbb4ef531e002f8fb3a2052db255adf5_0_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:18,383 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Global Committer : tx_logs -> end: Writer (1/1) (attempt #0) with attempt id 84c0c990a2bac6fa623840281c7cd993_fbb4ef531e002f8fb3a2052db255adf5_0_0 and vertex id fbb4ef531e002f8fb3a2052db255adf5_0 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id b7f1a6c84e1d2c1767c6e724881d03cb
+2025-08-24 06:08:18,575 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : tx_logs (2/2) (84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_1_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:18,578 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : tx_logs -> end: Writer (1/1) (84c0c990a2bac6fa623840281c7cd993_fbb4ef531e002f8fb3a2052db255adf5_0_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:18,580 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : tx_logs (1/2) (84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_0_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:18,651 INFO  org.apache.flink.runtime.dispatcher.StandaloneDispatcher     [] - Received JobGraph submission 'insert-into_paimon_catalog1.demo_db.account_balance' (9309a113381d442f7ff262fc0e23e412).
+2025-08-24 06:08:18,651 INFO  org.apache.flink.runtime.dispatcher.StandaloneDispatcher     [] - Submitting job 'insert-into_paimon_catalog1.demo_db.account_balance' (9309a113381d442f7ff262fc0e23e412).
+2025-08-24 06:08:18,653 INFO  org.apache.flink.runtime.jobmaster.JobMasterServiceLeadershipRunner [] - JobMasterServiceLeadershipRunner for job 9309a113381d442f7ff262fc0e23e412 was granted leadership with leader id 00000000-0000-0000-0000-000000000000. Creating new JobMasterServiceProcess.
+2025-08-24 06:08:18,657 INFO  org.apache.flink.runtime.rpc.pekko.PekkoRpcService           [] - Starting RPC endpoint for org.apache.flink.runtime.jobmaster.JobMaster at pekko://flink/user/rpc/jobmanager_3 .
+2025-08-24 06:08:18,661 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Initializing job 'insert-into_paimon_catalog1.demo_db.account_balance' (9309a113381d442f7ff262fc0e23e412).
+2025-08-24 06:08:18,664 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using restart back off time strategy ExponentialDelayRestartBackoffTimeStrategy(initialBackoffMS=1000, maxBackoffMS=60000, backoffMultiplier=1.5, resetBackoffThresholdMS=3600000, jitterFactor=0.1, attemptsBeforeResetBackoff=2147483647, currentRestartAttempt=0, nextRestartTimestamp=-2147483648) for insert-into_paimon_catalog1.demo_db.account_balance (9309a113381d442f7ff262fc0e23e412).
+2025-08-24 06:08:18,665 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Created execution graph 67fadaeca7725b40415594fecc76fe8e for job 9309a113381d442f7ff262fc0e23e412.
+2025-08-24 06:08:18,666 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Running initialization on master for job insert-into_paimon_catalog1.demo_db.account_balance (9309a113381d442f7ff262fc0e23e412).
+2025-08-24 06:08:18,666 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Successfully ran initialization on master in 0 ms.
+2025-08-24 06:08:18,668 INFO  org.apache.flink.runtime.scheduler.adapter.DefaultExecutionTopology [] - Built 1 new pipelined regions in 0 ms, total 1 pipelined regions currently.
+2025-08-24 06:08:18,668 WARN  org.apache.flink.configuration.Configuration                 [] - Config uses deprecated configuration key 'state.backend' instead of proper key 'state.backend.type'
+2025-08-24 06:08:18,669 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Loading state backend via factory org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackendFactory
+2025-08-24 06:08:18,669 INFO  org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend [] - Using predefined options: DEFAULT.
+2025-08-24 06:08:18,671 INFO  org.apache.flink.runtime.state.StateBackendLoader            [] - State backend loader loads the state backend as EmbeddedRocksDBStateBackend
+2025-08-24 06:08:18,672 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using job/cluster config to configure application-defined checkpoint storage: org.apache.flink.runtime.state.storage.FileSystemCheckpointStorage@6d0d2a8b
+2025-08-24 06:08:18,672 WARN  org.apache.flink.configuration.Configuration                 [] - Config uses deprecated configuration key 'state.savepoints.dir' instead of proper key 'execution.checkpointing.savepoint-dir'
+2025-08-24 06:08:18,677 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - No checkpoint found during restore.
+2025-08-24 06:08:18,678 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using failover strategy org.apache.flink.runtime.executiongraph.failover.RestartPipelinedRegionFailoverStrategy@54941993 for insert-into_paimon_catalog1.demo_db.account_balance (9309a113381d442f7ff262fc0e23e412).
+2025-08-24 06:08:18,680 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Starting execution of job 'insert-into_paimon_catalog1.demo_db.account_balance' (9309a113381d442f7ff262fc0e23e412) under job master id 00000000000000000000000000000000.
+2025-08-24 06:08:18,681 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Starting scheduling with scheduling strategy [org.apache.flink.runtime.scheduler.strategy.PipelinedRegionSchedulingStrategy]
+2025-08-24 06:08:18,681 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Job insert-into_paimon_catalog1.demo_db.account_balance (9309a113381d442f7ff262fc0e23e412) switched from state CREATED to RUNNING.
+2025-08-24 06:08:18,682 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[4] -> Calc[5] -> ConstraintEnforcer[6] -> Map (1/2) (67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:18,682 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[4] -> Calc[5] -> ConstraintEnforcer[6] -> Map (2/2) (67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:18,682 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:18,682 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:18,682 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (1/2) (67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:18,683 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (2/2) (67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:18,683 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance -> end: Writer (1/1) (67fadaeca7725b40415594fecc76fe8e_d71bfd8f3a906efb6630857809581eff_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:18,685 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Connecting to ResourceManager pekko.tcp://flink@jobmanager:6123/user/rpc/resourcemanager_*(00000000000000000000000000000000)
+2025-08-24 06:08:18,687 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Resolved ResourceManager address, beginning registration
+2025-08-24 06:08:18,688 INFO  org.apache.flink.runtime.resourcemanager.StandaloneResourceManager [] - Registering job manager 00000000000000000000000000000000@pekko.tcp://flink@jobmanager:6123/user/rpc/jobmanager_3 for job 9309a113381d442f7ff262fc0e23e412.
+2025-08-24 06:08:18,690 INFO  org.apache.flink.runtime.resourcemanager.StandaloneResourceManager [] - Registered job manager 00000000000000000000000000000000@pekko.tcp://flink@jobmanager:6123/user/rpc/jobmanager_3 for job 9309a113381d442f7ff262fc0e23e412.
+2025-08-24 06:08:18,695 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - JobManager successfully registered at ResourceManager, leader id: 00000000000000000000000000000000.
+2025-08-24 06:08:18,697 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Received resource requirements from job 9309a113381d442f7ff262fc0e23e412: [ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}]
+2025-08-24 06:08:18,767 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Matching resource requirements against available resources.
+Missing resources:
+	 Job 9309a113381d442f7ff262fc0e23e412
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+Current resources:
+	TaskManager 172.19.0.3:43433-4872c6
+		Available: ResourceProfile{cpuCores=6, taskHeapMemory=288.000mb (301989882 bytes), taskOffHeapMemory=0 bytes, managedMemory=384.000mb (402653190 bytes), networkMemory=96.000mb (100663298 bytes)}
+		Total:     ResourceProfile{cpuCores=8, taskHeapMemory=384.000mb (402653174 bytes), taskOffHeapMemory=0 bytes, managedMemory=512.000mb (536870920 bytes), networkMemory=128.000mb (134217730 bytes)}
+2025-08-24 06:08:18,768 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.DefaultSlotStatusSyncer [] - Starting allocation of slot dfd32aa5839622db26a7bfa734d707a2 from 172.19.0.3:43433-4872c6 for job 9309a113381d442f7ff262fc0e23e412 with resource profile ResourceProfile{cpuCores=1, taskHeapMemory=48.000mb (50331646 bytes), taskOffHeapMemory=0 bytes, managedMemory=64.000mb (67108865 bytes), networkMemory=16.000mb (16777216 bytes)}.
+2025-08-24 06:08:18,768 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.DefaultSlotStatusSyncer [] - Starting allocation of slot 10fdbb4611344bbc979d5e3828ade3da from 172.19.0.3:43433-4872c6 for job 9309a113381d442f7ff262fc0e23e412 with resource profile ResourceProfile{cpuCores=1, taskHeapMemory=48.000mb (50331646 bytes), taskOffHeapMemory=0 bytes, managedMemory=64.000mb (67108865 bytes), networkMemory=16.000mb (16777216 bytes)}.
+2025-08-24 06:08:18,824 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[4] -> Calc[5] -> ConstraintEnforcer[6] -> Map (1/2) (67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:18,825 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Source: balance_src_newer[4] -> Calc[5] -> ConstraintEnforcer[6] -> Map (1/2) (attempt #0) with attempt id 67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_0_0 and vertex id cbc357ccb763df2852fee8c4fc7d55f2_0 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 10fdbb4611344bbc979d5e3828ade3da
+2025-08-24 06:08:18,827 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[4] -> Calc[5] -> ConstraintEnforcer[6] -> Map (2/2) (67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:18,827 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Source: balance_src_newer[4] -> Calc[5] -> ConstraintEnforcer[6] -> Map (2/2) (attempt #0) with attempt id 67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_1_0 and vertex id cbc357ccb763df2852fee8c4fc7d55f2_1 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id dfd32aa5839622db26a7bfa734d707a2
+2025-08-24 06:08:18,828 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:18,828 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying dynamic-bucket-assigner (1/2) (attempt #0) with attempt id 67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_0_0 and vertex id 8d96fc510e75de3baf03ef7367db7d42_0 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 10fdbb4611344bbc979d5e3828ade3da
+2025-08-24 06:08:18,836 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:18,837 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying dynamic-bucket-assigner (2/2) (attempt #0) with attempt id 67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_1_0 and vertex id 8d96fc510e75de3baf03ef7367db7d42_1 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id dfd32aa5839622db26a7bfa734d707a2
+2025-08-24 06:08:18,839 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (1/2) (67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_0_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:18,840 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Writer : account_balance (1/2) (attempt #0) with attempt id 67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_0_0 and vertex id 16db17f833c49277c04b533df7e3baff_0 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 10fdbb4611344bbc979d5e3828ade3da
+2025-08-24 06:08:18,843 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (2/2) (67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_1_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:18,844 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Writer : account_balance (2/2) (attempt #0) with attempt id 67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_1_0 and vertex id 16db17f833c49277c04b533df7e3baff_1 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id dfd32aa5839622db26a7bfa734d707a2
+2025-08-24 06:08:18,846 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance -> end: Writer (1/1) (67fadaeca7725b40415594fecc76fe8e_d71bfd8f3a906efb6630857809581eff_0_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:18,848 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Global Committer : account_balance -> end: Writer (1/1) (attempt #0) with attempt id 67fadaeca7725b40415594fecc76fe8e_d71bfd8f3a906efb6630857809581eff_0_0 and vertex id d71bfd8f3a906efb6630857809581eff_0 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 10fdbb4611344bbc979d5e3828ade3da
+2025-08-24 06:08:18,925 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (1/2) (67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_0_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:18,925 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : tx_logs -> end: Writer (1/1) (84c0c990a2bac6fa623840281c7cd993_fbb4ef531e002f8fb3a2052db255adf5_0_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:18,955 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance -> end: Writer (1/1) (67fadaeca7725b40415594fecc76fe8e_d71bfd8f3a906efb6630857809581eff_0_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:18,961 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (2/2) (67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_1_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,058 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance -> end: Writer (1/1) (67fadaeca7725b40415594fecc76fe8e_d71bfd8f3a906efb6630857809581eff_0_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,064 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,065 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: tx_logs_src[1] -> Calc[2] -> Map (1/2) (84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,091 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : tx_logs (1/2) (84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_0_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,091 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,093 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : tx_logs (2/2) (84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_1_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,096 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (2/2) (67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_1_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,097 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[4] -> Calc[5] -> ConstraintEnforcer[6] -> Map (1/2) (67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,101 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (1/2) (67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_0_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,102 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[4] -> Calc[5] -> ConstraintEnforcer[6] -> Map (2/2) (67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,114 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: tx_logs_src[1] -> Calc[2] -> Map (2/2) (84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,116 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,124 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,131 INFO  org.apache.flink.runtime.dispatcher.StandaloneDispatcher     [] - Received JobGraph submission 'insert-into_paimon_catalog1.demo_db.account_balance' (880f36aa03273488b624c407a52bad8a).
+2025-08-24 06:08:19,132 INFO  org.apache.flink.runtime.dispatcher.StandaloneDispatcher     [] - Submitting job 'insert-into_paimon_catalog1.demo_db.account_balance' (880f36aa03273488b624c407a52bad8a).
+2025-08-24 06:08:19,133 INFO  org.apache.flink.runtime.jobmaster.JobMasterServiceLeadershipRunner [] - JobMasterServiceLeadershipRunner for job 880f36aa03273488b624c407a52bad8a was granted leadership with leader id 00000000-0000-0000-0000-000000000000. Creating new JobMasterServiceProcess.
+2025-08-24 06:08:19,135 INFO  org.apache.flink.runtime.rpc.pekko.PekkoRpcService           [] - Starting RPC endpoint for org.apache.flink.runtime.jobmaster.JobMaster at pekko://flink/user/rpc/jobmanager_4 .
+2025-08-24 06:08:19,136 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Initializing job 'insert-into_paimon_catalog1.demo_db.account_balance' (880f36aa03273488b624c407a52bad8a).
+2025-08-24 06:08:19,137 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using restart back off time strategy ExponentialDelayRestartBackoffTimeStrategy(initialBackoffMS=1000, maxBackoffMS=60000, backoffMultiplier=1.5, resetBackoffThresholdMS=3600000, jitterFactor=0.1, attemptsBeforeResetBackoff=2147483647, currentRestartAttempt=0, nextRestartTimestamp=-2147483648) for insert-into_paimon_catalog1.demo_db.account_balance (880f36aa03273488b624c407a52bad8a).
+2025-08-24 06:08:19,138 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Created execution graph 7fd7cc23fe10e5bb3abd84a29964fcd0 for job 880f36aa03273488b624c407a52bad8a.
+2025-08-24 06:08:19,139 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Running initialization on master for job insert-into_paimon_catalog1.demo_db.account_balance (880f36aa03273488b624c407a52bad8a).
+2025-08-24 06:08:19,141 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Successfully ran initialization on master in 1 ms.
+2025-08-24 06:08:19,142 INFO  org.apache.flink.runtime.scheduler.adapter.DefaultExecutionTopology [] - Built 1 new pipelined regions in 0 ms, total 1 pipelined regions currently.
+2025-08-24 06:08:19,142 WARN  org.apache.flink.configuration.Configuration                 [] - Config uses deprecated configuration key 'state.backend' instead of proper key 'state.backend.type'
+2025-08-24 06:08:19,142 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Loading state backend via factory org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackendFactory
+2025-08-24 06:08:19,143 INFO  org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend [] - Using predefined options: DEFAULT.
+2025-08-24 06:08:19,145 INFO  org.apache.flink.runtime.state.StateBackendLoader            [] - State backend loader loads the state backend as EmbeddedRocksDBStateBackend
+2025-08-24 06:08:19,147 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using job/cluster config to configure application-defined checkpoint storage: org.apache.flink.runtime.state.storage.FileSystemCheckpointStorage@6d0d2a8b
+2025-08-24 06:08:19,148 WARN  org.apache.flink.configuration.Configuration                 [] - Config uses deprecated configuration key 'state.savepoints.dir' instead of proper key 'execution.checkpointing.savepoint-dir'
+2025-08-24 06:08:19,151 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - No checkpoint found during restore.
+2025-08-24 06:08:19,152 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using failover strategy org.apache.flink.runtime.executiongraph.failover.RestartPipelinedRegionFailoverStrategy@64b6963f for insert-into_paimon_catalog1.demo_db.account_balance (880f36aa03273488b624c407a52bad8a).
+2025-08-24 06:08:19,153 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Starting execution of job 'insert-into_paimon_catalog1.demo_db.account_balance' (880f36aa03273488b624c407a52bad8a) under job master id 00000000000000000000000000000000.
+2025-08-24 06:08:19,153 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Starting scheduling with scheduling strategy [org.apache.flink.runtime.scheduler.strategy.PipelinedRegionSchedulingStrategy]
+2025-08-24 06:08:19,153 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Job insert-into_paimon_catalog1.demo_db.account_balance (880f36aa03273488b624c407a52bad8a) switched from state CREATED to RUNNING.
+2025-08-24 06:08:19,155 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_older[7] -> Calc[8] -> ConstraintEnforcer[9] -> Map (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,155 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_older[7] -> Calc[8] -> ConstraintEnforcer[9] -> Map (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,155 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,155 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,155 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,155 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,155 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance -> end: Writer (1/1) (7fd7cc23fe10e5bb3abd84a29964fcd0_d71bfd8f3a906efb6630857809581eff_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,157 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Connecting to ResourceManager pekko.tcp://flink@jobmanager:6123/user/rpc/resourcemanager_*(00000000000000000000000000000000)
+2025-08-24 06:08:19,159 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Resolved ResourceManager address, beginning registration
+2025-08-24 06:08:19,159 INFO  org.apache.flink.runtime.resourcemanager.StandaloneResourceManager [] - Registering job manager 00000000000000000000000000000000@pekko.tcp://flink@jobmanager:6123/user/rpc/jobmanager_4 for job 880f36aa03273488b624c407a52bad8a.
+2025-08-24 06:08:19,162 INFO  org.apache.flink.runtime.resourcemanager.StandaloneResourceManager [] - Registered job manager 00000000000000000000000000000000@pekko.tcp://flink@jobmanager:6123/user/rpc/jobmanager_4 for job 880f36aa03273488b624c407a52bad8a.
+2025-08-24 06:08:19,163 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - JobManager successfully registered at ResourceManager, leader id: 00000000000000000000000000000000.
+2025-08-24 06:08:19,164 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Received resource requirements from job 880f36aa03273488b624c407a52bad8a: [ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}]
+2025-08-24 06:08:19,219 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: tx_logs_src[1] -> Calc[2] -> Map (1/2) (84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,223 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: tx_logs_src[1] -> Calc[2] -> Map (2/2) (84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,226 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[4] -> Calc[5] -> ConstraintEnforcer[6] -> Map (2/2) (67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,227 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[4] -> Calc[5] -> ConstraintEnforcer[6] -> Map (1/2) (67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,228 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Matching resource requirements against available resources.
+Missing resources:
+	 Job 880f36aa03273488b624c407a52bad8a
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+Current resources:
+	TaskManager 172.19.0.3:43433-4872c6
+		Available: ResourceProfile{cpuCores=4, taskHeapMemory=192.000mb (201326590 bytes), taskOffHeapMemory=0 bytes, managedMemory=256.000mb (268435460 bytes), networkMemory=64.000mb (67108866 bytes)}
+		Total:     ResourceProfile{cpuCores=8, taskHeapMemory=384.000mb (402653174 bytes), taskOffHeapMemory=0 bytes, managedMemory=512.000mb (536870920 bytes), networkMemory=128.000mb (134217730 bytes)}
+2025-08-24 06:08:19,229 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.DefaultSlotStatusSyncer [] - Starting allocation of slot 8240fe1043e73956c1a50dfd1b669063 from 172.19.0.3:43433-4872c6 for job 880f36aa03273488b624c407a52bad8a with resource profile ResourceProfile{cpuCores=1, taskHeapMemory=48.000mb (50331646 bytes), taskOffHeapMemory=0 bytes, managedMemory=64.000mb (67108865 bytes), networkMemory=16.000mb (16777216 bytes)}.
+2025-08-24 06:08:19,230 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.DefaultSlotStatusSyncer [] - Starting allocation of slot a3a4da7ef11f79eafbef6fb8d2817478 from 172.19.0.3:43433-4872c6 for job 880f36aa03273488b624c407a52bad8a with resource profile ResourceProfile{cpuCores=1, taskHeapMemory=48.000mb (50331646 bytes), taskOffHeapMemory=0 bytes, managedMemory=64.000mb (67108865 bytes), networkMemory=16.000mb (16777216 bytes)}.
+2025-08-24 06:08:19,254 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_older[7] -> Calc[8] -> ConstraintEnforcer[9] -> Map (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:19,255 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Source: balance_src_older[7] -> Calc[8] -> ConstraintEnforcer[9] -> Map (1/2) (attempt #0) with attempt id 7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_0_0 and vertex id cbc357ccb763df2852fee8c4fc7d55f2_0 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 8240fe1043e73956c1a50dfd1b669063
+2025-08-24 06:08:19,255 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_older[7] -> Calc[8] -> ConstraintEnforcer[9] -> Map (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:19,256 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Source: balance_src_older[7] -> Calc[8] -> ConstraintEnforcer[9] -> Map (2/2) (attempt #0) with attempt id 7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_1_0 and vertex id cbc357ccb763df2852fee8c4fc7d55f2_1 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id a3a4da7ef11f79eafbef6fb8d2817478
+2025-08-24 06:08:19,256 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:19,256 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying dynamic-bucket-assigner (1/2) (attempt #0) with attempt id 7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_0_0 and vertex id 8d96fc510e75de3baf03ef7367db7d42_0 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 8240fe1043e73956c1a50dfd1b669063
+2025-08-24 06:08:19,257 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:19,257 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying dynamic-bucket-assigner (2/2) (attempt #0) with attempt id 7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_1_0 and vertex id 8d96fc510e75de3baf03ef7367db7d42_1 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id a3a4da7ef11f79eafbef6fb8d2817478
+2025-08-24 06:08:19,257 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_0_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:19,257 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Writer : account_balance (1/2) (attempt #0) with attempt id 7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_0_0 and vertex id 16db17f833c49277c04b533df7e3baff_0 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 8240fe1043e73956c1a50dfd1b669063
+2025-08-24 06:08:19,261 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_1_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:19,262 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Writer : account_balance (2/2) (attempt #0) with attempt id 7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_1_0 and vertex id 16db17f833c49277c04b533df7e3baff_1 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id a3a4da7ef11f79eafbef6fb8d2817478
+2025-08-24 06:08:19,263 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance -> end: Writer (1/1) (7fd7cc23fe10e5bb3abd84a29964fcd0_d71bfd8f3a906efb6630857809581eff_0_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:19,264 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Global Committer : account_balance -> end: Writer (1/1) (attempt #0) with attempt id 7fd7cc23fe10e5bb3abd84a29964fcd0_d71bfd8f3a906efb6630857809581eff_0_0 and vertex id d71bfd8f3a906efb6630857809581eff_0 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 8240fe1043e73956c1a50dfd1b669063
+2025-08-24 06:08:19,282 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_older[7] -> Calc[8] -> ConstraintEnforcer[9] -> Map (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,289 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_older[7] -> Calc[8] -> ConstraintEnforcer[9] -> Map (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,301 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,306 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,315 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,316 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,317 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_0_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,324 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_1_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,336 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_1_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,337 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_0_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,342 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance -> end: Writer (1/1) (7fd7cc23fe10e5bb3abd84a29964fcd0_d71bfd8f3a906efb6630857809581eff_0_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,348 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_older[7] -> Calc[8] -> ConstraintEnforcer[9] -> Map (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,349 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_older[7] -> Calc[8] -> ConstraintEnforcer[9] -> Map (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,359 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance -> end: Writer (1/1) (7fd7cc23fe10e5bb3abd84a29964fcd0_d71bfd8f3a906efb6630857809581eff_0_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,448 INFO  org.apache.flink.runtime.dispatcher.StandaloneDispatcher     [] - Received JobGraph submission 'insert-into_paimon_catalog1.demo_db.account_balance_cdc' (46405da1399f652dbc559a889212fb40).
+2025-08-24 06:08:19,450 INFO  org.apache.flink.runtime.dispatcher.StandaloneDispatcher     [] - Submitting job 'insert-into_paimon_catalog1.demo_db.account_balance_cdc' (46405da1399f652dbc559a889212fb40).
+2025-08-24 06:08:19,453 INFO  org.apache.flink.runtime.jobmaster.JobMasterServiceLeadershipRunner [] - JobMasterServiceLeadershipRunner for job 46405da1399f652dbc559a889212fb40 was granted leadership with leader id 00000000-0000-0000-0000-000000000000. Creating new JobMasterServiceProcess.
+2025-08-24 06:08:19,455 INFO  org.apache.flink.runtime.rpc.pekko.PekkoRpcService           [] - Starting RPC endpoint for org.apache.flink.runtime.jobmaster.JobMaster at pekko://flink/user/rpc/jobmanager_5 .
+2025-08-24 06:08:19,456 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Initializing job 'insert-into_paimon_catalog1.demo_db.account_balance_cdc' (46405da1399f652dbc559a889212fb40).
+2025-08-24 06:08:19,459 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using restart back off time strategy ExponentialDelayRestartBackoffTimeStrategy(initialBackoffMS=1000, maxBackoffMS=60000, backoffMultiplier=1.5, resetBackoffThresholdMS=3600000, jitterFactor=0.1, attemptsBeforeResetBackoff=2147483647, currentRestartAttempt=0, nextRestartTimestamp=-2147483648) for insert-into_paimon_catalog1.demo_db.account_balance_cdc (46405da1399f652dbc559a889212fb40).
+2025-08-24 06:08:19,462 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Created execution graph e2f905d0c90787c1801ea88d0d796e32 for job 46405da1399f652dbc559a889212fb40.
+2025-08-24 06:08:19,463 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Running initialization on master for job insert-into_paimon_catalog1.demo_db.account_balance_cdc (46405da1399f652dbc559a889212fb40).
+2025-08-24 06:08:19,464 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Successfully ran initialization on master in 0 ms.
+2025-08-24 06:08:19,466 INFO  org.apache.flink.runtime.scheduler.adapter.DefaultExecutionTopology [] - Built 1 new pipelined regions in 0 ms, total 1 pipelined regions currently.
+2025-08-24 06:08:19,467 WARN  org.apache.flink.configuration.Configuration                 [] - Config uses deprecated configuration key 'state.backend' instead of proper key 'state.backend.type'
+2025-08-24 06:08:19,468 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Loading state backend via factory org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackendFactory
+2025-08-24 06:08:19,468 INFO  org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend [] - Using predefined options: DEFAULT.
+2025-08-24 06:08:19,470 INFO  org.apache.flink.runtime.state.StateBackendLoader            [] - State backend loader loads the state backend as EmbeddedRocksDBStateBackend
+2025-08-24 06:08:19,471 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using job/cluster config to configure application-defined checkpoint storage: org.apache.flink.runtime.state.storage.FileSystemCheckpointStorage@6d0d2a8b
+2025-08-24 06:08:19,471 WARN  org.apache.flink.configuration.Configuration                 [] - Config uses deprecated configuration key 'state.savepoints.dir' instead of proper key 'execution.checkpointing.savepoint-dir'
+2025-08-24 06:08:19,477 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - No checkpoint found during restore.
+2025-08-24 06:08:19,478 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using failover strategy org.apache.flink.runtime.executiongraph.failover.RestartPipelinedRegionFailoverStrategy@49c54172 for insert-into_paimon_catalog1.demo_db.account_balance_cdc (46405da1399f652dbc559a889212fb40).
+2025-08-24 06:08:19,479 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Starting execution of job 'insert-into_paimon_catalog1.demo_db.account_balance_cdc' (46405da1399f652dbc559a889212fb40) under job master id 00000000000000000000000000000000.
+2025-08-24 06:08:19,479 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Starting scheduling with scheduling strategy [org.apache.flink.runtime.scheduler.strategy.PipelinedRegionSchedulingStrategy]
+2025-08-24 06:08:19,480 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Job insert-into_paimon_catalog1.demo_db.account_balance_cdc (46405da1399f652dbc559a889212fb40) switched from state CREATED to RUNNING.
+2025-08-24 06:08:19,480 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (1/2) (e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,481 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (2/2) (e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,481 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,484 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,484 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance_cdc (1/2) (e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,484 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance_cdc (2/2) (e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,484 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance_cdc -> end: Writer (1/1) (e2f905d0c90787c1801ea88d0d796e32_d71bfd8f3a906efb6630857809581eff_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,485 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Connecting to ResourceManager pekko.tcp://flink@jobmanager:6123/user/rpc/resourcemanager_*(00000000000000000000000000000000)
+2025-08-24 06:08:19,487 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Resolved ResourceManager address, beginning registration
+2025-08-24 06:08:19,488 INFO  org.apache.flink.runtime.resourcemanager.StandaloneResourceManager [] - Registering job manager 00000000000000000000000000000000@pekko.tcp://flink@jobmanager:6123/user/rpc/jobmanager_5 for job 46405da1399f652dbc559a889212fb40.
+2025-08-24 06:08:19,489 INFO  org.apache.flink.runtime.resourcemanager.StandaloneResourceManager [] - Registered job manager 00000000000000000000000000000000@pekko.tcp://flink@jobmanager:6123/user/rpc/jobmanager_5 for job 46405da1399f652dbc559a889212fb40.
+2025-08-24 06:08:19,490 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - JobManager successfully registered at ResourceManager, leader id: 00000000000000000000000000000000.
+2025-08-24 06:08:19,491 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Received resource requirements from job 46405da1399f652dbc559a889212fb40: [ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}]
+2025-08-24 06:08:19,557 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Matching resource requirements against available resources.
+Missing resources:
+	 Job 46405da1399f652dbc559a889212fb40
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+Current resources:
+	TaskManager 172.19.0.3:43433-4872c6
+		Available: ResourceProfile{cpuCores=2, taskHeapMemory=96.000mb (100663298 bytes), taskOffHeapMemory=0 bytes, managedMemory=128.000mb (134217730 bytes), networkMemory=32.000mb (33554434 bytes)}
+		Total:     ResourceProfile{cpuCores=8, taskHeapMemory=384.000mb (402653174 bytes), taskOffHeapMemory=0 bytes, managedMemory=512.000mb (536870920 bytes), networkMemory=128.000mb (134217730 bytes)}
+2025-08-24 06:08:19,558 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.DefaultSlotStatusSyncer [] - Starting allocation of slot 35f8736540f038fafcb7d4e3ba95b894 from 172.19.0.3:43433-4872c6 for job 46405da1399f652dbc559a889212fb40 with resource profile ResourceProfile{cpuCores=1, taskHeapMemory=48.000mb (50331646 bytes), taskOffHeapMemory=0 bytes, managedMemory=64.000mb (67108865 bytes), networkMemory=16.000mb (16777216 bytes)}.
+2025-08-24 06:08:19,558 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.DefaultSlotStatusSyncer [] - Starting allocation of slot 6d29f6181741c7de43c6a3d3a23a285c from 172.19.0.3:43433-4872c6 for job 46405da1399f652dbc559a889212fb40 with resource profile ResourceProfile{cpuCores=1, taskHeapMemory=48.000mb (50331646 bytes), taskOffHeapMemory=0 bytes, managedMemory=64.000mb (67108865 bytes), networkMemory=16.000mb (16777216 bytes)}.
+2025-08-24 06:08:19,619 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (1/2) (e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:19,621 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (1/2) (attempt #0) with attempt id e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_0_0 and vertex id cbc357ccb763df2852fee8c4fc7d55f2_0 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 35f8736540f038fafcb7d4e3ba95b894
+2025-08-24 06:08:19,622 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (2/2) (e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:19,623 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (2/2) (attempt #0) with attempt id e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_1_0 and vertex id cbc357ccb763df2852fee8c4fc7d55f2_1 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 6d29f6181741c7de43c6a3d3a23a285c
+2025-08-24 06:08:19,623 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:19,624 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying dynamic-bucket-assigner (1/2) (attempt #0) with attempt id e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_0_0 and vertex id 8d96fc510e75de3baf03ef7367db7d42_0 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 35f8736540f038fafcb7d4e3ba95b894
+2025-08-24 06:08:19,625 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:19,625 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying dynamic-bucket-assigner (2/2) (attempt #0) with attempt id e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_1_0 and vertex id 8d96fc510e75de3baf03ef7367db7d42_1 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 6d29f6181741c7de43c6a3d3a23a285c
+2025-08-24 06:08:19,628 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance_cdc (1/2) (e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_0_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:19,628 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Writer : account_balance_cdc (1/2) (attempt #0) with attempt id e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_0_0 and vertex id 16db17f833c49277c04b533df7e3baff_0 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 35f8736540f038fafcb7d4e3ba95b894
+2025-08-24 06:08:19,630 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance_cdc (2/2) (e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_1_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:19,633 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Writer : account_balance_cdc (2/2) (attempt #0) with attempt id e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_1_0 and vertex id 16db17f833c49277c04b533df7e3baff_1 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 6d29f6181741c7de43c6a3d3a23a285c
+2025-08-24 06:08:19,636 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance_cdc -> end: Writer (1/1) (e2f905d0c90787c1801ea88d0d796e32_d71bfd8f3a906efb6630857809581eff_0_0) switched from SCHEDULED to DEPLOYING.
+2025-08-24 06:08:19,637 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Deploying Global Committer : account_balance_cdc -> end: Writer (1/1) (attempt #0) with attempt id e2f905d0c90787c1801ea88d0d796e32_d71bfd8f3a906efb6630857809581eff_0_0 and vertex id d71bfd8f3a906efb6630857809581eff_0 to 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939) with allocation id 35f8736540f038fafcb7d4e3ba95b894
+2025-08-24 06:08:19,704 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,713 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (2/2) (e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,731 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,739 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,741 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (1/2) (e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,741 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,746 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance_cdc (2/2) (e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_1_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,755 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance_cdc (1/2) (e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_0_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,755 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance_cdc -> end: Writer (1/1) (e2f905d0c90787c1801ea88d0d796e32_d71bfd8f3a906efb6630857809581eff_0_0) switched from DEPLOYING to INITIALIZING.
+2025-08-24 06:08:19,770 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance_cdc (1/2) (e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_0_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,778 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance_cdc (2/2) (e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_1_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,784 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (2/2) (e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,790 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance_cdc -> end: Writer (1/1) (e2f905d0c90787c1801ea88d0d796e32_d71bfd8f3a906efb6630857809581eff_0_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,790 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (1/2) (e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from INITIALIZING to RUNNING.
+2025-08-24 06:08:19,865 INFO  org.apache.flink.runtime.dispatcher.StandaloneDispatcher     [] - Received JobGraph submission 'insert-into_paimon_catalog1.demo_db.account_balance_cdc' (7e49ce0b6ba490988caca280f326a4d4).
+2025-08-24 06:08:19,866 INFO  org.apache.flink.runtime.dispatcher.StandaloneDispatcher     [] - Submitting job 'insert-into_paimon_catalog1.demo_db.account_balance_cdc' (7e49ce0b6ba490988caca280f326a4d4).
+2025-08-24 06:08:19,868 INFO  org.apache.flink.runtime.jobmaster.JobMasterServiceLeadershipRunner [] - JobMasterServiceLeadershipRunner for job 7e49ce0b6ba490988caca280f326a4d4 was granted leadership with leader id 00000000-0000-0000-0000-000000000000. Creating new JobMasterServiceProcess.
+2025-08-24 06:08:19,869 INFO  org.apache.flink.runtime.rpc.pekko.PekkoRpcService           [] - Starting RPC endpoint for org.apache.flink.runtime.jobmaster.JobMaster at pekko://flink/user/rpc/jobmanager_6 .
+2025-08-24 06:08:19,870 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Initializing job 'insert-into_paimon_catalog1.demo_db.account_balance_cdc' (7e49ce0b6ba490988caca280f326a4d4).
+2025-08-24 06:08:19,871 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using restart back off time strategy ExponentialDelayRestartBackoffTimeStrategy(initialBackoffMS=1000, maxBackoffMS=60000, backoffMultiplier=1.5, resetBackoffThresholdMS=3600000, jitterFactor=0.1, attemptsBeforeResetBackoff=2147483647, currentRestartAttempt=0, nextRestartTimestamp=-2147483648) for insert-into_paimon_catalog1.demo_db.account_balance_cdc (7e49ce0b6ba490988caca280f326a4d4).
+2025-08-24 06:08:19,876 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Created execution graph c079566b089f03f8176c4f0c723aade6 for job 7e49ce0b6ba490988caca280f326a4d4.
+2025-08-24 06:08:19,877 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Running initialization on master for job insert-into_paimon_catalog1.demo_db.account_balance_cdc (7e49ce0b6ba490988caca280f326a4d4).
+2025-08-24 06:08:19,877 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Successfully ran initialization on master in 0 ms.
+2025-08-24 06:08:19,879 INFO  org.apache.flink.runtime.scheduler.adapter.DefaultExecutionTopology [] - Built 1 new pipelined regions in 0 ms, total 1 pipelined regions currently.
+2025-08-24 06:08:19,879 WARN  org.apache.flink.configuration.Configuration                 [] - Config uses deprecated configuration key 'state.backend' instead of proper key 'state.backend.type'
+2025-08-24 06:08:19,880 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Loading state backend via factory org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackendFactory
+2025-08-24 06:08:19,882 INFO  org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend [] - Using predefined options: DEFAULT.
+2025-08-24 06:08:19,884 INFO  org.apache.flink.runtime.state.StateBackendLoader            [] - State backend loader loads the state backend as EmbeddedRocksDBStateBackend
+2025-08-24 06:08:19,885 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using job/cluster config to configure application-defined checkpoint storage: org.apache.flink.runtime.state.storage.FileSystemCheckpointStorage@6d0d2a8b
+2025-08-24 06:08:19,885 WARN  org.apache.flink.configuration.Configuration                 [] - Config uses deprecated configuration key 'state.savepoints.dir' instead of proper key 'execution.checkpointing.savepoint-dir'
+2025-08-24 06:08:19,888 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - No checkpoint found during restore.
+2025-08-24 06:08:19,889 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using failover strategy org.apache.flink.runtime.executiongraph.failover.RestartPipelinedRegionFailoverStrategy@5dfdd48c for insert-into_paimon_catalog1.demo_db.account_balance_cdc (7e49ce0b6ba490988caca280f326a4d4).
+2025-08-24 06:08:19,891 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Starting execution of job 'insert-into_paimon_catalog1.demo_db.account_balance_cdc' (7e49ce0b6ba490988caca280f326a4d4) under job master id 00000000000000000000000000000000.
+2025-08-24 06:08:19,891 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Starting scheduling with scheduling strategy [org.apache.flink.runtime.scheduler.strategy.PipelinedRegionSchedulingStrategy]
+2025-08-24 06:08:19,892 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Job insert-into_paimon_catalog1.demo_db.account_balance_cdc (7e49ce0b6ba490988caca280f326a4d4) switched from state CREATED to RUNNING.
+2025-08-24 06:08:19,893 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_older[13] -> Calc[14] -> ConstraintEnforcer[15] -> Map (1/2) (c079566b089f03f8176c4f0c723aade6_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,893 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_older[13] -> Calc[14] -> ConstraintEnforcer[15] -> Map (2/2) (c079566b089f03f8176c4f0c723aade6_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,894 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (c079566b089f03f8176c4f0c723aade6_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,894 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (c079566b089f03f8176c4f0c723aade6_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,894 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance_cdc (1/2) (c079566b089f03f8176c4f0c723aade6_16db17f833c49277c04b533df7e3baff_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,894 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance_cdc (2/2) (c079566b089f03f8176c4f0c723aade6_16db17f833c49277c04b533df7e3baff_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,894 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance_cdc -> end: Writer (1/1) (c079566b089f03f8176c4f0c723aade6_d71bfd8f3a906efb6630857809581eff_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:19,895 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Connecting to ResourceManager pekko.tcp://flink@jobmanager:6123/user/rpc/resourcemanager_*(00000000000000000000000000000000)
+2025-08-24 06:08:19,896 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Resolved ResourceManager address, beginning registration
+2025-08-24 06:08:19,897 INFO  org.apache.flink.runtime.resourcemanager.StandaloneResourceManager [] - Registering job manager 00000000000000000000000000000000@pekko.tcp://flink@jobmanager:6123/user/rpc/jobmanager_6 for job 7e49ce0b6ba490988caca280f326a4d4.
+2025-08-24 06:08:19,898 INFO  org.apache.flink.runtime.resourcemanager.StandaloneResourceManager [] - Registered job manager 00000000000000000000000000000000@pekko.tcp://flink@jobmanager:6123/user/rpc/jobmanager_6 for job 7e49ce0b6ba490988caca280f326a4d4.
+2025-08-24 06:08:19,902 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - JobManager successfully registered at ResourceManager, leader id: 00000000000000000000000000000000.
+2025-08-24 06:08:19,903 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Received resource requirements from job 7e49ce0b6ba490988caca280f326a4d4: [ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}]
+2025-08-24 06:08:19,966 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Matching resource requirements against available resources.
+Missing resources:
+	 Job 7e49ce0b6ba490988caca280f326a4d4
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+Current resources:
+	TaskManager 172.19.0.3:43433-4872c6
+		Available: ResourceProfile{cpuCores=0, taskHeapMemory=6 bytes, taskOffHeapMemory=0 bytes, managedMemory=0 bytes, networkMemory=2 bytes}
+		Total:     ResourceProfile{cpuCores=8, taskHeapMemory=384.000mb (402653174 bytes), taskOffHeapMemory=0 bytes, managedMemory=512.000mb (536870920 bytes), networkMemory=128.000mb (134217730 bytes)}
+2025-08-24 06:08:20,144 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Triggering checkpoint 1 (type=CheckpointType{name='Checkpoint', sharingFilesStrategy=FORWARD_BACKWARD}) @ 1756015700125 for job 493f2d5a73f7f81b3d66cb7d8a8cfc12.
+2025-08-24 06:08:20,210 INFO  org.apache.flink.runtime.dispatcher.StandaloneDispatcher     [] - Received JobGraph submission 'insert-into_paimon_catalog1.demo_db.account_balance' (e569910007438e71756e11ff2af91452).
+2025-08-24 06:08:20,210 INFO  org.apache.flink.runtime.dispatcher.StandaloneDispatcher     [] - Submitting job 'insert-into_paimon_catalog1.demo_db.account_balance' (e569910007438e71756e11ff2af91452).
+2025-08-24 06:08:20,211 INFO  org.apache.flink.runtime.jobmaster.JobMasterServiceLeadershipRunner [] - JobMasterServiceLeadershipRunner for job e569910007438e71756e11ff2af91452 was granted leadership with leader id 00000000-0000-0000-0000-000000000000. Creating new JobMasterServiceProcess.
+2025-08-24 06:08:20,212 INFO  org.apache.flink.runtime.rpc.pekko.PekkoRpcService           [] - Starting RPC endpoint for org.apache.flink.runtime.jobmaster.JobMaster at pekko://flink/user/rpc/jobmanager_7 .
+2025-08-24 06:08:20,213 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Initializing job 'insert-into_paimon_catalog1.demo_db.account_balance' (e569910007438e71756e11ff2af91452).
+2025-08-24 06:08:20,214 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using restart back off time strategy ExponentialDelayRestartBackoffTimeStrategy(initialBackoffMS=1000, maxBackoffMS=60000, backoffMultiplier=1.5, resetBackoffThresholdMS=3600000, jitterFactor=0.1, attemptsBeforeResetBackoff=2147483647, currentRestartAttempt=0, nextRestartTimestamp=-2147483648) for insert-into_paimon_catalog1.demo_db.account_balance (e569910007438e71756e11ff2af91452).
+2025-08-24 06:08:20,215 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Created execution graph 9b859c3ea643ba990d7448af8a73a2c3 for job e569910007438e71756e11ff2af91452.
+2025-08-24 06:08:20,216 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Running initialization on master for job insert-into_paimon_catalog1.demo_db.account_balance (e569910007438e71756e11ff2af91452).
+2025-08-24 06:08:20,217 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Successfully ran initialization on master in 0 ms.
+2025-08-24 06:08:20,218 INFO  org.apache.flink.runtime.scheduler.adapter.DefaultExecutionTopology [] - Built 1 new pipelined regions in 0 ms, total 1 pipelined regions currently.
+2025-08-24 06:08:20,221 WARN  org.apache.flink.configuration.Configuration                 [] - Config uses deprecated configuration key 'state.backend' instead of proper key 'state.backend.type'
+2025-08-24 06:08:20,238 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Loading state backend via factory org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackendFactory
+2025-08-24 06:08:20,240 INFO  org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend [] - Using predefined options: DEFAULT.
+2025-08-24 06:08:20,243 INFO  org.apache.flink.runtime.state.StateBackendLoader            [] - State backend loader loads the state backend as EmbeddedRocksDBStateBackend
+2025-08-24 06:08:20,244 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using job/cluster config to configure application-defined checkpoint storage: org.apache.flink.runtime.state.storage.FileSystemCheckpointStorage@6d0d2a8b
+2025-08-24 06:08:20,247 WARN  org.apache.flink.configuration.Configuration                 [] - Config uses deprecated configuration key 'state.savepoints.dir' instead of proper key 'execution.checkpointing.savepoint-dir'
+2025-08-24 06:08:20,257 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - No checkpoint found during restore.
+2025-08-24 06:08:20,258 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Using failover strategy org.apache.flink.runtime.executiongraph.failover.RestartPipelinedRegionFailoverStrategy@b5ef850 for insert-into_paimon_catalog1.demo_db.account_balance (e569910007438e71756e11ff2af91452).
+2025-08-24 06:08:20,265 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Starting execution of job 'insert-into_paimon_catalog1.demo_db.account_balance' (e569910007438e71756e11ff2af91452) under job master id 00000000000000000000000000000000.
+2025-08-24 06:08:20,266 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Starting scheduling with scheduling strategy [org.apache.flink.runtime.scheduler.strategy.PipelinedRegionSchedulingStrategy]
+2025-08-24 06:08:20,266 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Job insert-into_paimon_catalog1.demo_db.account_balance (e569910007438e71756e11ff2af91452) switched from state CREATED to RUNNING.
+2025-08-24 06:08:20,268 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[16] -> Calc[17] -> ConstraintEnforcer[18] -> Map (1/2) (9b859c3ea643ba990d7448af8a73a2c3_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:20,269 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[16] -> Calc[17] -> ConstraintEnforcer[18] -> Map (2/2) (9b859c3ea643ba990d7448af8a73a2c3_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:20,269 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (9b859c3ea643ba990d7448af8a73a2c3_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:20,270 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (9b859c3ea643ba990d7448af8a73a2c3_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:20,271 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (1/2) (9b859c3ea643ba990d7448af8a73a2c3_16db17f833c49277c04b533df7e3baff_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:20,274 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (2/2) (9b859c3ea643ba990d7448af8a73a2c3_16db17f833c49277c04b533df7e3baff_1_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:20,275 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance -> end: Writer (1/1) (9b859c3ea643ba990d7448af8a73a2c3_d71bfd8f3a906efb6630857809581eff_0_0) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:20,276 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Connecting to ResourceManager pekko.tcp://flink@jobmanager:6123/user/rpc/resourcemanager_*(00000000000000000000000000000000)
+2025-08-24 06:08:20,278 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Resolved ResourceManager address, beginning registration
+2025-08-24 06:08:20,278 INFO  org.apache.flink.runtime.resourcemanager.StandaloneResourceManager [] - Registering job manager 00000000000000000000000000000000@pekko.tcp://flink@jobmanager:6123/user/rpc/jobmanager_7 for job e569910007438e71756e11ff2af91452.
+2025-08-24 06:08:20,280 INFO  org.apache.flink.runtime.resourcemanager.StandaloneResourceManager [] - Registered job manager 00000000000000000000000000000000@pekko.tcp://flink@jobmanager:6123/user/rpc/jobmanager_7 for job e569910007438e71756e11ff2af91452.
+2025-08-24 06:08:20,284 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - JobManager successfully registered at ResourceManager, leader id: 00000000000000000000000000000000.
+2025-08-24 06:08:20,285 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Received resource requirements from job e569910007438e71756e11ff2af91452: [ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}]
+2025-08-24 06:08:20,346 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Matching resource requirements against available resources.
+Missing resources:
+	 Job 7e49ce0b6ba490988caca280f326a4d4
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+	 Job e569910007438e71756e11ff2af91452
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+Current resources:
+	TaskManager 172.19.0.3:43433-4872c6
+		Available: ResourceProfile{cpuCores=0, taskHeapMemory=6 bytes, taskOffHeapMemory=0 bytes, managedMemory=0 bytes, networkMemory=2 bytes}
+		Total:     ResourceProfile{cpuCores=8, taskHeapMemory=384.000mb (402653174 bytes), taskOffHeapMemory=0 bytes, managedMemory=512.000mb (536870920 bytes), networkMemory=128.000mb (134217730 bytes)}
+2025-08-24 06:08:20,851 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Triggering checkpoint 1 (type=CheckpointType{name='Checkpoint', sharingFilesStrategy=FORWARD_BACKWARD}) @ 1756015700850 for job 9309a113381d442f7ff262fc0e23e412.
+2025-08-24 06:08:20,962 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Completed checkpoint 1 for job 493f2d5a73f7f81b3d66cb7d8a8cfc12 (9283 bytes, checkpointDuration=834 ms, finalizationTime=3 ms).
+2025-08-24 06:08:20,984 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Completed checkpoint 1 for job 9309a113381d442f7ff262fc0e23e412 (5161 bytes, checkpointDuration=133 ms, finalizationTime=0 ms).
+2025-08-24 06:08:22,456 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Triggering checkpoint 1 (type=CheckpointType{name='Checkpoint', sharingFilesStrategy=FORWARD_BACKWARD}) @ 1756015702453 for job 880f36aa03273488b624c407a52bad8a.
+2025-08-24 06:08:22,647 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Completed checkpoint 1 for job 880f36aa03273488b624c407a52bad8a (5161 bytes, checkpointDuration=193 ms, finalizationTime=1 ms).
+2025-08-24 06:08:22,855 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Triggering checkpoint 1 (type=CheckpointType{name='Checkpoint', sharingFilesStrategy=FORWARD_BACKWARD}) @ 1756015702855 for job 46405da1399f652dbc559a889212fb40.
+2025-08-24 06:08:23,091 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Completed checkpoint 1 for job 46405da1399f652dbc559a889212fb40 (7041 bytes, checkpointDuration=235 ms, finalizationTime=1 ms).
+2025-08-24 06:08:23,866 INFO  org.apache.flink.runtime.checkpoint.CheckpointFailureManager [] - Failed to trigger checkpoint for job 7e49ce0b6ba490988caca280f326a4d4 since Checkpoint triggering task Source: balance_src_older[13] -> Calc[14] -> ConstraintEnforcer[15] -> Map (1/2) of job 7e49ce0b6ba490988caca280f326a4d4 is not being executed at the moment. Aborting checkpoint. Failure reason: Not all required tasks are currently running..
+2025-08-24 06:08:25,219 INFO  org.apache.flink.runtime.checkpoint.CheckpointFailureManager [] - Failed to trigger checkpoint for job e569910007438e71756e11ff2af91452 since Checkpoint triggering task Source: balance_src_newer[16] -> Calc[17] -> ConstraintEnforcer[18] -> Map (1/2) of job e569910007438e71756e11ff2af91452 is not being executed at the moment. Aborting checkpoint. Failure reason: Not all required tasks are currently running..
+2025-08-24 06:08:30,118 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Triggering checkpoint 2 (type=CheckpointType{name='Checkpoint', sharingFilesStrategy=FORWARD_BACKWARD}) @ 1756015710116 for job 493f2d5a73f7f81b3d66cb7d8a8cfc12.
+2025-08-24 06:08:30,556 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Completed checkpoint 2 for job 493f2d5a73f7f81b3d66cb7d8a8cfc12 (9283 bytes, checkpointDuration=431 ms, finalizationTime=9 ms).
+2025-08-24 06:08:30,852 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Triggering checkpoint 2 (type=CheckpointType{name='Checkpoint', sharingFilesStrategy=FORWARD_BACKWARD}) @ 1756015710852 for job 9309a113381d442f7ff262fc0e23e412.
+2025-08-24 06:08:30,970 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Completed checkpoint 2 for job 9309a113381d442f7ff262fc0e23e412 (5161 bytes, checkpointDuration=117 ms, finalizationTime=1 ms).
+2025-08-24 06:08:32,451 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Triggering checkpoint 2 (type=CheckpointType{name='Checkpoint', sharingFilesStrategy=FORWARD_BACKWARD}) @ 1756015712450 for job 880f36aa03273488b624c407a52bad8a.
+2025-08-24 06:08:32,543 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Completed checkpoint 2 for job 880f36aa03273488b624c407a52bad8a (5161 bytes, checkpointDuration=93 ms, finalizationTime=0 ms).
+2025-08-24 06:08:32,856 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Triggering checkpoint 2 (type=CheckpointType{name='Checkpoint', sharingFilesStrategy=FORWARD_BACKWARD}) @ 1756015712855 for job 46405da1399f652dbc559a889212fb40.
+2025-08-24 06:08:33,000 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Completed checkpoint 2 for job 46405da1399f652dbc559a889212fb40 (7041 bytes, checkpointDuration=144 ms, finalizationTime=1 ms).
+2025-08-24 06:08:33,864 INFO  org.apache.flink.runtime.checkpoint.CheckpointFailureManager [] - Failed to trigger checkpoint for job 7e49ce0b6ba490988caca280f326a4d4 since Checkpoint triggering task Source: balance_src_older[13] -> Calc[14] -> ConstraintEnforcer[15] -> Map (1/2) of job 7e49ce0b6ba490988caca280f326a4d4 is not being executed at the moment. Aborting checkpoint. Failure reason: Not all required tasks are currently running..
+2025-08-24 06:08:35,169 INFO  org.apache.flink.runtime.resourcemanager.StandaloneResourceManager [] - Closing TaskExecutor connection 172.19.0.3:43433-4872c6 because: The TaskExecutor is shutting down.
+2025-08-24 06:08:35,172 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Unregistering task executor 529f74fa50bb07cae0d2b4a18a16e842 from the slot manager.
+2025-08-24 06:08:35,172 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.DefaultSlotStatusSyncer [] - Freeing slot 10fdbb4611344bbc979d5e3828ade3da.
+2025-08-24 06:08:35,174 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.DefaultSlotStatusSyncer [] - Freeing slot a3a4da7ef11f79eafbef6fb8d2817478.
+2025-08-24 06:08:35,175 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.DefaultSlotStatusSyncer [] - Freeing slot 35f8736540f038fafcb7d4e3ba95b894.
+2025-08-24 06:08:35,175 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.DefaultSlotStatusSyncer [] - Freeing slot 228e6f0a6eca5c5ba61e13ac18167557.
+2025-08-24 06:08:35,175 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.DefaultSlotStatusSyncer [] - Freeing slot b7f1a6c84e1d2c1767c6e724881d03cb.
+2025-08-24 06:08:35,176 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.DefaultSlotStatusSyncer [] - Freeing slot 8240fe1043e73956c1a50dfd1b669063.
+2025-08-24 06:08:35,176 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.DefaultSlotStatusSyncer [] - Freeing slot 6d29f6181741c7de43c6a3d3a23a285c.
+2025-08-24 06:08:35,176 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.DefaultSlotStatusSyncer [] - Freeing slot dfd32aa5839622db26a7bfa734d707a2.
+2025-08-24 06:08:35,200 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_1_0) switched from RUNNING to FAILED on 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939).
+org.apache.flink.util.FlinkExpectedException: The TaskExecutor is shutting down.
+	at org.apache.flink.runtime.taskexecutor.TaskExecutor.onStop(TaskExecutor.java:524) ~[flink-dist-1.20.2.jar:1.20.2]
+	at org.apache.flink.runtime.rpc.RpcEndpoint.internalCallOnStop(RpcEndpoint.java:255) ~[flink-dist-1.20.2.jar:1.20.2]
+	at org.apache.flink.runtime.rpc.pekko.PekkoRpcActor$StartedState.lambda$terminate$0(PekkoRpcActor.java:583) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.flink.runtime.concurrent.ClassLoadingUtils.runWithContextClassLoader(ClassLoadingUtils.java:83) ~[flink-dist-1.20.2.jar:1.20.2]
+	at org.apache.flink.runtime.rpc.pekko.PekkoRpcActor$StartedState.terminate(PekkoRpcActor.java:582) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.flink.runtime.rpc.pekko.PekkoRpcActor.handleControlMessage(PekkoRpcActor.java:203) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.japi.pf.UnitCaseStatement.apply(CaseStatements.scala:33) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.japi.pf.UnitCaseStatement.apply(CaseStatements.scala:29) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at scala.PartialFunction.applyOrElse(PartialFunction.scala:127) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at scala.PartialFunction.applyOrElse$(PartialFunction.scala:126) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.japi.pf.UnitCaseStatement.applyOrElse(CaseStatements.scala:29) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at scala.PartialFunction$OrElse.applyOrElse(PartialFunction.scala:175) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at scala.PartialFunction$OrElse.applyOrElse(PartialFunction.scala:176) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.Actor.aroundReceive(Actor.scala:547) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.Actor.aroundReceive$(Actor.scala:545) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.AbstractActor.aroundReceive(AbstractActor.scala:229) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.ActorCell.receiveMessage(ActorCell.scala:590) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.ActorCell.invoke(ActorCell.scala:557) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.dispatch.Mailbox.processMailbox(Mailbox.scala:272) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.dispatch.Mailbox.run(Mailbox.scala:233) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.dispatch.Mailbox.exec(Mailbox.scala:245) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(Unknown Source) [?:?]
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(Unknown Source) [?:?]
+	at java.base/java.util.concurrent.ForkJoinPool.scan(Unknown Source) [?:?]
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(Unknown Source) [?:?]
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(Unknown Source) [?:?]
+2025-08-24 06:08:35,200 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance -> end: Writer (1/1) (67fadaeca7725b40415594fecc76fe8e_d71bfd8f3a906efb6630857809581eff_0_0) switched from RUNNING to FAILED on 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939).
+org.apache.flink.util.FlinkExpectedException: The TaskExecutor is shutting down.
+	at org.apache.flink.runtime.taskexecutor.TaskExecutor.onStop(TaskExecutor.java:524) ~[flink-dist-1.20.2.jar:1.20.2]
+	at org.apache.flink.runtime.rpc.RpcEndpoint.internalCallOnStop(RpcEndpoint.java:255) ~[flink-dist-1.20.2.jar:1.20.2]
+	at org.apache.flink.runtime.rpc.pekko.PekkoRpcActor$StartedState.lambda$terminate$0(PekkoRpcActor.java:583) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.flink.runtime.concurrent.ClassLoadingUtils.runWithContextClassLoader(ClassLoadingUtils.java:83) ~[flink-dist-1.20.2.jar:1.20.2]
+	at org.apache.flink.runtime.rpc.pekko.PekkoRpcActor$StartedState.terminate(PekkoRpcActor.java:582) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.flink.runtime.rpc.pekko.PekkoRpcActor.handleControlMessage(PekkoRpcActor.java:203) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.japi.pf.UnitCaseStatement.apply(CaseStatements.scala:33) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.japi.pf.UnitCaseStatement.apply(CaseStatements.scala:29) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at scala.PartialFunction.applyOrElse(PartialFunction.scala:127) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at scala.PartialFunction.applyOrElse$(PartialFunction.scala:126) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.japi.pf.UnitCaseStatement.applyOrElse(CaseStatements.scala:29) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at scala.PartialFunction$OrElse.applyOrElse(PartialFunction.scala:175) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at scala.PartialFunction$OrElse.applyOrElse(PartialFunction.scala:176) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.Actor.aroundReceive(Actor.scala:547) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.Actor.aroundReceive$(Actor.scala:545) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.AbstractActor.aroundReceive(AbstractActor.scala:229) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.ActorCell.receiveMessage(ActorCell.scala:590) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.ActorCell.invoke(ActorCell.scala:557) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.dispatch.Mailbox.processMailbox(Mailbox.scala:272) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.dispatch.Mailbox.run(Mailbox.scala:233) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.dispatch.Mailbox.exec(Mailbox.scala:245) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(Unknown Source) [?:?]
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(Unknown Source) [?:?]
+	at java.base/java.util.concurrent.ForkJoinPool.scan(Unknown Source) [?:?]
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(Unknown Source) [?:?]
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(Unknown Source) [?:?]
+2025-08-24 06:08:35,200 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: tx_logs_src[1] -> Calc[2] -> Map (2/2) (84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from RUNNING to FAILED on 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939).
+org.apache.flink.util.FlinkExpectedException: The TaskExecutor is shutting down.
+	at org.apache.flink.runtime.taskexecutor.TaskExecutor.onStop(TaskExecutor.java:524) ~[flink-dist-1.20.2.jar:1.20.2]
+	at org.apache.flink.runtime.rpc.RpcEndpoint.internalCallOnStop(RpcEndpoint.java:255) ~[flink-dist-1.20.2.jar:1.20.2]
+	at org.apache.flink.runtime.rpc.pekko.PekkoRpcActor$StartedState.lambda$terminate$0(PekkoRpcActor.java:583) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.flink.runtime.concurrent.ClassLoadingUtils.runWithContextClassLoader(ClassLoadingUtils.java:83) ~[flink-dist-1.20.2.jar:1.20.2]
+	at org.apache.flink.runtime.rpc.pekko.PekkoRpcActor$StartedState.terminate(PekkoRpcActor.java:582) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.flink.runtime.rpc.pekko.PekkoRpcActor.handleControlMessage(PekkoRpcActor.java:203) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.japi.pf.UnitCaseStatement.apply(CaseStatements.scala:33) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.japi.pf.UnitCaseStatement.apply(CaseStatements.scala:29) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at scala.PartialFunction.applyOrElse(PartialFunction.scala:127) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at scala.PartialFunction.applyOrElse$(PartialFunction.scala:126) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.japi.pf.UnitCaseStatement.applyOrElse(CaseStatements.scala:29) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at scala.PartialFunction$OrElse.applyOrElse(PartialFunction.scala:175) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at scala.PartialFunction$OrElse.applyOrElse(PartialFunction.scala:176) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.Actor.aroundReceive(Actor.scala:547) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.Actor.aroundReceive$(Actor.scala:545) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.AbstractActor.aroundReceive(AbstractActor.scala:229) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.ActorCell.receiveMessage(ActorCell.scala:590) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.ActorCell.invoke(ActorCell.scala:557) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.dispatch.Mailbox.processMailbox(Mailbox.scala:272) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.dispatch.Mailbox.run(Mailbox.scala:233) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.dispatch.Mailbox.exec(Mailbox.scala:245) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(Unknown Source) [?:?]
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(Unknown Source) [?:?]
+	at java.base/java.util.concurrent.ForkJoinPool.scan(Unknown Source) [?:?]
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(Unknown Source) [?:?]
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(Unknown Source) [?:?]
+2025-08-24 06:08:35,201 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance_cdc -> end: Writer (1/1) (e2f905d0c90787c1801ea88d0d796e32_d71bfd8f3a906efb6630857809581eff_0_0) switched from RUNNING to FAILED on 172.19.0.3:43433-4872c6 @ flink-taskmanager.dataplatform_crypto-network (dataPort=39939).
+org.apache.flink.util.FlinkExpectedException: The TaskExecutor is shutting down.
+	at org.apache.flink.runtime.taskexecutor.TaskExecutor.onStop(TaskExecutor.java:524) ~[flink-dist-1.20.2.jar:1.20.2]
+	at org.apache.flink.runtime.rpc.RpcEndpoint.internalCallOnStop(RpcEndpoint.java:255) ~[flink-dist-1.20.2.jar:1.20.2]
+	at org.apache.flink.runtime.rpc.pekko.PekkoRpcActor$StartedState.lambda$terminate$0(PekkoRpcActor.java:583) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.flink.runtime.concurrent.ClassLoadingUtils.runWithContextClassLoader(ClassLoadingUtils.java:83) ~[flink-dist-1.20.2.jar:1.20.2]
+	at org.apache.flink.runtime.rpc.pekko.PekkoRpcActor$StartedState.terminate(PekkoRpcActor.java:582) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.flink.runtime.rpc.pekko.PekkoRpcActor.handleControlMessage(PekkoRpcActor.java:203) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.japi.pf.UnitCaseStatement.apply(CaseStatements.scala:33) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.japi.pf.UnitCaseStatement.apply(CaseStatements.scala:29) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at scala.PartialFunction.applyOrElse(PartialFunction.scala:127) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at scala.PartialFunction.applyOrElse$(PartialFunction.scala:126) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.japi.pf.UnitCaseStatement.applyOrElse(CaseStatements.scala:29) ~[flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at scala.PartialFunction$OrElse.applyOrElse(PartialFunction.scala:175) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at scala.PartialFunction$OrElse.applyOrElse(PartialFunction.scala:176) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.Actor.aroundReceive(Actor.scala:547) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.Actor.aroundReceive$(Actor.scala:545) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.AbstractActor.aroundReceive(AbstractActor.scala:229) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.ActorCell.receiveMessage(ActorCell.scala:590) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.actor.ActorCell.invoke(ActorCell.scala:557) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.dispatch.Mailbox.processMailbox(Mailbox.scala:272) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.dispatch.Mailbox.run(Mailbox.scala:233) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at org.apache.pekko.dispatch.Mailbox.exec(Mailbox.scala:245) [flink-rpc-akka1d67037d-1904-416c-bc2c-0ed8bb7d3738.jar:1.20.2]
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(Unknown Source) [?:?]
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(Unknown Source) [?:?]
+	at java.base/java.util.concurrent.ForkJoinPool.scan(Unknown Source) [?:?]
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(Unknown Source) [?:?]
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(Unknown Source) [?:?]
+2025-08-24 06:08:35,212 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_1_0.
+2025-08-24 06:08:35,212 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 67fadaeca7725b40415594fecc76fe8e_d71bfd8f3a906efb6630857809581eff_0_0.
+2025-08-24 06:08:35,215 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_1_0.
+2025-08-24 06:08:35,245 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution e2f905d0c90787c1801ea88d0d796e32_d71bfd8f3a906efb6630857809581eff_0_0.
+2025-08-24 06:08:35,238 INFO  org.apache.flink.runtime.checkpoint.CheckpointFailureManager [] - Failed to trigger checkpoint for job e569910007438e71756e11ff2af91452 since Checkpoint triggering task Source: balance_src_newer[16] -> Calc[17] -> ConstraintEnforcer[18] -> Map (1/2) of job e569910007438e71756e11ff2af91452 is not being executed at the moment. Aborting checkpoint. Failure reason: Not all required tasks are currently running..
+2025-08-24 06:08:35,249 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_1_0.
+2025-08-24 06:08:35,255 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_1_0.
+2025-08-24 06:08:35,257 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Matching resource requirements against available resources.
+Missing resources:
+	 Job 7e49ce0b6ba490988caca280f326a4d4
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+	 Job e569910007438e71756e11ff2af91452
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+	 Job 9309a113381d442f7ff262fc0e23e412
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+	 Job 880f36aa03273488b624c407a52bad8a
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+	 Job 46405da1399f652dbc559a889212fb40
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+	 Job 493f2d5a73f7f81b3d66cb7d8a8cfc12
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+Current resources:
+	(none)
+2025-08-24 06:08:35,266 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - 7 tasks will be restarted to recover the failed task e2f905d0c90787c1801ea88d0d796e32_d71bfd8f3a906efb6630857809581eff_0_0.
+2025-08-24 06:08:35,267 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Job insert-into_paimon_catalog1.demo_db.account_balance_cdc (46405da1399f652dbc559a889212fb40) switched from state RUNNING to RESTARTING.
+2025-08-24 06:08:35,267 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - 7 tasks will be restarted to recover the failed task 7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_1_0.
+2025-08-24 06:08:35,268 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Job insert-into_paimon_catalog1.demo_db.account_balance (880f36aa03273488b624c407a52bad8a) switched from state RUNNING to RESTARTING.
+2025-08-24 06:08:35,267 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - 7 tasks will be restarted to recover the failed task 67fadaeca7725b40415594fecc76fe8e_d71bfd8f3a906efb6630857809581eff_0_0.
+2025-08-24 06:08:35,269 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Job insert-into_paimon_catalog1.demo_db.account_balance (9309a113381d442f7ff262fc0e23e412) switched from state RUNNING to RESTARTING.
+2025-08-24 06:08:35,266 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - 5 tasks will be restarted to recover the failed task 84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_1_0.
+2025-08-24 06:08:35,270 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Job insert-into_paimon_catalog1.demo_db.tx_logs (493f2d5a73f7f81b3d66cb7d8a8cfc12) switched from state RUNNING to RESTARTING.
+2025-08-24 06:08:35,271 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : tx_logs -> end: Writer (1/1) (84c0c990a2bac6fa623840281c7cd993_fbb4ef531e002f8fb3a2052db255adf5_0_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,271 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : tx_logs (1/2) (84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_0_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,270 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (2/2) (67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_1_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,272 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (1/2) (67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_0_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,272 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[4] -> Calc[5] -> ConstraintEnforcer[6] -> Map (2/2) (67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,273 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,270 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance_cdc (2/2) (e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_1_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,270 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance -> end: Writer (1/1) (7fd7cc23fe10e5bb3abd84a29964fcd0_d71bfd8f3a906efb6630857809581eff_0_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,273 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[4] -> Calc[5] -> ConstraintEnforcer[6] -> Map (1/2) (67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,272 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: tx_logs_src[1] -> Calc[2] -> Map (1/2) (84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,275 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_0_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,276 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,275 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance_cdc (1/2) (e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_0_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,276 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,276 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : tx_logs (2/2) (84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_1_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,276 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_older[7] -> Calc[8] -> ConstraintEnforcer[9] -> Map (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,277 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (2/2) (e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,281 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,282 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (1/2) (e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,280 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_older[7] -> Calc[8] -> ConstraintEnforcer[9] -> Map (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,282 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (1/2) (67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_0_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,283 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_0_0.
+2025-08-24 06:08:35,283 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_0_0.
+2025-08-24 06:08:35,283 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[4] -> Calc[5] -> ConstraintEnforcer[6] -> Map (1/2) (67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,281 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : tx_logs (2/2) (84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_1_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,282 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,282 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from RUNNING to CANCELING.
+2025-08-24 06:08:35,284 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_1_0.
+2025-08-24 06:08:35,284 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_0_0.
+2025-08-24 06:08:35,285 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_1_0.
+2025-08-24 06:08:35,285 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_older[7] -> Calc[8] -> ConstraintEnforcer[9] -> Map (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,286 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_1_0.
+2025-08-24 06:08:35,285 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_0_0.
+2025-08-24 06:08:35,285 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance_cdc (1/2) (e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_0_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,287 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_1_0.
+2025-08-24 06:08:35,288 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,287 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,289 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_1_0.
+2025-08-24 06:08:35,287 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : tx_logs -> end: Writer (1/1) (84c0c990a2bac6fa623840281c7cd993_fbb4ef531e002f8fb3a2052db255adf5_0_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,290 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 84c0c990a2bac6fa623840281c7cd993_fbb4ef531e002f8fb3a2052db255adf5_0_0.
+2025-08-24 06:08:35,290 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_1_0.
+2025-08-24 06:08:35,288 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_0_0.
+2025-08-24 06:08:35,290 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : tx_logs (1/2) (84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_0_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,291 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_0_0.
+2025-08-24 06:08:35,290 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance -> end: Writer (1/1) (7fd7cc23fe10e5bb3abd84a29964fcd0_d71bfd8f3a906efb6630857809581eff_0_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,291 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_0_0.
+2025-08-24 06:08:35,290 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_0_0.
+2025-08-24 06:08:35,292 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 7fd7cc23fe10e5bb3abd84a29964fcd0_d71bfd8f3a906efb6630857809581eff_0_0.
+2025-08-24 06:08:35,292 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_0_0.
+2025-08-24 06:08:35,292 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (2/2) (67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_1_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,293 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_1_0.
+2025-08-24 06:08:35,291 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_0_0.
+2025-08-24 06:08:35,292 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_0_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,292 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (1/2) (e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,293 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: tx_logs_src[1] -> Calc[2] -> Map (1/2) (84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,293 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_1_0.
+2025-08-24 06:08:35,294 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_0_0.
+2025-08-24 06:08:35,294 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_0_0.
+2025-08-24 06:08:35,295 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_0_0.
+2025-08-24 06:08:35,295 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[4] -> Calc[5] -> ConstraintEnforcer[6] -> Map (2/2) (67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,295 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_1_0.
+2025-08-24 06:08:35,295 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_0_0.
+2025-08-24 06:08:35,296 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_0_0.
+2025-08-24 06:08:35,296 INFO  org.apache.flink.runtime.jobmaster.slotpool.DefaultDeclarativeSlotPool [] - Releasing slot [228e6f0a6eca5c5ba61e13ac18167557].
+2025-08-24 06:08:35,295 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,298 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_0_0.
+2025-08-24 06:08:35,295 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_0_0.
+2025-08-24 06:08:35,297 INFO  org.apache.flink.runtime.jobmaster.slotpool.DefaultDeclarativeSlotPool [] - Releasing slot [b7f1a6c84e1d2c1767c6e724881d03cb].
+2025-08-24 06:08:35,295 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_1_0.
+2025-08-24 06:08:35,299 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_older[7] -> Calc[8] -> ConstraintEnforcer[9] -> Map (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_0_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,298 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_0_0.
+2025-08-24 06:08:35,302 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,303 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance_cdc (2/2) (e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_1_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,303 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_0_0.
+2025-08-24 06:08:35,305 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_1_0.
+2025-08-24 06:08:35,306 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_1_0.
+2025-08-24 06:08:35,304 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_1_0.
+2025-08-24 06:08:35,305 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_0_0.
+2025-08-24 06:08:35,305 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Clearing resource requirements of job 493f2d5a73f7f81b3d66cb7d8a8cfc12
+2025-08-24 06:08:35,305 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Disconnect TaskExecutor 172.19.0.3:43433-4872c6 because: The TaskExecutor is shutting down.
+2025-08-24 06:08:35,307 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_0_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,307 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_1_0.
+2025-08-24 06:08:35,306 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (2/2) (e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_1_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,310 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_0_0.
+2025-08-24 06:08:35,310 INFO  org.apache.flink.runtime.jobmaster.slotpool.DefaultDeclarativeSlotPool [] - Releasing slot [10fdbb4611344bbc979d5e3828ade3da].
+2025-08-24 06:08:35,310 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_1_0.
+2025-08-24 06:08:35,310 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution 7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_0_0.
+2025-08-24 06:08:35,311 INFO  org.apache.flink.runtime.jobmaster.slotpool.DefaultDeclarativeSlotPool [] - Releasing slot [dfd32aa5839622db26a7bfa734d707a2].
+2025-08-24 06:08:35,311 INFO  org.apache.flink.runtime.jobmaster.slotpool.DefaultDeclarativeSlotPool [] - Releasing slot [a3a4da7ef11f79eafbef6fb8d2817478].
+2025-08-24 06:08:35,311 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_1_0.
+2025-08-24 06:08:35,312 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Clearing resource requirements of job 9309a113381d442f7ff262fc0e23e412
+2025-08-24 06:08:35,312 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_1_0) switched from CANCELING to CANCELED.
+2025-08-24 06:08:35,312 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Disconnect TaskExecutor 172.19.0.3:43433-4872c6 because: The TaskExecutor is shutting down.
+2025-08-24 06:08:35,312 INFO  org.apache.flink.runtime.jobmaster.slotpool.DefaultDeclarativeSlotPool [] - Releasing slot [8240fe1043e73956c1a50dfd1b669063].
+2025-08-24 06:08:35,313 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_1_0.
+2025-08-24 06:08:35,314 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Clearing resource requirements of job 880f36aa03273488b624c407a52bad8a
+2025-08-24 06:08:35,314 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Discarding the results produced by task execution e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_1_0.
+2025-08-24 06:08:35,314 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Disconnect TaskExecutor 172.19.0.3:43433-4872c6 because: The TaskExecutor is shutting down.
+2025-08-24 06:08:35,315 INFO  org.apache.flink.runtime.jobmaster.slotpool.DefaultDeclarativeSlotPool [] - Releasing slot [35f8736540f038fafcb7d4e3ba95b894].
+2025-08-24 06:08:35,316 INFO  org.apache.flink.runtime.jobmaster.slotpool.DefaultDeclarativeSlotPool [] - Releasing slot [6d29f6181741c7de43c6a3d3a23a285c].
+2025-08-24 06:08:35,318 INFO  org.apache.flink.runtime.jobmaster.JobMaster                 [] - Disconnect TaskExecutor 172.19.0.3:43433-4872c6 because: The TaskExecutor is shutting down.
+2025-08-24 06:08:35,318 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Clearing resource requirements of job 46405da1399f652dbc559a889212fb40
+2025-08-24 06:08:35,376 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Matching resource requirements against available resources.
+Missing resources:
+	 Job 7e49ce0b6ba490988caca280f326a4d4
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+	 Job e569910007438e71756e11ff2af91452
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+Current resources:
+	(none)
+2025-08-24 06:08:36,288 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Job insert-into_paimon_catalog1.demo_db.account_balance (880f36aa03273488b624c407a52bad8a) switched from state RESTARTING to RUNNING.
+2025-08-24 06:08:36,295 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Restoring job 880f36aa03273488b624c407a52bad8a from Checkpoint 2 @ 1756015712450 for 880f36aa03273488b624c407a52bad8a located at file:/opt/flink/checkpoints/880f36aa03273488b624c407a52bad8a/chk-2.
+2025-08-24 06:08:36,308 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - No master state to restore
+2025-08-24 06:08:36,308 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_older[7] -> Calc[8] -> ConstraintEnforcer[9] -> Map (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_0_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,308 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_older[7] -> Calc[8] -> ConstraintEnforcer[9] -> Map (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_cbc357ccb763df2852fee8c4fc7d55f2_1_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,308 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_0_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,308 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_8d96fc510e75de3baf03ef7367db7d42_1_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,309 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (1/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_0_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,309 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (2/2) (7fd7cc23fe10e5bb3abd84a29964fcd0_16db17f833c49277c04b533df7e3baff_1_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,309 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance -> end: Writer (1/1) (7fd7cc23fe10e5bb3abd84a29964fcd0_d71bfd8f3a906efb6630857809581eff_0_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,309 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Received resource requirements from job 880f36aa03273488b624c407a52bad8a: [ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=1}]
+2025-08-24 06:08:36,310 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Received resource requirements from job 880f36aa03273488b624c407a52bad8a: [ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}]
+2025-08-24 06:08:36,320 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Job insert-into_paimon_catalog1.demo_db.account_balance (9309a113381d442f7ff262fc0e23e412) switched from state RESTARTING to RUNNING.
+2025-08-24 06:08:36,320 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Restoring job 9309a113381d442f7ff262fc0e23e412 from Checkpoint 2 @ 1756015710852 for 9309a113381d442f7ff262fc0e23e412 located at file:/opt/flink/checkpoints/9309a113381d442f7ff262fc0e23e412/chk-2.
+2025-08-24 06:08:36,321 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - No master state to restore
+2025-08-24 06:08:36,321 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[4] -> Calc[5] -> ConstraintEnforcer[6] -> Map (1/2) (67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_0_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,321 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[4] -> Calc[5] -> ConstraintEnforcer[6] -> Map (2/2) (67fadaeca7725b40415594fecc76fe8e_cbc357ccb763df2852fee8c4fc7d55f2_1_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,321 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_0_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,321 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (67fadaeca7725b40415594fecc76fe8e_8d96fc510e75de3baf03ef7367db7d42_1_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,321 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (1/2) (67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_0_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,321 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance (2/2) (67fadaeca7725b40415594fecc76fe8e_16db17f833c49277c04b533df7e3baff_1_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,321 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance -> end: Writer (1/1) (67fadaeca7725b40415594fecc76fe8e_d71bfd8f3a906efb6630857809581eff_0_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,322 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Received resource requirements from job 9309a113381d442f7ff262fc0e23e412: [ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=1}]
+2025-08-24 06:08:36,322 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Received resource requirements from job 9309a113381d442f7ff262fc0e23e412: [ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}]
+2025-08-24 06:08:36,362 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Job insert-into_paimon_catalog1.demo_db.tx_logs (493f2d5a73f7f81b3d66cb7d8a8cfc12) switched from state RESTARTING to RUNNING.
+2025-08-24 06:08:36,363 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Restoring job 493f2d5a73f7f81b3d66cb7d8a8cfc12 from Checkpoint 2 @ 1756015710116 for 493f2d5a73f7f81b3d66cb7d8a8cfc12 located at file:/opt/flink/checkpoints/493f2d5a73f7f81b3d66cb7d8a8cfc12/chk-2.
+2025-08-24 06:08:36,364 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - No master state to restore
+2025-08-24 06:08:36,365 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: tx_logs_src[1] -> Calc[2] -> Map (1/2) (84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_0_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,365 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: tx_logs_src[1] -> Calc[2] -> Map (2/2) (84c0c990a2bac6fa623840281c7cd993_cbc357ccb763df2852fee8c4fc7d55f2_1_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,365 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : tx_logs (1/2) (84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_0_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,365 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : tx_logs (2/2) (84c0c990a2bac6fa623840281c7cd993_306d8342cb5b2ad8b53f1be57f65bee8_1_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,365 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : tx_logs -> end: Writer (1/1) (84c0c990a2bac6fa623840281c7cd993_fbb4ef531e002f8fb3a2052db255adf5_0_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,367 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Received resource requirements from job 493f2d5a73f7f81b3d66cb7d8a8cfc12: [ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=1}]
+2025-08-24 06:08:36,367 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Received resource requirements from job 493f2d5a73f7f81b3d66cb7d8a8cfc12: [ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}]
+2025-08-24 06:08:36,376 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Matching resource requirements against available resources.
+Missing resources:
+	 Job 7e49ce0b6ba490988caca280f326a4d4
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+	 Job e569910007438e71756e11ff2af91452
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+	 Job 9309a113381d442f7ff262fc0e23e412
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+	 Job 880f36aa03273488b624c407a52bad8a
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+	 Job 493f2d5a73f7f81b3d66cb7d8a8cfc12
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+Current resources:
+	(none)
+2025-08-24 06:08:36,384 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Job insert-into_paimon_catalog1.demo_db.account_balance_cdc (46405da1399f652dbc559a889212fb40) switched from state RESTARTING to RUNNING.
+2025-08-24 06:08:36,385 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - Restoring job 46405da1399f652dbc559a889212fb40 from Checkpoint 2 @ 1756015712855 for 46405da1399f652dbc559a889212fb40 located at file:/opt/flink/checkpoints/46405da1399f652dbc559a889212fb40/chk-2.
+2025-08-24 06:08:36,386 INFO  org.apache.flink.runtime.checkpoint.CheckpointCoordinator    [] - No master state to restore
+2025-08-24 06:08:36,387 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (1/2) (e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_0_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,387 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (2/2) (e2f905d0c90787c1801ea88d0d796e32_cbc357ccb763df2852fee8c4fc7d55f2_1_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,387 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (1/2) (e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_0_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,387 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - dynamic-bucket-assigner (2/2) (e2f905d0c90787c1801ea88d0d796e32_8d96fc510e75de3baf03ef7367db7d42_1_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,387 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance_cdc (1/2) (e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_0_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,387 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Writer : account_balance_cdc (2/2) (e2f905d0c90787c1801ea88d0d796e32_16db17f833c49277c04b533df7e3baff_1_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,387 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Global Committer : account_balance_cdc -> end: Writer (1/1) (e2f905d0c90787c1801ea88d0d796e32_d71bfd8f3a906efb6630857809581eff_0_1) switched from CREATED to SCHEDULED.
+2025-08-24 06:08:36,388 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Received resource requirements from job 46405da1399f652dbc559a889212fb40: [ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=1}]
+2025-08-24 06:08:36,389 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Received resource requirements from job 46405da1399f652dbc559a889212fb40: [ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}]
+2025-08-24 06:08:36,456 INFO  org.apache.flink.runtime.resourcemanager.slotmanager.FineGrainedSlotManager [] - Matching resource requirements against available resources.
+Missing resources:
+	 Job 7e49ce0b6ba490988caca280f326a4d4
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+	 Job e569910007438e71756e11ff2af91452
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+	 Job 9309a113381d442f7ff262fc0e23e412
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+	 Job 880f36aa03273488b624c407a52bad8a
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+	 Job 46405da1399f652dbc559a889212fb40
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+	 Job 493f2d5a73f7f81b3d66cb7d8a8cfc12
+		ResourceRequirement{resourceProfile=ResourceProfile{UNKNOWN}, numberOfRequiredSlots=2}
+Current resources:
+	(none)
+2025-08-24 06:08:38,248 INFO  org.apache.flink.runtime.checkpoint.CheckpointFailureManager [] - Failed to trigger checkpoint for job 46405da1399f652dbc559a889212fb40 since Checkpoint triggering task Source: balance_src_newer[10] -> Calc[11] -> ConstraintEnforcer[12] -> Map (1/2) of job 46405da1399f652dbc559a889212fb40 is not being executed at the moment. Aborting checkpoint. Failure reason: Not all required tasks are currently running..
+2025-08-24 06:08:40,599 WARN  org.apache.pekko.remote.ReliableDeliverySupervisor           [] - Association with remote system [pekko.tcp://flink@172.19.0.3:43433] has failed, address is now gated for [50] ms. Reason: [Disassociated] 
+2025-08-24 06:08:40,748 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] - RECEIVED SIGNAL 15: SIGTERM. Shutting down as requested.
+2025-08-24 06:08:40,751 INFO  org.apache.flink.runtime.entrypoint.ClusterEntrypoint        [] - Shutting StandaloneSessionClusterEntrypoint down with application status UNKNOWN. Diagnostics Cluster entrypoint has been closed externally..
+2025-08-24 06:08:40,920 INFO  org.apache.pekko.actor.CoordinatedShutdown                   [] - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+2025-08-24 06:08:40,923 INFO  org.apache.pekko.remote.RemoteActorRefProvider$RemotingTerminator [] - Shutting down remote daemon.
+2025-08-24 06:08:40,922 INFO  org.apache.pekko.remote.RemoteActorRefProvider$RemotingTerminator [] - Shutting down remote daemon.
+2025-08-24 06:08:40,923 INFO  org.apache.pekko.remote.RemoteActorRefProvider$RemotingTerminator [] - Remote daemon shut down; proceeding with flushing remote transports.
+2025-08-24 06:08:40,924 INFO  org.apache.pekko.remote.RemoteActorRefProvider$RemotingTerminator [] - Remote daemon shut down; proceeding with flushing remote transports.
+2025-08-24 06:08:40,977 INFO  org.apache.pekko.remote.RemoteActorRefProvider$RemotingTerminator [] - Remoting shut down.
+2025-08-24 06:08:40,977 INFO  org.apache.pekko.remote.RemoteActorRefProvider$RemotingTerminator [] - Remoting shut down.

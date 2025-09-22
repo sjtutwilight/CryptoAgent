@@ -1,0 +1,135 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: control-plane-service
+  
+  # 数据库配置
+  datasource:
+    url: jdbc:postgresql://localhost:5432/twilight
+    username: twilight
+    password: twilight123
+    driver-class-name: org.postgresql.Driver
+    
+  # JPA配置
+  jpa:
+    hibernate:
+      ddl-auto: validate  # 使用SQL脚本初始化，不自动创建表
+    show-sql: true
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        format_sql: true
+        
+  # Redis配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
+          
+  # Kafka配置
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 3
+      batch-size: 16384
+      linger-ms: 1
+      buffer-memory: 33554432
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      group-id: control-plane-service
+      auto-offset-reset: latest
+      enable-auto-commit: false
+      
+# 应用自定义配置
+app:
+  # 任务配置
+  task:
+    # 最大重试次数
+    max-retry-count: 3
+    # 任务默认超时时间（秒）
+    default-timeout: 300
+    # 任务批处理大小
+    batch-size: 100
+    
+  # 限流配置
+  rate-limit:
+    # 滑动窗口大小（秒）
+    window-size: 60
+    # Redis键前缀
+    redis-key-prefix: "rate-limit:"
+    
+  # 定时器配置
+  timer:
+    # 任务扫描间隔（毫秒）
+    scan-interval: 1000
+    # 每次扫描的最大任务数
+    max-tasks-per-scan: 1000
+    # 提前调度时间（毫秒）- 提前多久开始调度任务
+    advance-schedule-time: 5000
+    
+  # Kafka Topic配置
+  kafka:
+    topics:
+      http-tasks: "http.tasks"
+      task-status: "tasks.status"
+
+
+# 日志配置
+logging:
+  level:
+    com.crypto: DEBUG
+    org.springframework.kafka: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.springframework.web: DEBUG
+    org.springframework.http.converter.json: DEBUG
+    org.springframework.validation: DEBUG
+datasources:
+  configs:
+  # Mock Ethereum 数据源
+    mock-ethereum:
+      dataSourceId: "MockEthereum"
+      baseUrl: "http://localhost:8090"
+      rateLimitWeight: 60
+      rateLimitInterval: 60  # seconds
+      maxRetryCount: 3
+      retryDelayMs: 1000
+      timeoutMs: 30000
+      enabled: true
+    
+  # CoinMarketCap 数据源
+    CMC:
+      dataSourceId: "CMC"
+      baseUrl: "https://pro-api.coinmarketcap.com/v1"
+      rateLimitWeight: 1200  # 60秒内1200次调用
+      rateLimitInterval: 60
+      maxRetryCount: 3
+      retryDelayMs: 2000
+      timeoutMs: 15000
+      enabled: true
+      apiKey: "8760b558-6800-4cf3-879a-1ff40cba1a96"
+      
+  # Binance WebSocket (用于实时数据)
+    binance-websocket:
+      dataSourceId: "Binance"
+      baseUrl: "wss://stream.binance.com:9443"
+      rateLimitWeight: 10
+      rateLimitInterval: 60
+      maxRetryCount: 5
+      retryDelayMs: 1000
+      timeoutMs: 30000
+      enabled: true
+ 

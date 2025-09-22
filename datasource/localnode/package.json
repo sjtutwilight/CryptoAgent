@@ -1,0 +1,31 @@
+{
+  "name": "localnode",
+  "version": "1.0.0",
+  "description": "Local Hardhat node with TWSwap simulation",
+  "main": "index.js",
+  "scripts": {
+    "node": "hardhat node",
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/initialize.js --network localhost",
+    "simulate": "hardhat run scripts/simulator.js --network localhost",
+    "test": "hardhat test",
+    "start": "npm run node",
+    "setup": "npm run compile && npm run deploy",
+    "full": "concurrently \"npm run node\" \"sleep 5 && npm run setup && npm run simulate\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@openzeppelin/contracts": "^5.0.1",
+    "concurrently": "^8.2.2",
+    "ethers": "^6.13.5",
+    "hardhat": "^2.19.3"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts-upgradeable": "^5.2.0",
+    "ioredis": "^5.4.2",
+    "pg": "^8.13.1"
+  }
+}

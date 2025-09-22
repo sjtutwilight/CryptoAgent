@@ -1,0 +1,36 @@
+kafka:
+  brokers:
+    - "localhost:9092"
+  topics:
+    binance: "binance_data"
+    quicknode: "quicknode_data"
+
+websocket:
+  binance:
+    enable: false
+    url: "wss://stream.binance.com:9443"
+    apiKey: "dTgvvkKyA2BH2xIlcEHImNEVfRSEnplChNRjhyV6ErP2kQuBilOm3ruTx3xfJUSP" 
+    secretKey: "24J1NTTXzlZlo09tIRArsfS3XgNdkQFwVE5v1WwcpGIX7hBxlwkvuAWUrbtYZeUM"
+    symbols:
+      - "btcusdt"
+      - "ethusdt"
+      - "adausdt"
+      - "bnbusdt"
+      - "xrpusdt"
+    interval: "1m"
+    
+  quicknode:
+    enable: false
+    url: "wss://docs-demo.quiknode.pro"
+    apiKey: "QN_0a5b9df08d0b41a7b34253b8a9fe641"
+    subscriptions:
+      - "newHeads"
+
+connection:
+  heartbeat:
+    interval: 30  # seconds
+    timeout: 10   # seconds
+  reconnect:
+    maxRetries: 5
+    backoffBase: 2  # seconds
+    backoffMax: 60  # seconds

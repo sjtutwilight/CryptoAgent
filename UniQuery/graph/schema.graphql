@@ -1,0 +1,209 @@
+# 查询根类型
+type Query {
+  # Account 相关查询
+  account(id: ID!): Account
+  accounts(page: Int = 1, limit: Int = 10): [Account!]!
+  accountTransferEvents(
+    accountId: ID!, 
+    page: Int = 1, 
+    limit: Int = 10, 
+    buyOrSell: String, 
+    sortBy: String = "blockTimestamp"
+  ): [AccountTransferEvent!]!
+  accountTransferHistory(
+    accountId: ID!, 
+    page: Int = 1, 
+    limit: Int = 10, 
+    buyOrSell: String,
+    sortBy: String = "endTime"
+  ): [AccountTransferHistory!]!
+  
+  # Token 相关查询
+  token(id: ID!): Token
+  tokens(
+    page: Int = 1, 
+    limit: Int = 10, 
+    sortBy: String = "mcap"
+  ): [Token!]!
+  tokenTransferEvents(
+    tokenId: ID!, 
+    page: Int = 1, 
+    limit: Int = 10, 
+    buyOrSell: String,
+    onlySmartMoney: Boolean = false,
+    onlyWithCex: Boolean = false,
+    onlyWithDex: Boolean = false,
+    sortBy: String = "blockTimestamp"
+  ): [TokenTransferEvent!]!
+  tokenHolders(
+    tokenId: ID!, 
+    page: Int = 1, 
+    limit: Int = 10, 
+    sortBy: String = "ownership"
+  ): [TokenHolder!]!
+}
+
+# Account 相关类型
+type Account {
+  id: ID!
+  entity: String
+  labels: [String!]!
+  chainName: String!
+  address: String!
+  
+  # 余额信息
+  ethBalance: Float!
+  erc20Balances: [ERC20Balance!]!
+  defiPositions: [DefiPosition!]!
+  
+  # 交易记录列表
+  accountTransferEvents(
+    page: Int = 1, 
+    limit: Int = 10, 
+    buyOrSell: String,
+    sortBy: String = "blockTimestamp"
+  ): [AccountTransferEvent!]!
+  
+  # 交易历史，按照5分钟聚合且与整点对齐
+  accountTransferHistory(
+    page: Int = 1, 
+    limit: Int = 10, 
+    buyOrSell: String,
+    sortBy: String = "endTime"
+  ): [AccountTransferHistory!]!
+}
+
+type ERC20Balance {
+  tokenAddress: String!
+  tokenSymbol: String!
+  balance: Float!
+  price: Float!
+  valueUSD: Float!
+}
+
+type DefiPosition {
+  protocol: String!
+  contractAddress: String!
+  position: String!
+  valueUSD: Float!
+}
+
+type AccountTransferEvent {
+  accountId: ID!
+  blockTimestamp: String!
+  fromAddress: String!
+  buyOrSell: String!
+  toAddress: String!
+  tokenSymbol: String!
+  valueUSD: Float!
+}
+
+type AccountTransferHistory {
+  endTime: String!
+  buyOrSell: String!
+  txCnt: Int!
+  totalValueUSD: Float!
+}
+
+# Token 相关类型
+type Token {
+  id: ID!
+  chainName: String!
+  tokenSymbol: String!
+  tokenAddress: String!
+  
+  # 详细信息
+  tokenDetail: TokenDetail
+}
+
+type TokenDetail {
+  id: ID!
+  # 大盘信息
+  chainName: String!
+  tokenSymbol: String!
+  price: Float!
+  mcap: Float!
+  liquidity: Float!
+  fdv: Float!
+  
+  # token 额外信息
+  issuer: String!
+  tokenAge: String!
+  tokenCatagory: String!
+  securityScore: Float!
+  
+  # 实时指标（基于不同时间窗口，前端可通过 tab 切换）
+  recentMetrics(timeWindow: TimeWindow!): TokenRecentMetric!
+  
+  # 历史走势数据（柱状图或折线图，时间间隔均为20s，与整点对齐）
+  rollingMetrics(
+    limit: Int = 100, 
+    startTime: String, 
+    endTime: String
+  ): [TokenRollingMetric!]!
+  
+  # 交易列表
+  tokenTransferEvents(
+    page: Int = 1, 
+    limit: Int = 10, 
+    buyOrSell: String,
+    onlySmartMoney: Boolean = false,
+    onlyWithCex: Boolean = false,
+    onlyWithDex: Boolean = false,
+    sortBy: String = "blockTimestamp"
+  ): [TokenTransferEvent!]!
+  
+  # Top Holder 列表
+  tokenHolders(
+    page: Int = 1, 
+    limit: Int = 10, 
+    sortBy: String = "ownership"
+  ): [TokenHolder!]!
+}
+
+enum TimeWindow {
+  TWENTY_SECONDS
+  ONE_MINUTE
+  FIVE_MINUTES
+  ONE_HOUR
+}
+
+type TokenRecentMetric {
+  timeWindow: TimeWindow!
+  txcnt: Int!
+  volume: Float!
+  priceChange: Float!
+  buys: Int!
+  sells: Int!
+  buyVolume: Float!
+  sellVolume: Float!
+  
+  freshWalletInflow: Float!
+  smartMoneyInflow: Float!
+  smartMoneyOutflow: Float!
+  exchangeInflow: Float!
+  exchangeOutflow: Float!
+  buyPressure: Float!
+}
+
+type TokenRollingMetric {
+  endTime: String!
+  price: Float!
+  mcap: Float!
+}
+
+type TokenTransferEvent {
+  tokenId: ID!
+  fromAddress: String!
+  toAddress: String!
+  valueUSD: Float!
+  blockTimestamp: String!
+}
+
+type TokenHolder {
+  accountId: ID!
+  tokenId: ID!
+  tokenAddress: String!
+  ownership: Float!
+  valueUSD: Float!
+} 

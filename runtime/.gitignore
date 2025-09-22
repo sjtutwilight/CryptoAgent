@@ -1,0 +1,13 @@
+# Runtime data and logs
+logs/*.log
+logs/**/*.log
+checkpoints/**
+flink-checkpoints/**
+data/paimon-warehouse/**
+data/starrocks/**
+
+# Keep directory structure but ignore contents
+!.gitkeep
+!*/
+
+
