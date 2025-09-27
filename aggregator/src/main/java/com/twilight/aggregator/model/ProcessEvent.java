@@ -26,7 +26,7 @@ ProcessEvent implements Serializable {
 
     private String contractType;     // "erc20" 或 "dex"
     private Long bizId;           // tokenId（ERC20）或 pairId（dex）
-        
+    private String bizName;       // token symbol 或 pair name
     // 强类型事件数据（只有一个非null）
     private ERC20TransferData erc20Data;  // 包含ERC20和LP Token的Transfer事件
     private DexSwapData dexSwapData;

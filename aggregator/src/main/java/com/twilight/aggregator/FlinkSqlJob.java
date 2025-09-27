@@ -192,7 +192,7 @@ public class FlinkSqlJob {
             "  chain_id INT," +
             "  token_id BIGINT," +
             "  account_id BIGINT," +
-            "  side STRING," +           // 'BUY'/'SELL'
+            "  side STRING," +           // 'buy'/'sell'
             "  qty DECIMAL(38,18)," +
             "  price_usd DECIMAL(38,18)," +
             "  value_usd DECIMAL(38,18)," +
@@ -293,7 +293,7 @@ public class FlinkSqlJob {
             "    ABS(HASH_CODE(CONCAT(pair_address, '_token0'))) % 1000000 AS token_id,\n" +
             "    ABS(HASH_CODE(sender)) % 1000000 AS account_id,\n" +
             "    ABS(HASH_CODE(pair_address)) % 100000 AS pair_id,\n" +
-            "    CAST('BUY' AS STRING) AS side,\n" +
+            "    CAST('buy' AS STRING) AS side,\n" +
             "    CAST(amount0_out AS DECIMAL(38,18)) / POWER(10, 18) AS qty,\n" +
             "    CASE\n" +
             "      WHEN CAST(amount0_out AS DECIMAL(38,18)) > 0\n" +
@@ -322,7 +322,7 @@ public class FlinkSqlJob {
             "    ABS(HASH_CODE(CONCAT(pair_address, '_token0'))) % 1000000 AS token_id,\n" +
             "    ABS(HASH_CODE(sender)) % 1000000 AS account_id,\n" +
             "    ABS(HASH_CODE(pair_address)) % 100000 AS pair_id,\n" +
-            "    CAST('SELL' AS STRING) AS side,\n" +
+            "    CAST('sell' AS STRING) AS side,\n" +
             "    CAST(amount0_in AS DECIMAL(38,18)) / POWER(10, 18) AS qty,\n" +
             "    CASE\n" +
             "      WHEN CAST(amount0_in AS DECIMAL(38,18)) > 0\n" +

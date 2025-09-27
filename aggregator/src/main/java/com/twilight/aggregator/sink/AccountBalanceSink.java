@@ -31,11 +31,11 @@ public class AccountBalanceSink extends RichSinkFunction<AccountBalance> {
     // ClickHouse INSERT SQL
     private static final String INSERT_SQL = 
         "INSERT INTO ch_account_balance_snapshot " +
-        "(account_id, observed_time, block_id, asset_type, biz_id, amount, price_usd, value_usd, label_mask) " +
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        "(snapshot_id, account_id, account_address, asset_type, biz_id, observed_time, block_id, amount, price_usd, value_usd, label_mask) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     public AccountBalanceSink() {
-        this(100, 5000); // 默认100条批量，5秒刷新
+        this(100, 1000); // 默认100条批量，5秒刷新
     }
     
     public AccountBalanceSink(int batchSize, long flushIntervalMs) {
@@ -160,19 +160,21 @@ public class AccountBalanceSink extends RichSinkFunction<AccountBalance> {
      * 设置AccountBalance参数
      */
     private void setBalanceParameters(PreparedStatement stmt, AccountBalance balance) throws SQLException {
-        stmt.setLong(1, balance.getAccountId());
-        
-        // 转换LocalDateTime为Timestamp
-        Timestamp timestamp = Timestamp.valueOf(balance.getObservedTime());
-        stmt.setTimestamp(2, timestamp);
-        
-        stmt.setLong(3, balance.getBlockId());
+        stmt.setLong(1, balance.getSnapshotId());
+        stmt.setLong(2, balance.getAccountId());
+        stmt.setString(3, balance.getAccountAddress());
         stmt.setString(4, balance.getAssetType());
         stmt.setLong(5, balance.getBizId());
-        stmt.setBigDecimal(6, balance.getAmount());
-        stmt.setBigDecimal(7, balance.getPriceUsd());
-        stmt.setBigDecimal(8, balance.getValueUsd());
-        stmt.setInt(9, balance.getLabelMask());
+
+        // 转换LocalDateTime为Timestamp
+        Timestamp timestamp = Timestamp.valueOf(balance.getObservedTime());
+        stmt.setTimestamp(6, timestamp);
+        
+        stmt.setLong(7, balance.getBlockId());
+        stmt.setBigDecimal(8, balance.getAmount());
+        stmt.setBigDecimal(9, balance.getPriceUsd());
+        stmt.setBigDecimal(10, balance.getValueUsd());
+        stmt.setInt(11, balance.getLabelMask());
     }
     
     /**

@@ -47,216 +47,217 @@ PARTITION BY toYYYYMM(block_time)
 ORDER BY (token_id, block_time, log_index, account_id)  -- Token 优先（Token 页面最常见），辅以时间与事件序
 TTL block_time + INTERVAL 180 DAY
 SETTINGS index_granularity = 8192,deduplicate_merge_projection_mode = 'rebuild';
-CREATE TABLE IF NOT EXISTS ch_account_balance_snapshot (
-  account_id       UInt64,
-  observed_time    DateTime,
-  block_id         UInt64,                   -- 版本/去重
-  asset_type       LowCardinality(String),   -- 'erc20'/'lp'
-  biz_id           UInt64,                   -- token_id 或 pair_id
-  amount           Decimal(38,18),
-  price_usd        Decimal(38,18),
-  value_usd        Decimal(38,18),
-  label_mask       UInt16 DEFAULT 0,
-
-  -- 常用过滤索引
+CREATE TABLE IF NOT EXISTS ch_account_balance_snapshot
+(
+    `snapshot_id` UInt64,
+    `account_id` UInt64,
+    `account_address` LowCardinality(String),
+    `asset_type` LowCardinality(String),
+    `biz_id` UInt64,
+    `biz_name` String,
+    `observed_time` DateTime,
+    `end_minute` DateTime MATERIALIZED toStartOfMinute(observed_time),
+    `block_id` UInt64,
+    `amount` Decimal(38, 18),
+    `price_usd` Decimal(38, 18),
+    `value_usd` Decimal(38, 18),
+    `label_mask` UInt16 DEFAULT 0,
   INDEX idx_account_time (account_id, observed_time) TYPE bloom_filter() GRANULARITY 1,
-  INDEX idx_value_usd     (value_usd)                TYPE minmax        GRANULARITY 1,
-  INDEX idx_label_mask    (label_mask)               TYPE set(100)      GRANULARITY 1,  -- 低基数用set更省
-
-  -- 方便下游统一对齐：派生“分钟”列
-  end_minute DateTime MATERIALIZED toStartOfMinute(observed_time),
-
-  -- Projections（高频查询路径）
+    INDEX idx_value_usd value_usd TYPE minmax GRANULARITY 1,
+    INDEX idx_label_mask label_mask TYPE set(100) GRANULARITY 1,
   PROJECTION proj_by_token
-    (SELECT biz_id, asset_type, account_id, observed_time, amount, value_usd, label_mask
-     ORDER BY (biz_id, observed_time, account_id)),
+    (
+        SELECT
+            snapshot_id,
+            biz_id,
+            biz_name,
+            asset_type,
+            account_id,
+            account_address,
+            observed_time,
+            amount,
+            value_usd,
+            label_mask
+        ORDER BY
+            snapshot_id,
+            biz_id,
+            observed_time,
+            account_id
+    ),
   PROJECTION proj_by_time
-    (SELECT observed_time, biz_id, account_id, value_usd, label_mask
-     ORDER BY (observed_time, biz_id))
+    (
+        SELECT
+            snapshot_id,
+            observed_time,
+            biz_id,
+            biz_name,
+            account_id,
+            account_address,
+            value_usd,
+            label_mask
+        ORDER BY
+            snapshot_id,
+            observed_time,
+            biz_id
+    )
 )
 ENGINE = ReplacingMergeTree(block_id)
 PARTITION BY toYYYYMM(observed_time)
-ORDER BY (account_id, observed_time, block_id, biz_id)
-TTL observed_time + INTERVAL 30 DAY
-SETTINGS index_granularity = 8192,
-         deduplicate_merge_projection_mode = 'rebuild';
-CREATE TABLE IF NOT EXISTS ch_token_distribution_minute_state (
-  token_id  UInt64,
-  end_time  DateTime,
-
-  -- 持有人数（value_usd>0 的账户去重）
-  holders_uniq_state            AggregateFunction(uniqExact, UInt64),
-
-  -- Fresh 持有人数（位图示例：bit0=Fresh）
-  fresh_holders_uniq_state      AggregateFunction(uniqExact, UInt64),
-
-  -- 总价值 / Fresh 价值
-  total_value_sum_state         AggregateFunction(sum, Decimal(38,4)),
-  fresh_value_sum_state         AggregateFunction(sum, Decimal(38,4)),
-
-  -- 中位数（精确中位数 state）
-  median_value_state            AggregateFunction(quantileExact, Decimal(38,4)),
-
-  -- 平均值（可直接 avgMerge）
-  avg_value_state               AggregateFunction(avg, Decimal(38,4)),
-
-  -- Top2（用 topKState，然后在视图里 arraySum(topKMerge(2)(…))）
-  top2_value_state              AggregateFunction(topK(2), Decimal(38,4))
-)
-ENGINE = AggregatingMergeTree
-ORDER BY (token_id, end_time)
-PARTITION BY toYYYYMM(end_time)
-TTL end_time + INTERVAL 30 DAY;
+ORDER BY (snapshot_id, account_id, asset_type, biz_id)
+TTL observed_time + toIntervalDay(30)
+SETTINGS index_granularity = 8192, deduplicate_merge_projection_mode = 'rebuild'
 
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS mv_dist_from_snapshot
-TO ch_token_distribution_minute_state
-AS
-SELECT
-  biz_id                    AS token_id,
-  end_minute                AS end_time,
 
-  -- holders：只统计 value_usd>0 的账户
-  uniqExactStateIf(account_id, value_usd > 0)                                  AS holders_uniq_state,
-  uniqExactStateIf(account_id, (bitAnd(label_mask, toUInt16(1)) != 0) AND value_usd > 0)
-                                                                              AS fresh_holders_uniq_state,
-
-  -- 总价值 / Fresh 价值
-  sumState( toDecimal128(value_usd, 4) )                                       AS total_value_sum_state,
-  sumStateIf( toDecimal128(value_usd, 4), (bitAnd(label_mask, toUInt16(1)) != 0) AND value_usd > 0 )
-                                                                              AS fresh_value_sum_state,
-
-  -- 中位数（对 value_usd>0 的分位数 state）
-  quantileExactState(0.5)( toDecimal128(value_usd, 4) )                        AS median_value_state,
-
-  -- 平均值（也只对正值参与）
-  avgStateIf( toDecimal128(value_usd, 4), value_usd > 0 )                      AS avg_value_state,
-
-  -- top2：topKState(2) 对 value_usd>0 参与
-  topKState(2)( toDecimal128(value_usd, 4) )                                   AS top2_value_state
-FROM ch_account_balance_snapshot
-WHERE asset_type = 'erc20'
-GROUP BY token_id, end_time;
-CREATE OR REPLACE VIEW v_token_distribution_minute AS
-SELECT
-    token_id,
-    end_time,
-    uniqExactMerge(holders_uniq_state)          AS holders_count,
-    toDecimal64(sumMerge(total_value_sum_state), 4)             AS total_value_usd,
-    toDecimal64(quantileExactMerge(0.5)(median_value_state), 4) AS median_holder_value_usd,
-    toDecimal64(avgMerge(avg_value_state), 4)                   AS avg_holder_value_usd,
-    arraySum(topKMerge(2)(top2_value_state))                    AS top2_value_usd,
-    if(sumMerge(total_value_sum_state) > 0,
-       arraySum(topKMerge(2)(top2_value_state)) / sumMerge(total_value_sum_state),
-       NULL)                                                    AS top2_share,
-    if(sumMerge(total_value_sum_state) > 0,
-       sumMerge(fresh_value_sum_state) / sumMerge(total_value_sum_state),
-       NULL)                                                    AS fresh_holder_value_share,
-    if(uniqExactMerge(holders_uniq_state) > 0,
-       uniqExactMerge(fresh_holders_uniq_state) / uniqExactMerge(holders_uniq_state),
-       NULL)                                                    AS fresh_holder_count_share
-FROM ch_token_distribution_minute_state
-GROUP BY token_id, end_time
-ORDER BY token_id ASC, end_time ASC;
-
-
-CREATE TABLE IF NOT EXISTS ch_token_holder_balance_minute (
-  token_id     UInt64,
-  end_time     DateTime,
-  account_id   UInt64,
-  amount       Decimal(38,18),
-  value_usd    Decimal(38,18),
-  label_mask   UInt16,
-  version      UInt64,  -- 取 block_id 或 observed_time 的最大值
-
-  PROJECTION by_token_time
-    (SELECT token_id, end_time, account_id, value_usd, amount, label_mask
-     ORDER BY (token_id, end_time, account_id)),
-
-  PROJECTION by_account_time
-    (SELECT account_id, token_id, end_time, value_usd, amount, label_mask
-     ORDER BY (account_id, end_time, token_id))
+-- 简化的持仓明细表 - 只保留最新两个snapshot用于计算变化率
+CREATE TABLE ch_token_holder_balance_latest (
+  snapshot_id UInt64,
+  token_id    UInt64,
+  account_id  UInt64,
+  account_address LowCardinality(String),
+  amount      Decimal(38,18),
+  value_usd   Decimal(38,18),
+  label_mask  UInt16,
+  version     UInt64
 )
 ENGINE = ReplacingMergeTree(version)
-PARTITION BY toYYYYMM(end_time)
-ORDER BY (token_id, end_time, account_id)
-TTL end_time + INTERVAL 90 DAY
-SETTINGS deduplicate_merge_projection_mode = 'rebuild';
+ORDER BY (snapshot_id, token_id, account_id)
+SETTINGS deduplicate_merge_projection_mode = 'rebuild'
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS mv_holder_balance_minute
-TO ch_token_holder_balance_minute
+-- ===========================
+-- CREATE MATERIALIZED VIEWS
+-- ===========================
+
+-- 物化视图：从快照表提取最新两个snapshot的持仓数据
+CREATE MATERIALIZED VIEW mv_holder_balance_latest
+TO ch_token_holder_balance_latest
 AS
+WITH latest_snapshots AS (
+  SELECT DISTINCT snapshot_id
+  FROM ch_account_balance_snapshot
+  ORDER BY snapshot_id DESC
+  LIMIT 2
+)
 SELECT
-  biz_id                                AS token_id,
-  end_minute                            AS end_time,
+  snapshot_id,
+  biz_id AS token_id,
   account_id,
-  argMax(amount,     block_id)          AS amount,
-  argMax(value_usd,  block_id)          AS value_usd,
-  argMax(label_mask, block_id)          AS label_mask,
-  max(block_id)                         AS version
+  account_address,
+  argMax(amount, block_id) AS amount,
+  argMax(value_usd, block_id) AS value_usd,
+  argMax(label_mask, block_id) AS label_mask,
+  max(block_id) AS version
 FROM ch_account_balance_snapshot
 WHERE asset_type = 'erc20'
-GROUP BY token_id, end_time, account_id;
+  AND snapshot_id IN (SELECT snapshot_id FROM latest_snapshots)
+GROUP BY snapshot_id, biz_id, account_id,account_address
 
+
+-- ===========================
+-- CREATE VIEWS (查询视图)
+-- ===========================
+
+-- 1) Top持币地址视图（基于最新snapshot）
 CREATE OR REPLACE VIEW v_token_top_holders_latest AS
-WITH last_minute AS (
-  SELECT token_id, max(end_time) AS end_time
-  FROM ch_token_holder_balance_minute
-  GROUP BY token_id
+WITH latest_snapshot AS (
+  SELECT max(snapshot_id) AS max_snapshot_id 
+  FROM ch_token_holder_balance_latest
 )
 SELECT
   h.token_id,
-  h.end_time,
   h.account_id,
+  h.account_address,
   h.value_usd,
-  round(h.value_usd / nullIf(sum(h.value_usd) OVER (PARTITION BY h.token_id, h.end_time),0), 6) AS ownership_pct,
+  round(h.value_usd / nullIf(toFloat64(sum(h.value_usd) OVER (PARTITION BY h.token_id)), 0), 6) AS ownership_pct,
   h.amount,
   h.label_mask
-FROM ch_token_holder_balance_minute h
-INNER JOIN last_minute lm USING (token_id, end_time)
+FROM ch_token_holder_balance_latest h
+INNER JOIN latest_snapshot l ON h.snapshot_id = l.max_snapshot_id
 WHERE h.value_usd > 0
 ORDER BY h.token_id, h.value_usd DESC
 LIMIT 100 BY h.token_id;
-
-
----标签维度
-CREATE OR REPLACE VIEW v_token_holder_tag_minute AS
-WITH tags AS (
-  /* 示例位图映射：bit0=fresh, bit1=whale, bit2=smart, bit3=cex */
-  SELECT arrayJoin([
-    ('fresh_wallet', toUInt16(1)),
-    ('whale',        toUInt16(2)),
-    ('smart_money',  toUInt16(4)),
-    ('cex',          toUInt16(8))
-  ]) AS t
-),
-base AS (
-  SELECT
-    h.token_id,
-    h.end_time,
-    t.1 AS tag,
-    sumIf(h.value_usd, bitAnd(h.label_mask, t.2) != 0 AND h.value_usd > 0)        AS value_usd,
-    uniqExactIf(h.account_id, bitAnd(h.label_mask, t.2) != 0 AND h.value_usd > 0) AS holders_count
-  FROM ch_token_holder_balance_minute h
-  CROSS JOIN tags
-  GROUP BY h.token_id, h.end_time, tag
+-- 2) Token分布统计视图（基于最新snapshot直接聚合）
+CREATE OR REPLACE VIEW v_token_distribution_minute AS
+WITH latest_snapshot AS (
+  SELECT max(snapshot_id) AS max_snapshot_id 
+  FROM ch_token_holder_balance_latest
 )
 SELECT
-  token_id,
-  end_time,
-  tag,
-  value_usd,
-  holders_count,
-  (value_usd - lagInFrame(value_usd) OVER (PARTITION BY token_id, tag ORDER BY end_time))
-    / nullIf(lagInFrame(value_usd) OVER (PARTITION BY token_id, tag ORDER BY end_time), 0) AS pct_change_1min
-FROM base
-ORDER BY token_id, tag, end_time;
+    h.token_id,
+    l.max_snapshot_id AS end_time,
+    uniqExactIf(h.account_id, h.value_usd > 0) AS holders_count,
+    sumIf(h.value_usd, h.value_usd > 0) AS total_value_usd,
+    quantileExactIf(0.5)(h.value_usd, h.value_usd > 0) AS median_holder_value_usd,
+    avgIf(h.value_usd, h.value_usd > 0) AS avg_holder_value_usd,
+    topK(2)(h.value_usd) AS top2_values,
+    arraySum(topK(2)(h.value_usd)) AS top2_value_usd,
+    if(sumIf(h.value_usd, h.value_usd > 0) > 0,
+       arraySum(topK(2)(h.value_usd)) / sumIf(h.value_usd, h.value_usd > 0),
+       0) AS top2_share,
+    if(sumIf(h.value_usd, h.value_usd > 0) > 0,
+       sumIf(h.value_usd, h.value_usd > 0 AND (h.label_mask & toUInt16(1)) != 0) / sumIf(h.value_usd, h.value_usd > 0),
+       0) AS fresh_holder_value_share
+FROM ch_token_holder_balance_latest h
+INNER JOIN latest_snapshot l ON h.snapshot_id = l.max_snapshot_id
+GROUP BY h.token_id, l.max_snapshot_id
+ORDER BY h.token_id ASC;
+
+-- 3) 标签分布视图（基于最新两个snapshot计算变化率）
+CREATE OR REPLACE VIEW v_token_holder_tag_minute AS
+WITH tags AS (
+  SELECT arrayJoin([
+    ('fresh', toUInt16(1)),
+    ('whale', toUInt16(2)),
+    ('smart', toUInt16(4)),
+    ('cex',   toUInt16(8))
+  ]) AS t
+),
+latest_snapshots AS (
+  SELECT DISTINCT snapshot_id
+  FROM ch_token_holder_balance_latest
+  ORDER BY snapshot_id DESC
+  LIMIT 1,2
+),
+current_data AS (
+  SELECT
+    h.token_id,
+    t.1 AS tag,
+    sumIf(h.value_usd, bitAnd(h.label_mask, t.2) != 0 AND h.value_usd > 0) AS current_value_usd,
+    uniqExactIf(h.account_id, bitAnd(h.label_mask, t.2) != 0 AND h.value_usd > 0) AS current_holders_count
+  FROM ch_token_holder_balance_latest h
+  CROSS JOIN tags
+  WHERE h.snapshot_id = (SELECT max(snapshot_id) FROM latest_snapshots)
+  GROUP BY h.token_id, tag
+),
+previous_data AS (
+  SELECT
+    h.token_id,
+    t.1 AS tag,
+    sumIf(h.value_usd, bitAnd(h.label_mask, t.2) != 0 AND h.value_usd > 0) AS prev_value_usd
+  FROM ch_token_holder_balance_latest h
+  CROSS JOIN tags
+  WHERE h.snapshot_id = (SELECT min(snapshot_id) FROM latest_snapshots)
+  GROUP BY h.token_id, tag
+)
+SELECT
+  (SELECT max(snapshot_id) FROM latest_snapshots) AS end_time,
+  c.token_id,
+  c.tag,
+  c.current_value_usd AS value_usd,
+  c.current_holders_count AS holders_count,
+  if(p.prev_value_usd > 0, 
+     (c.current_value_usd - p.prev_value_usd) / p.prev_value_usd * 100,
+     0) AS pct_change_1min
+FROM current_data c
+LEFT JOIN previous_data p ON c.token_id = p.token_id AND c.tag = p.tag
+ORDER BY c.token_id, c.current_value_usd DESC;
 
 CREATE OR REPLACE VIEW v_token_trades_detail AS
 SELECT
   t.token_id,
   t.block_time,
   t.account_id,
+  t.account_address,
   t.side,
   t.qty,
   t.price_usd,
@@ -273,6 +274,7 @@ FROM ch_account_trade_fact AS t;
 CREATE OR REPLACE VIEW v_account_trades_detail AS
 SELECT
   t.account_id,
+  t.account_address,
   t.block_time,
   t.token_id,
   t.side,
@@ -292,6 +294,7 @@ CREATE TABLE IF NOT EXISTS ch_account_trade_minute
 (
   end_time   DateTime,
   account_id UInt64,
+  account_address LowCardinality(String),
   token_id   UInt64,
     side         LowCardinality(String),      -- 'buy' | 'sell'
   trade_cnt  UInt32,
@@ -307,12 +310,13 @@ TO ch_account_trade_minute AS
 SELECT
   toStartOfMinute(block_time) AS end_time,
   account_id,
+  account_address,
   token_id,
 side,
   count()        AS trade_cnt,
   sum(value_usd) AS volume_usd
 FROM ch_account_trade_fact
-GROUP BY end_time, account_id, token_id;
+GROUP BY end_time, account_id, account_address, token_id,side;
 CREATE TABLE IF NOT EXISTS token_recent_metric_ch
 (
     token_id UInt64,
@@ -352,6 +356,7 @@ SETTINGS index_granularity = 8192;
 
 CREATE TABLE IF NOT EXISTS ch_account_pnl_current_ma (
     account_id           UInt64,
+    account_address      LowCardinality(String),
     token_id             UInt64,
     position             Decimal(38,18),         -- 剩余仓位
     avg_cost             Decimal(38,18),         -- 移动加权成本
@@ -371,10 +376,10 @@ CREATE TABLE IF NOT EXISTS ch_account_pnl_current_ma (
     INDEX idx_total_pnl (total_pnl_usd) TYPE minmax GRANULARITY 1,
     -- Projections
     PROJECTION proj_by_account
-      (SELECT account_id, token_id, position, total_pnl_usd, roi_pct, last_tx_time
+      (SELECT account_id, account_address, token_id, position, total_pnl_usd, roi_pct, last_tx_time
        ORDER BY (account_id, last_tx_time, token_id)),
     PROJECTION proj_by_token
-      (SELECT token_id, account_id, position, total_pnl_usd, roi_pct, last_tx_time
+      (SELECT token_id, account_id, account_address, position, total_pnl_usd, roi_pct, last_tx_time
        ORDER BY (token_id, last_tx_time, account_id))
 )
 ENGINE = ReplacingMergeTree(version)
@@ -400,138 +405,89 @@ PARTITION BY toYYYYMM(block_time)
 ORDER BY (token_id, block_id, account_id)
 TTL block_time + INTERVAL 180 DAY;
 
-CREATE TABLE IF NOT EXISTS ch_token_macro_minute_state (
-  token_id UInt64,
-  end_time DateTime,
-  -- mcap：分钟唯一值
-  mcap_max_state          AggregateFunction(max, Decimal(38,4)),
-  -- realized cap 近似：Σ(position*avg_cost)
-  realized_cap_sum_state  AggregateFunction(sum, Decimal(38,4)),
-  -- 未实现盈亏严格拆分
-  unreal_profit_sum_state AggregateFunction(sum, Decimal(38,4)),
-  unreal_loss_sum_state   AggregateFunction(sum, Decimal(38,4)),
-  -- SOPR/Realized PnL
-  sopr_proceeds_sum_state AggregateFunction(sum, Decimal(38,4)),
-  sopr_cost_sum_state     AggregateFunction(sum, Decimal(38,4)),
-  realized_pnl_sum_state  AggregateFunction(sum, Decimal(38,4))
-)
-ENGINE = AggregatingMergeTree
-ORDER BY (token_id, end_time)
-TTL end_time + INTERVAL 90 DAY;
-
-CREATE MATERIALIZED VIEW IF NOT EXISTS mv_macro_from_rt_mcap
-TO ch_token_macro_minute_state AS
-SELECT
-  token_id,
-  end_time,
-  maxState(toDecimal128(mcap_usd, 4)) AS mcap_max_state,
-  -- 其余占位
-  sumState(toDecimal128(0, 4)) AS realized_cap_sum_state,
-  sumState(toDecimal128(0, 4)) AS unreal_profit_sum_state,
-  sumState(toDecimal128(0, 4)) AS unreal_loss_sum_state,
-  sumState(toDecimal128(0, 4)) AS sopr_proceeds_sum_state,
-  sumState(toDecimal128(0, 4)) AS sopr_cost_sum_state,
-  sumState(toDecimal128(0, 4)) AS realized_pnl_sum_state
-FROM token_recent_metric_ch
-WHERE tag='all' AND time_window='1min' AND mcap_usd IS NOT NULL AND mcap_usd > 0
-GROUP BY token_id, end_time;
-
-CREATE MATERIALIZED VIEW IF NOT EXISTS mv_macro_from_pnl_snapshot
-TO ch_token_macro_minute_state AS
-SELECT
-  token_id,
-  toStartOfMinute(last_tx_time) AS end_time,
-  -- realized cap
-  sumState(toDecimal128(position * avg_cost, 4)) AS realized_cap_sum_state,
-  -- 未实现盈亏严格拆分（仅有效仓/价）
-  sumState(toDecimal128(CASE WHEN position > 0 AND last_price_usd > 0 AND avg_cost > 0
-                               THEN greatest(position * (last_price_usd - avg_cost), 0)
-                               ELSE 0 END, 4)) AS unreal_profit_sum_state,
-  sumState(toDecimal128(CASE WHEN position > 0 AND last_price_usd > 0 AND avg_cost > 0
-                               THEN greatest(position * (avg_cost - last_price_usd), 0)
-                               ELSE 0 END, 4)) AS unreal_loss_sum_state,
-  -- 其余占位
-  maxState(toDecimal128(0, 4)) AS mcap_max_state,
-  sumState(toDecimal128(0, 4)) AS sopr_proceeds_sum_state,
-  sumState(toDecimal128(0, 4)) AS sopr_cost_sum_state,
-  sumState(toDecimal128(0, 4)) AS realized_pnl_sum_state
-FROM ch_account_pnl_current_ma
-WHERE position > 0 AND avg_cost > 0
-GROUP BY token_id, end_time;
-
-CREATE MATERIALIZED VIEW IF NOT EXISTS mv_macro_from_realized_event
-TO ch_token_macro_minute_state AS
-SELECT
-  token_id,
-  toStartOfMinute(block_time) AS end_time,
-  sumState(toDecimal128(realized_proceeds_usd, 4)) AS sopr_proceeds_sum_state,
-  sumState(toDecimal128(realized_cost_usd, 4))     AS sopr_cost_sum_state,
-  sumState(toDecimal128(realized_pnl_usd, 4))      AS realized_pnl_sum_state,
-  -- 其余占位
-  maxState(toDecimal128(0, 4)) AS mcap_max_state,
-  sumState(toDecimal128(0, 4)) AS realized_cap_sum_state,
-  sumState(toDecimal128(0, 4)) AS unreal_profit_sum_state,
-  sumState(toDecimal128(0, 4)) AS unreal_loss_sum_state
-FROM ch_pnl_realized_event
-WHERE realized_qty > 0
-GROUP BY token_id, end_time;
-
-CREATE OR REPLACE VIEW v_token_macro_minute AS
-SELECT
-  token_id,
-  end_time,
-  round(maxMerge(mcap_max_state), 2)                                  AS mcap_usd,
-  round(sumMerge(realized_cap_sum_state), 2)                           AS realized_cap_usd,
-  round(sumMerge(realized_cap_sum_state)
-      + sumMerge(unreal_profit_sum_state)
-      - sumMerge(unreal_loss_sum_state), 2)                            AS network_value_usd,
-  round(sumMerge(unreal_profit_sum_state), 2)                          AS unrealized_profit_usd,
-  round(sumMerge(unreal_loss_sum_state), 2)                            AS unrealized_loss_usd,
-  /* NUPL（严格拆分分子，分母用 network_value） */
-  CASE WHEN (sumMerge(realized_cap_sum_state)
-          + sumMerge(unreal_profit_sum_state)
-          - sumMerge(unreal_loss_sum_state)) > 0
-       THEN round((sumMerge(unreal_profit_sum_state) - sumMerge(unreal_loss_sum_state)) /
-                  (sumMerge(realized_cap_sum_state)
-                 + sumMerge(unreal_profit_sum_state)
-                 - sumMerge(unreal_loss_sum_state)), 6)
-       ELSE NULL END                                                   AS nupl,
-  /* 其他指标 */
-  CASE WHEN sumMerge(realized_cap_sum_state) > 0 AND maxMerge(mcap_max_state) > 0
-       THEN round(maxMerge(mcap_max_state) / sumMerge(realized_cap_sum_state), 4)
-       ELSE NULL END                                                   AS mvrv,
-  CASE WHEN sumMerge(realized_cap_sum_state) > 0
-       THEN round((sumMerge(realized_cap_sum_state)
-                 + sumMerge(unreal_profit_sum_state)
-                 - sumMerge(unreal_loss_sum_state)) /
-                  sumMerge(realized_cap_sum_state), 4)
-       ELSE NULL END                                                   AS nvt_ratio,
-  CASE WHEN sumMerge(sopr_cost_sum_state) > 0
-       THEN round(sumMerge(sopr_proceeds_sum_state) / sumMerge(sopr_cost_sum_state), 4)
-       ELSE NULL END                                                   AS sopr,
-  round(sumMerge(realized_pnl_sum_state), 2)                           AS realized_pnl_usd,
-  /* 完整性标记 */
-  (maxMerge(mcap_max_state) > 0)                                       AS has_mcap,
-  (sumMerge(realized_cap_sum_state) > 0)                               AS has_realized_cap,
-  (sumMerge(unreal_profit_sum_state) + sumMerge(unreal_loss_sum_state) > 0) AS has_unrealized_pnl,
-  (sumMerge(sopr_proceeds_sum_state) > 0)                              AS has_sopr,
-  now()                                                                AS last_updated
-FROM ch_token_macro_minute_state
-GROUP BY token_id, end_time
-HAVING has_mcap OR has_realized_cap OR has_unrealized_pnl OR has_sopr
-ORDER BY token_id, end_time;
+-- 正确的宏观指标计算：确保NUPL、MVRV、SOPR等指标计算准确
 
 CREATE OR REPLACE VIEW v_token_macro_latest AS
+WITH token_pnl_stats AS (
+  SELECT 
+    token_id,
+    max(last_tx_time) AS latest_time,
+    -- 使用toFloat64转换避免Decimal精度问题
+    toFloat64(sum(CASE WHEN position > 0 THEN position * avg_cost ELSE 0 END)) AS realized_cap_usd,
+    toFloat64(sum(CASE WHEN unrealized_pnl_usd > 0 THEN unrealized_pnl_usd ELSE 0 END)) AS unrealized_profit_usd,
+    toFloat64(sum(CASE WHEN unrealized_pnl_usd < 0 THEN abs(unrealized_pnl_usd) ELSE 0 END)) AS unrealized_loss_usd,
+    toFloat64(sum(realized_pnl_usd)) AS realized_pnl_usd,
+    -- 活跃账户数
+    count(distinct account_id) AS active_accounts
+  FROM ch_account_pnl_current_ma
+  WHERE position > 0 AND avg_cost > 0 AND last_price_usd > 0
+    AND last_tx_time >= now() - INTERVAL 1 DAY
+  GROUP BY token_id
+),
+token_mcap AS (
+  SELECT 
+    token_id,
+    toFloat64(argMax(mcap_usd, end_time)) AS current_mcap_usd
+  FROM token_recent_metric_ch
+  WHERE tag = 'all' AND time_window = '1min' 
+    AND end_time >= now() - INTERVAL 1 HOUR
+    AND mcap_usd > 0
+  GROUP BY token_id
+),
+token_sopr AS (
+  SELECT 
+    token_id,
+    toFloat64(sum(realized_proceeds_usd)) AS total_proceeds_usd,
+    toFloat64(sum(realized_cost_usd)) AS total_cost_usd
+  FROM ch_pnl_realized_event
+  WHERE block_time >= now() - INTERVAL 1 DAY
+    AND realized_qty > 0
+  GROUP BY token_id
+)
 SELECT
-  token_id,
-  max(end_time) AS latest_time,
-  argMax(mcap_usd, end_time) AS mcap_usd,
-  argMax(realized_cap_usd, end_time) AS realized_cap_usd,
-  argMax(network_value_usd, end_time) AS network_value_usd,
-  argMax(nupl, end_time) AS nupl,
-  argMax(mvrv, end_time) AS mvrv,
-  argMax(sopr, end_time) AS sopr,
-  argMax(realized_pnl_usd, end_time) AS realized_pnl_usd
-FROM v_token_macro_minute
-WHERE end_time >= now() - INTERVAL 1 DAY
-GROUP BY token_id;
+  p.token_id AS token_id,
+  p.latest_time AS latest_time,
+  
+  -- 基础指标
+  round(p.realized_cap_usd, 2) AS realized_cap_usd,
+  round(p.unrealized_profit_usd - p.unrealized_loss_usd, 2) AS net_unrealized_pnl_usd,
+  round(p.unrealized_profit_usd, 2) AS unrealized_profit_usd,
+  round(p.unrealized_loss_usd, 2) AS unrealized_loss_usd,
+  round(p.realized_pnl_usd, 2) AS realized_pnl_usd,
+  
+  -- Network Value = Realized Cap + Net Unrealized PnL
+  round(p.realized_cap_usd + p.unrealized_profit_usd - p.unrealized_loss_usd, 2) AS network_value_usd,
+  
+  -- NUPL = Net Unrealized PnL / Network Value
+  CASE WHEN (p.realized_cap_usd + p.unrealized_profit_usd - p.unrealized_loss_usd) > 0
+       THEN round((p.unrealized_profit_usd - p.unrealized_loss_usd) / 
+                  (p.realized_cap_usd + p.unrealized_profit_usd - p.unrealized_loss_usd), 6)
+       ELSE NULL END AS nupl,
+  
+  -- MVRV = Market Cap / Realized Cap  
+  CASE WHEN p.realized_cap_usd > 0 AND m.current_mcap_usd > 0
+       THEN round(m.current_mcap_usd / p.realized_cap_usd, 4)
+       ELSE NULL END AS mvrv,
+  
+  -- SOPR = Realized Proceeds / Realized Cost
+  CASE WHEN s.total_cost_usd > 0
+       THEN round(s.total_proceeds_usd / s.total_cost_usd, 4)
+       ELSE NULL END AS sopr,
+  
+  -- 市值数据
+  round(COALESCE(m.current_mcap_usd, 0), 2) AS current_mcap_usd,
+  
+  -- 统计信息
+  p.active_accounts,
+  now() AS last_updated
+
+FROM token_pnl_stats p
+LEFT JOIN token_mcap m ON p.token_id = m.token_id
+LEFT JOIN token_sopr s ON p.token_id = s.token_id
+
+WHERE p.realized_cap_usd > 0 
+   OR p.unrealized_profit_usd > 0 
+   OR p.unrealized_loss_usd > 0
+   OR m.current_mcap_usd > 0
+
+ORDER BY p.token_id;

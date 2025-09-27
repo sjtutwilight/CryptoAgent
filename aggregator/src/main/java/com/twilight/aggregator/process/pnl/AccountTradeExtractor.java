@@ -52,6 +52,7 @@ public class AccountTradeExtractor extends RichFlatMapFunction<ProcessEvent, Acc
     private void extractTradesFromSwapData(ProcessEvent event, Collector<AccountTrade> out) {
         // 处理token0交易
             AccountTrade token0Trade = extractTokenTradeFromSwapData(event, true); // true表示token0
+            log.info("extractTradesFromSwapData token0Trade {}",token0Trade);
             if (token0Trade != null) {
                 out.collect(token0Trade);
                 extractedTrades++;
@@ -77,21 +78,21 @@ public class AccountTradeExtractor extends RichFlatMapFunction<ProcessEvent, Acc
      */
     private AccountTrade extractTokenTradeFromSwapData(ProcessEvent event, boolean isToken0) {
         try {
+            log.info("extractTokenTradeFromSwapData event {}",event);
             BigDecimal amountIn, amountOut;
             String tokenAddress;
             Long tokenId;
             double tokenPriceUsd;
             ProcessEvent.DexSwapData swapData = event.getDexSwapData();
-            PairMetadata pairMetadata = event.getPairMetadata();
             if (isToken0) {
-                TokenMetadata tokenMetadata = pairMetadata.getToken0();
+                TokenMetadata tokenMetadata = event.getPairMetadata().getToken0();
                 amountIn = swapData.getAmount0In() != null ? swapData.getAmount0In() : BigDecimal.ZERO;
                 amountOut = swapData.getAmount0Out() != null ? swapData.getAmount0Out() : BigDecimal.ZERO;
                 tokenAddress = tokenMetadata.getAddress();
                 tokenId = tokenMetadata.getId();
                 tokenPriceUsd = tokenMetadata.getTokenMetrics().getTokenPriceUsd();
             } else {
-                TokenMetadata tokenMetadata = pairMetadata.getToken1();
+                TokenMetadata tokenMetadata = event.getPairMetadata().getToken1();
                 amountIn = swapData.getAmount1In() != null ? swapData.getAmount1In() : BigDecimal.ZERO;
                 amountOut = swapData.getAmount1Out() != null ? swapData.getAmount1Out() : BigDecimal.ZERO;
                 tokenAddress = tokenMetadata.getAddress();
@@ -124,6 +125,7 @@ public class AccountTradeExtractor extends RichFlatMapFunction<ProcessEvent, Acc
             trade.setTokenId(tokenId);
             trade.setTokenAddress(tokenAddress);
             trade.setSide(side);
+        
             trade.setQuantity(quantity);
             trade.setPriceUsd(BigDecimal.valueOf(tokenPriceUsd));
             trade.setValueUsd(quantity.multiply(BigDecimal.valueOf(tokenPriceUsd)));

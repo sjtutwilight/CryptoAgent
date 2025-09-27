@@ -813,11 +813,11 @@ tokenMetadata
 ```markdown
 Key：label:{chain_id}:{address}
 Value（bitset，UInt16）：
-1<<0 EX（Exchange）
-1<<1 SM（SmartMoney）
-1<<2 WH（Whale）
-1<<3 PF（PublicFigure）
-1<<4 FR（Fresh）
+1<<0 EX（cex）
+1<<1 SM（smart）
+1<<2 WH（whale）
+1<<3 PF（public）
+1<<4 FR（fresh）
 1<<5 TP（TopPnL）
 ```
 ### account资产分布

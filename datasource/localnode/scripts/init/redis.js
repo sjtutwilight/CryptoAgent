@@ -102,7 +102,7 @@ async function initializeRedis(redis, deployment) {
       const token1Address = pair.token1.toLowerCase();
       const token0 = tokenMap.get(token0Address);
       const token1 = tokenMap.get(token1Address);
-      
+      const pairName = pair.pairName;
       if (!token0 || !token1) {
         console.warn(`Could not find token info for pair ${pair.address}`);
         return null;
@@ -111,6 +111,7 @@ async function initializeRedis(redis, deployment) {
       return {
         pairId: parseInt(pair.id || (index + 1)), // 使用pairId而不是id，并确保是数字
         pairAddress: pair.address.toLowerCase(), // 使用pairAddress而不是address
+        pairName: pairName,
         token0: {
           id: parseInt(token0.id), // 确保id是数字
           address: token0Address,

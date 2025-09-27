@@ -192,19 +192,20 @@ public class ClickHouseSink<T> extends RichSinkFunction<T> {
 
     private void setAccountPnLSnapshotParameters(PreparedStatement stmt, AccountPnLSnapshot snapshot) throws SQLException {
         stmt.setLong(1, snapshot.getAccountId());
-        stmt.setLong(2, snapshot.getTokenId());
-        stmt.setBigDecimal(3, snapshot.getPosition());
-        stmt.setBigDecimal(4, snapshot.getAvgCost());
-        stmt.setBigDecimal(5, snapshot.getRealizedCostUsd());
-        stmt.setBigDecimal(6, snapshot.getRealizedProceedsUsd());
-        stmt.setBigDecimal(7, snapshot.getRealizedPnLUsd());
-        stmt.setBigDecimal(8, snapshot.getLastPriceUsd());
-        stmt.setBigDecimal(9, snapshot.getUnrealizedPnLUsd());
-        stmt.setBigDecimal(10, snapshot.getTotalPnLUsd());
-        stmt.setDouble(11, snapshot.getRoiPct() != null ? snapshot.getRoiPct() : 0.0);
-        stmt.setDouble(12, snapshot.getHoldingPct() != null ? snapshot.getHoldingPct() : 0.0);
-        stmt.setTimestamp(13, java.sql.Timestamp.valueOf(snapshot.getLastTxTime()));
-        stmt.setLong(14, snapshot.getVersion());
+        stmt.setString(2, snapshot.getAccountAddress());
+        stmt.setLong(3, snapshot.getTokenId());
+        stmt.setBigDecimal(4, snapshot.getPosition());
+        stmt.setBigDecimal(5, snapshot.getAvgCost());
+        stmt.setBigDecimal(6, snapshot.getRealizedCostUsd());
+        stmt.setBigDecimal(7, snapshot.getRealizedProceedsUsd());
+        stmt.setBigDecimal(8, snapshot.getRealizedPnLUsd());
+        stmt.setBigDecimal(9, snapshot.getLastPriceUsd());
+        stmt.setBigDecimal(10, snapshot.getUnrealizedPnLUsd());
+        stmt.setBigDecimal(11, snapshot.getTotalPnLUsd());
+        stmt.setDouble(12, snapshot.getRoiPct() != null ? snapshot.getRoiPct() : 0.0);
+        stmt.setDouble(13, snapshot.getHoldingPct() != null ? snapshot.getHoldingPct() : 0.0);
+        stmt.setTimestamp(14, java.sql.Timestamp.valueOf(snapshot.getLastTxTime()));
+        stmt.setLong(15, snapshot.getVersion());
     }
     
     private void setPnLRealizedEventParameters(PreparedStatement stmt, PnLRealizedEvent event) throws SQLException {
@@ -254,7 +255,7 @@ public class ClickHouseSink<T> extends RichSinkFunction<T> {
 
     public static ClickHouseSink<AccountPnLSnapshot> createAccountPnLSink() {
         String insertSql = "INSERT INTO ch_account_pnl_current_ma " +
-                "(account_id, token_id, position, avg_cost, realized_cost_usd, realized_proceeds_usd, " +
+                "(account_id, account_address, token_id, position, avg_cost, realized_cost_usd, realized_proceeds_usd, " +
                 "realized_pnl_usd, last_price_usd, unrealized_pnl_usd, total_pnl_usd, " +
                 "roi_pct, holding_pct, last_tx_time, version) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";

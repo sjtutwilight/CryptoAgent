@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 public class AccountBalance implements Serializable {
     private static final long serialVersionUID = 1L;
     
+    private Long snapshotId;
     private Long accountId;
     private LocalDateTime observedTime;
     private Long blockId;      // blockchain block number for snapshot

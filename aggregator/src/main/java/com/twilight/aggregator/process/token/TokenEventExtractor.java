@@ -102,7 +102,7 @@ public class TokenEventExtractor extends RichFlatMapFunction<ProcessEvent, Token
                 token.setTokenId(  tokenMetadata.getId());
                 token.setTokenAddress(tokenMetadata.getAddress());
                 token.setTokenPriceUsd(tokenMetrics.getTokenPriceUsd());
-
+                token.setFromAddressTag(event.getAccountMetadata().getTag());
                 // 设置金额和买卖方向
                 BigDecimal amountIn = swapData.getAmount0In() != null ? swapData.getAmount0In() : BigDecimal.ZERO;
                 BigDecimal amountOut = swapData.getAmount0Out() != null ? swapData.getAmount0Out() : BigDecimal.ZERO;
@@ -142,6 +142,7 @@ public class TokenEventExtractor extends RichFlatMapFunction<ProcessEvent, Token
                 token.setMcapUsd(tokenMetrics.getMcap());
                 token.setFdvUsd(tokenMetrics.getFdv());
                 token.setLiquidityUsd(tokenMetrics.getLiquidityUsd());
+                token.setFromAddressTag(event.getAccountMetadata().getTag());
             }
             
             // 设置通用字段

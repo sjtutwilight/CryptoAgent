@@ -4,68 +4,93 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.util.List;
 
 /**
- * 代币分布宏观指标模型
+ * 代币分布数据模型
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class TokenDistribution {
-    /**
-     * 代币ID
-     */
+    
     private Long tokenId;
-
+    private String timeRange;
+    
     /**
-     * 数据时间
+     * 持有者统计
      */
-    private LocalDateTime endTime;
-
+    private HolderStats holderStats;
+    
     /**
-     * 持有人数
+     * 标签分布
      */
-    private Integer holdersCount;
-
+    private List<TagDistribution> tagDistribution;
+    
     /**
-     * Top2持仓占比 (%)
+     * Top持币地址
      */
-    private Double top2SharePercent;
-
+    private List<TopHolder> topHolders;
+    
     /**
-     * 中位数持有者价值 (USD)
+     * 持有者统计内部类
      */
-    private BigDecimal medianHolderValueUsd;
-
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class HolderStats {
+        private Long holdersCount;
+        private String totalValueUsd;
+        private Double top2SharePercent;
+        private Double concentrationIndex;
+        private String concentrationLevel;
+        private String avgHolderValueUsd;
+        private String medianHolderValueUsd;
+        private Double freshHolderSharePercent;
+        private Concentration concentration;
+    }
+    
     /**
-     * 平均持有者价值 (USD)
+     * 集中度内部类
      */
-    private BigDecimal avgHolderValueUsd;
-
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Concentration {
+        private Double top2SharePercent;
+        private Double giniCoefficient;
+    }
+    
     /**
-     * Top2持仓价值 (USD)
+     * 标签分布内部类
      */
-    private BigDecimal top2ValueUsd;
-
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TagDistribution {
+        private String tag;
+        private String valueUsd;
+        private Double sharePercent;
+        private String change5min;
+        private String changeAmount5min;
+        private Long holdersCount;
+        private String balance;
+    }
+    
     /**
-     * 总持仓价值 (USD)
+     * Top持币地址内部类
      */
-    private BigDecimal totalValueUsd;
-
-    /**
-     * 新钱包持有者数量占比 (%)
-     */
-    private Double freshHolderCountShare;
-
-    /**
-     * 新钱包持仓价值占比 (%)
-     */
-    private Double freshHolderValueShare;
-
-    /**
-     * 代币集中度指数（基于Top2占比计算）
-     */
-    private Double concentrationIndex;
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TopHolder {
+        private Integer rank;
+        private String accountId;
+        private String address;
+        private List<String> labels;
+        private String balance;
+        private String valueUsd;
+        private Double ownershipPercent;
+        private Integer firstSeenDays;
+    }
 }

@@ -20,7 +20,7 @@ import (
 
 var (
 	configFile     = flag.String("config", "../../common/pkg/config/config.yaml", "Path to configuration file")
-	deploymentFile = flag.String("deployment", "../../datasource/localnode/deployment.json", "Path to deployment configuration file")
+	deploymentFile = flag.String("deployment", "../../datasource/deployment.json", "Path to deployment configuration file")
 )
 
 func main() {

@@ -13,6 +13,7 @@ public class PairMetadata implements Serializable {
     private static final long serialVersionUID = 1L;
     private Long pairId;       // 与Redis字段pairId匹配
     private String pairAddress; // 与Redis字段pairAddress匹配
+    private String pairName;
     private String chainId;
     private String chainName;
 

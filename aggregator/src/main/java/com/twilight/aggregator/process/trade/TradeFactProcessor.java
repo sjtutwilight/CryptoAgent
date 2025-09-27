@@ -144,11 +144,11 @@ public class TradeFactProcessor extends RichFlatMapFunction<ProcessEvent, TradeF
             
             if (amount0Out != null && amount0Out.compareTo(BigDecimal.ZERO) > 0) {
                 // 用户获得token = BUY
-                fact.setSide("BUY");
+                fact.setSide("buy");
                 fact.setQty(amount0Out);
             } else if (amount0In != null && amount0In.compareTo(BigDecimal.ZERO) > 0) {
                 // 用户提供token = SELL
-                fact.setSide("SELL");
+                fact.setSide("sell");
                 fact.setQty(amount0In);
             } else {
                 return null; // 无效交易

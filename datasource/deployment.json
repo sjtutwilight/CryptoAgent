@@ -11,7 +11,7 @@
     {
       "address": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
       "id": "2",
-      "tag": "smart_money"
+      "tag": "smart"
     },
     {
       "address": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
@@ -21,12 +21,12 @@
     {
       "address": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
       "id": "4",
-      "tag": "fresh_wallet"
+      "tag": "fresh"
     },
     {
       "address": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
       "id": "5",
-      "tag": "normal"
+      "tag": "public"
     }
   ],
   "tokens": [
@@ -65,36 +65,43 @@
     {
       "token0": "0x74A6379d012ce53E3b0718C05dD72a3De87F0c6a",
       "token1": "0xeCC540e356b9E7c6e17fEA13c6Fe192deBefB51D",
+      "pairName": "USDC-WETH LP",
       "address": "0x1D7673a54E7e1D025972f611Cb9A46b2E10B146c"
     },
     {
       "token0": "0xeCC540e356b9E7c6e17fEA13c6Fe192deBefB51D",
       "token1": "0x89343B04616A13b0199e983A98E6DC26D2c10d92",
+      "pairName": "WETH-DAI LP",
       "address": "0x42dC661996ed42cd310E3939Dc7013f3320634d8"
     },
     {
       "token0": "0x74A6379d012ce53E3b0718C05dD72a3De87F0c6a",
       "token1": "0x89343B04616A13b0199e983A98E6DC26D2c10d92",
+      "pairName": "USDC-DAI LP",
       "address": "0xA98d7353be3Eb045C229F46CbAF3b95199a187B9"
     },
     {
       "token0": "0x9500Df4dc53B890BA4796F4B69DaC74eB8FB9cF8",
       "token1": "0xeCC540e356b9E7c6e17fEA13c6Fe192deBefB51D",
+      "pairName": "TWI-WETH LP",
       "address": "0x3d36A38c4b22aC87C1a5D185fd510a49F7469CE5"
     },
     {
       "token0": "0x90054c46cf65a3271785dA0d01b02716F78215ce",
       "token1": "0xeCC540e356b9E7c6e17fEA13c6Fe192deBefB51D",
+      "pairName": "WBTC-WETH LP",
       "address": "0xb4108122D9964E7272A2A6a75a0Ce1ADE72F1599"
     },
     {
       "token0": "0x74A6379d012ce53E3b0718C05dD72a3De87F0c6a",
       "token1": "0x9500Df4dc53B890BA4796F4B69DaC74eB8FB9cF8",
+      "pairName": "USDC-TWI LP",
       "address": "0xCe6103620FeA4A5d5bBB214C72356d3efc7D6844"
     },
     {
       "token0": "0x74A6379d012ce53E3b0718C05dD72a3De87F0c6a",
       "token1": "0x90054c46cf65a3271785dA0d01b02716F78215ce",
+      "pairName": "USDC-WBTC LP",
       "address": "0xFF106aad179963dd146C56B3d187b9B586B5113f"
     }
   ]

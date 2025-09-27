@@ -191,7 +191,6 @@ async function blockChainInit() {
     }
 
     console.log("\nBlockchain initialization complete!");
-
     // Save deployment info
     const deploymentInfo = {
       factory: await twSwapFactory.getAddress(),
@@ -211,13 +210,15 @@ async function blockChainInit() {
       pairs: await Promise.all(pairs.map(async pair => {
         const token0 = tokenMap[pair.token0];
         const token1 = tokenMap[pair.token1];
+        const pairName = await token0.symbol() + '-' + await token1.symbol() + ' LP';
         const token0Address = await token0.getAddress();
         const token1Address = await token1.getAddress();
         const pairAddress = await twSwapFactory.getPair(token0Address, token1Address);
         return {
           token0: token0Address,
           token1: token1Address,
-          address: pairAddress
+          address: pairAddress,
+          pairName: pairName
         };
       }))
     };
@@ -241,6 +242,7 @@ async function blockChainInit() {
       pairs: deploymentInfo.pairs.map(pair => ({
         token0: pair.token0.toString(),
         token1: pair.token1.toString(),
+        pairName: pair.pairName.toString(),
         address: pair.address.toString()
       }))
     };

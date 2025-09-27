@@ -253,6 +253,7 @@ public class PnLProcessor extends KeyedBroadcastProcessFunction<String, AccountT
             // 创建快照对象
             AccountPnLSnapshot snapshot = AccountPnLSnapshot.fromTimestamp(
                 trade.getAccountId(),
+                trade.getAccountAddress(),
                 trade.getTokenId(), 
                 state.getPosition(),
                 state.getAvgCost(),

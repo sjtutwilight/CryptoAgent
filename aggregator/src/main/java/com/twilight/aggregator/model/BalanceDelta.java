@@ -14,6 +14,7 @@ public class BalanceDelta implements Serializable {
     
     private Long accountId;
     private String accountAddress;
+    private Integer labelMask;
     private String assetType;     // "ERC20" 或 "LP"
     private Long bizId;           // token_id 或 pair_id
     private String contractAddress;

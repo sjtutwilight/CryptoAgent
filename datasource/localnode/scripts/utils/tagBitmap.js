@@ -17,12 +17,10 @@ const TAG_BITS = {
 const TAG_NAME_TO_BIT = {
   'cex': TAG_BITS.EXCHANGE,
   'exchange': TAG_BITS.EXCHANGE,
-  'smart_money': TAG_BITS.SMART_MONEY,
+  'smart': TAG_BITS.SMART_MONEY,
   'whale': TAG_BITS.WHALE,
-  'big_whale': TAG_BITS.WHALE, // 兼容性别名
-  'fresh_wallet': TAG_BITS.FRESH,
   'fresh': TAG_BITS.FRESH,
-  'public_figure': TAG_BITS.PUBLIC_FIGURE,
+  'public': TAG_BITS.PUBLIC_FIGURE,
   'top_pnl': TAG_BITS.TOP_PNL,
   'normal': 0  // normal标签对应位图值为0
 };
@@ -30,9 +28,9 @@ const TAG_NAME_TO_BIT = {
 // 位图值到标签名称的映射
 const BIT_TO_TAG_NAME = {
   [TAG_BITS.EXCHANGE]: 'cex',
-  [TAG_BITS.SMART_MONEY]: 'smart_money',
+  [TAG_BITS.SMART_MONEY]: 'smart',
   [TAG_BITS.WHALE]: 'whale',
-  [TAG_BITS.PUBLIC_FIGURE]: 'public_figure',
+  [TAG_BITS.PUBLIC_FIGURE]: 'public',
   [TAG_BITS.FRESH]: 'fresh',
   [TAG_BITS.TOP_PNL]: 'top_pnl'
 };
@@ -139,7 +137,7 @@ function isCexTag(bitmap) {
  * @returns {boolean}
  */
 function isSmartMoneyTag(bitmap) {
-  return hasTag(bitmap, 'smart_money');
+  return hasTag(bitmap, 'smart');
 }
 
 /**

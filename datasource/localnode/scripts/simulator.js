@@ -60,7 +60,7 @@ async function main() {
     throw new Error("Please run initialize.js first to deploy contracts");
   }
   const deployment = JSON.parse(fs.readFileSync(deploymentPath));
-
+  console.log("deployment:", deployment);
   // Get contracts
   const router = await ethers.getContractAt("TWSwapRouter", deployment.router);
   const factory = await ethers.getContractAt("TWSwapFactory", deployment.factory);

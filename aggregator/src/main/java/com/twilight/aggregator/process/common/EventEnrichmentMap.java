@@ -83,6 +83,7 @@ public class EventEnrichmentMap extends RichMapFunction<ProcessEvent, ProcessEve
             e.setContractType("dex");
                   e.setPairMetadata(pm);
                   e.setBizId(pm.getPairId());
+                  e.setBizName(pm.getPairName());
         }
         else {
             log.info("EventEnrichmentMap pm null");
@@ -92,6 +93,7 @@ public class EventEnrichmentMap extends RichMapFunction<ProcessEvent, ProcessEve
             if (tm != null) {
                 e.setTokenMetadata(tm);
                 e.setBizId(tm.getId());
+                e.setBizName(tm.getSymbol());
             }
         }
         enriched++;

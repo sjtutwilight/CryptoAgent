@@ -130,13 +130,13 @@ public class BalanceDeltaExtractor extends RichFlatMapFunction<ProcessEvent, Bal
             // 设置基础信息
             balanceDelta.setAccountId(event.getAccountMetadata().getId()); 
             balanceDelta.setAccountAddress(event.getAccountMetadata().getAddress());
-            
+            balanceDelta.setLabelMask(event.getAccountMetadata().getTagBitmap());
             // 设置资产信息
             balanceDelta.setAssetType(event.getContractType());
             balanceDelta.setBizId(event.getBizId());
             balanceDelta.setBizName("UNKNOWN");
             balanceDelta.setContractAddress(event.getContractAddress());
-            
+            balanceDelta.setAccountAddress(event.getAccountMetadata().getAddress());
             // 设置变化信息
             balanceDelta.setDelta(delta);
             balanceDelta.setEventTime(eventTime);
@@ -148,7 +148,7 @@ public class BalanceDeltaExtractor extends RichFlatMapFunction<ProcessEvent, Bal
             // 设置辅助字段
             balanceDelta.setFromAddress(event.getFromAddress());
             balanceDelta.setToAddress(event.getErc20Data().getToAddress());
-            
+            balanceDelta.setBizName(event.getBizName());
             // 验证关键字段不为null（用于keyBy）
             if (balanceDelta.getAccountId() == null || balanceDelta.getAssetType() == null || balanceDelta.getBizId() == null) {
                 log.warn("⚠️ Critical field is null - accountId: {}, assetType: {}, bizId: {}, address: {}", 

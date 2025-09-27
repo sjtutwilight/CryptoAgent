@@ -118,7 +118,7 @@ const ACCOUNT_CONFIG = [
   },
   {
     id: 2,
-    tag: 'smart_money'
+    tag: 'smart'
   },
   {
     id: 3,
@@ -126,11 +126,11 @@ const ACCOUNT_CONFIG = [
   },
   {
     id: 4,
-    tag: 'fresh_wallet'
+    tag: 'fresh'
   },
   {
     id: 5,
-    tag: 'normal'
+    tag: 'public'
   }
 ];
 

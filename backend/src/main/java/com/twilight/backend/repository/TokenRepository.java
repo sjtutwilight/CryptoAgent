@@ -1,10 +1,10 @@
 package com.twilight.backend.repository;
 
-import com.twilight.backend.model.TokenInfo;
-import com.twilight.backend.model.TokenMetrics;
-import com.twilight.backend.model.TokenPriceHistory;
+import com.twilight.backend.model.TokenListItem;
+import com.twilight.backend.model.TokenOverview;
+import com.twilight.backend.model.TokenDistribution;
+import com.twilight.backend.model.TokenPnL;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -13,47 +13,48 @@ import java.util.List;
 public interface TokenRepository {
 
     /**
-     * 根据ID获取代币信息（PostgreSQL）
+     * 获取代币列表（用于前端展示）
      * 
-     * @param tokenId 代币ID
-     * @return 代币信息
+     * @param page 页码
+     * @param pageSize 页大小
+     * @param sortBy 排序字段 (mcap, volume, price, change1m)
+     * @param order 排序方向 (asc, desc)
+     * @return 代币列表项
      */
-    TokenInfo findTokenById(Long tokenId);
+    List<TokenListItem> findTokenListItems(Integer page, Integer pageSize, String sortBy, String order);
 
     /**
-     * 获取所有代币列表（PostgreSQL）
+     * 获取代币列表总数
      * 
-     * @return 代币列表
+     * @return 总数
      */
-    List<TokenInfo> findAllTokens();
-
+    Long countTokenListItems();
+    
     /**
-     * 获取最新代币指标（ClickHouse）
+     * 获取代币概览信息
      * 
      * @param tokenId 代币ID
-     * @return 代币指标
+     * @param timeRange 时间范围
+     * @return 代币概览数据
      */
-    TokenMetrics findLatestMetrics(Long tokenId);
-
+    TokenOverview findTokenOverview(Long tokenId, String timeRange);
+    
     /**
-     * 获取代币历史价格（ClickHouse）
+     * 获取代币分布信息
      * 
      * @param tokenId 代币ID
-     * @param startTime 开始时间
-     * @param endTime 结束时间
-     * @return 历史价格列表
+     * @param timeRange 时间范围
+     * @return 代币分布数据
      */
-    List<TokenPriceHistory> findPriceHistory(Long tokenId, LocalDateTime startTime, LocalDateTime endTime);
-
+    TokenDistribution findTokenDistribution(Long tokenId, String timeRange);
+    
     /**
-     * 获取代币历史价格（按时间窗口）
+     * 获取代币PnL分析数据
      * 
      * @param tokenId 代币ID
-     * @param timeWindow 时间窗口
-     * @param startTime 开始时间
-     * @param endTime 结束时间
-     * @return 历史价格列表
+     * @param timeRange 时间范围
+     * @param topLimit Top PnL排行榜数量限制
+     * @return PnL分析数据
      */
-    List<TokenPriceHistory> findPriceHistoryByWindow(Long tokenId, String timeWindow, 
-                                                   LocalDateTime startTime, LocalDateTime endTime);
+    TokenPnL findTokenPnL(Long tokenId, String timeRange, Integer topLimit);
 }

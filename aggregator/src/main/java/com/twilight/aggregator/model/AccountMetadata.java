@@ -78,17 +78,14 @@ public class AccountMetadata implements Serializable {
         
         switch (tagString.toLowerCase().trim()) {
             case "cex":
-            case "exchange":
                 return TAG_EXCHANGE;
-            case "smart_money":
+            case "smart":
                 return TAG_SMART_MONEY;
             case "whale":
-            case "big_whale":
                 return TAG_WHALE;
-            case "fresh_wallet":
             case "fresh":
                 return TAG_FRESH;
-            case "public_figure":
+            case "public":
                 return TAG_PUBLIC_FIGURE;
             case "top_pnl":
                 return TAG_TOP_PNL;
@@ -110,10 +107,10 @@ public class AccountMetadata implements Serializable {
         
         // 按优先级返回第一个匹配的标签
         if ((bitmap & TAG_EXCHANGE) != 0) return "cex";
-        if ((bitmap & TAG_SMART_MONEY) != 0) return "smart_money";
+        if ((bitmap & TAG_SMART_MONEY) != 0) return "smart";
         if ((bitmap & TAG_WHALE) != 0) return "whale";
         if ((bitmap & TAG_FRESH) != 0) return "fresh";
-        if ((bitmap & TAG_PUBLIC_FIGURE) != 0) return "public_figure";
+        if ((bitmap & TAG_PUBLIC_FIGURE) != 0) return "public";
         if ((bitmap & TAG_TOP_PNL) != 0) return "top_pnl";
         
         return "normal";

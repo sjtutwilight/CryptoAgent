@@ -28,6 +28,9 @@ public class AccountPnLSnapshot implements Serializable {
     @JsonProperty("account_id")
     private Long accountId;
 
+    @JsonProperty("account_address")
+    private String accountAddress;
+
     @JsonProperty("token_id")
     private Long tokenId;
 
@@ -71,7 +74,7 @@ public class AccountPnLSnapshot implements Serializable {
     /**
      * 从毫秒时间戳创建快照对象的便捷构造函数
      */
-    public static AccountPnLSnapshot fromTimestamp(Long accountId, Long tokenId, 
+    public static AccountPnLSnapshot fromTimestamp(Long accountId, String accountAddress, Long tokenId, 
                                                   BigDecimal position, BigDecimal avgCost,
                                                   BigDecimal realizedCostUsd, BigDecimal realizedProceedsUsd,
                                                   BigDecimal realizedPnLUsd, BigDecimal lastPriceUsd,
@@ -80,6 +83,7 @@ public class AccountPnLSnapshot implements Serializable {
                                                   Long lastTxTimeMs, Long version) {
         AccountPnLSnapshot snapshot = new AccountPnLSnapshot();
         snapshot.setAccountId(accountId);
+        snapshot.setAccountAddress(accountAddress);
         snapshot.setTokenId(tokenId);
         snapshot.setPosition(position);
         snapshot.setAvgCost(avgCost);
@@ -122,6 +126,9 @@ public class AccountPnLSnapshot implements Serializable {
     // 手动生成getter/setter方法以解决Lombok编译问题
     public Long getAccountId() { return accountId; }
     public void setAccountId(Long accountId) { this.accountId = accountId; }
+    
+    public String getAccountAddress() { return accountAddress; }
+    public void setAccountAddress(String accountAddress) { this.accountAddress = accountAddress; }
     
     public Long getTokenId() { return tokenId; }
     public void setTokenId(Long tokenId) { this.tokenId = tokenId; }

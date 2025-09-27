@@ -68,3 +68,5 @@ public class RandomValueGenerator {
         return securityScoreMin + seededRandom.nextInt(securityScoreMax - securityScoreMin + 1);
     }
 }
+
+
