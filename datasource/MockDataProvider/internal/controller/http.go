@@ -110,6 +110,8 @@ func (c *HTTPController) handleJSONRPC(ctx *gin.Context) {
 	switch request.Method {
 	case "eth_getBlockByNumber":
 		c.handleGetBlockByNumber(ctx, &request)
+	case "eth_getBlockRange":
+		c.handleGetBlockRange(ctx, &request)
 	case "eth_blockNumber":
 		c.handleBlockNumber(ctx, &request)
 	default:
@@ -165,6 +167,94 @@ func (c *HTTPController) handleGetBlockByNumber(ctx *gin.Context, request *model
 
 	ctx.JSON(http.StatusOK, response)
 	log.Printf("返回区块: %s, 高度: %s", block.Hash, block.Number)
+}
+
+// handleGetBlockRange 处理批量获取区块范围的请求
+// 参数: [startBlock, endBlock]
+// 支持格式: "0x123", "latest", "earliest"
+func (c *HTTPController) handleGetBlockRange(ctx *gin.Context, request *model.JSONRPCRequest) {
+	var params []interface{}
+	if err := json.Unmarshal(request.Params, &params); err != nil || len(params) < 2 {
+		c.sendJSONRPCError(ctx, request.ID, -32602, "Invalid params: need [startBlock, endBlock]")
+		return
+	}
+
+	// 解析起始区块号
+	startBlockStr, ok := params[0].(string)
+	if !ok {
+		c.sendJSONRPCError(ctx, request.ID, -32602, "Invalid start block number")
+		return
+	}
+
+	// 解析结束区块号
+	endBlockStr, ok := params[1].(string)
+	if !ok {
+		c.sendJSONRPCError(ctx, request.ID, -32602, "Invalid end block number")
+		return
+	}
+
+	// 解析起始区块
+	startBlock, err := c.parseBlockNumber(startBlockStr)
+	if err != nil {
+		c.sendJSONRPCError(ctx, request.ID, -32602, fmt.Sprintf("Invalid start block: %v", err))
+		return
+	}
+
+	// 解析结束区块
+	endBlock, err := c.parseBlockNumber(endBlockStr)
+	if err != nil {
+		c.sendJSONRPCError(ctx, request.ID, -32602, fmt.Sprintf("Invalid end block: %v", err))
+		return
+	}
+
+	// 验证范围
+	if startBlock > endBlock {
+		c.sendJSONRPCError(ctx, request.ID, -32602, "Start block must be <= end block")
+		return
+	}
+
+	// 限制最大范围（避免返回数据过大）
+	maxRange := int64(1000)
+	if endBlock-startBlock+1 > maxRange {
+		c.sendJSONRPCError(ctx, request.ID, -32005, fmt.Sprintf("Range too large, max %d blocks", maxRange))
+		return
+	}
+
+	// 批量获取区块
+	blocks := make([]*model.BlockHeader, 0, endBlock-startBlock+1)
+	for blockNum := startBlock; blockNum <= endBlock; blockNum++ {
+		block := c.dataGenerator.GetBlockByNumber(blockNum)
+		if block != nil {
+			blocks = append(blocks, block)
+		}
+	}
+
+	response := model.JSONRPCResponse{
+		ID:      request.ID,
+		Result:  blocks,
+		JSONRpc: "2.0",
+	}
+
+	ctx.JSON(http.StatusOK, response)
+	log.Printf("返回区块范围: %d-%d, 共%d个区块", startBlock, endBlock, len(blocks))
+}
+
+// parseBlockNumber 解析区块号（统一处理latest/earliest/hex/decimal）
+func (c *HTTPController) parseBlockNumber(blockNumberStr string) (int64, error) {
+	switch blockNumberStr {
+	case "latest":
+		return c.dataGenerator.GetCurrentBlockNumber(), nil
+	case "earliest":
+		return c.config.Data.Ethereum.StartBlockNumber, nil
+	case "pending":
+		return c.dataGenerator.GetCurrentBlockNumber() + 1, nil
+	default:
+		// 解析十六进制或十进制
+		if strings.HasPrefix(blockNumberStr, "0x") {
+			return strconv.ParseInt(blockNumberStr[2:], 16, 64)
+		}
+		return strconv.ParseInt(blockNumberStr, 10, 64)
+	}
 }
 
 // handleBlockNumber 处理获取当前区块号的请求

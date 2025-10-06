@@ -125,3 +125,6 @@ public class AccountDetail {
         private String avgTransactionValue;
     }
 }
+
+
+

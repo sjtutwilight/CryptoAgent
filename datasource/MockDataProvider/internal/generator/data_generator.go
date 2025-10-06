@@ -12,18 +12,18 @@ import (
 
 // DataGenerator 数据生成器
 type DataGenerator struct {
-	mu               sync.RWMutex
+	mu                 sync.RWMutex
 	currentBlockNumber int64
-	lastBlockHash    string
-	config           *config.Config
+	lastBlockHash      string
+	config             *config.Config
 }
 
 // NewDataGenerator 创建新的数据生成器
 func NewDataGenerator(cfg *config.Config) *DataGenerator {
 	return &DataGenerator{
 		currentBlockNumber: cfg.Data.Ethereum.StartBlockNumber,
-		lastBlockHash:     generateRandomHash(),
-		config:           cfg,
+		lastBlockHash:      generateRandomHash(),
+		config:             cfg,
 	}
 }
 
@@ -31,9 +31,9 @@ func NewDataGenerator(cfg *config.Config) *DataGenerator {
 func (g *DataGenerator) GenerateNextBlock() *model.BlockHeader {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	
+
 	g.currentBlockNumber++
-	
+
 	// 创建新的区块头
 	block := &model.BlockHeader{
 		Number:           formatHex(g.currentBlockNumber),
@@ -56,10 +56,10 @@ func (g *DataGenerator) GenerateNextBlock() *model.BlockHeader {
 		Transactions:     []string{},
 		Uncles:           []string{},
 	}
-	
+
 	// 更新最后区块hash
 	g.lastBlockHash = block.Hash
-	
+
 	return block
 }
 
@@ -74,13 +74,18 @@ func (g *DataGenerator) GetCurrentBlockNumber() int64 {
 func (g *DataGenerator) GetBlockByNumber(blockNumber int64) *model.BlockHeader {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	
+
 	if blockNumber > g.currentBlockNumber {
 		return nil // 区块不存在
 	}
-	
+
 	// 生成确定性的区块数据（基于区块号）
 	return g.generateDeterministicBlock(blockNumber)
+}
+
+// GenerateBlock 生成指定区块号的区块（WebSocket补数据使用）
+func (g *DataGenerator) GenerateBlock(blockNumber int64) *model.BlockHeader {
+	return g.GetBlockByNumber(blockNumber)
 }
 
 // generateDeterministicBlock 生成确定性的区块数据
@@ -88,7 +93,7 @@ func (g *DataGenerator) generateDeterministicBlock(blockNumber int64) *model.Blo
 	// 使用区块号作为种子生成确定性的哈希
 	parentHash := generateDeterministicHash(blockNumber - 1)
 	blockHash := generateDeterministicHash(blockNumber)
-	
+
 	return &model.BlockHeader{
 		Number:           formatHex(blockNumber),
 		Hash:             blockHash,

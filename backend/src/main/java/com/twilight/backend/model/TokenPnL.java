@@ -182,3 +182,6 @@ public class TokenPnL {
         public void setAvgStillHoldingPercent(Double avgStillHoldingPercent) { this.avgStillHoldingPercent = avgStillHoldingPercent; }
     }
 }
+
+
+

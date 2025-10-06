@@ -1,0 +1,168 @@
+{
+  "comment": "控制面下发任务示例 - 展示新的数据源元数据格式",
+  "tasks": [
+    {
+      "task_id": "task-ws-001",
+      "task_type": "long_connection",
+      "data_source_id": "mock-ethereum",
+      "data_source": {
+        "id": "mock-ethereum",
+        "name": "Mock Ethereum Node",
+        "type": "ethereum",
+        "protocol": "websocket",
+        "endpoint": {
+          "url": "ws://localhost:8090/ws",
+          "headers": {
+            "User-Agent": "TwilightWorker/1.0"
+          },
+          "timeout": 30
+        },
+        "rate_limit": {
+          "requests_per_minute": 1200,
+          "requests_per_second": 20,
+          "burst_size": 50
+        },
+        "subscription": {
+          "supported": true,
+          "subscribe_method": "eth_subscribe",
+          "topics": ["newHeads"],
+          "params": ["newHeads"]
+        }
+      },
+      "task_specific_config": {
+        "subscription": {
+          "topics": ["newHeads"]
+        }
+      },
+      "sequence_field": "number",
+      "output_topic": "chain.ethereum.blocks",
+      "report_to_control_plane": true,
+      "retry_config": {
+        "max_retries": 3,
+        "backoff_base": 2,
+        "backoff_max": 30
+      }
+    },
+    {
+      "task_id": "task-http-001",
+      "task_type": "polling",
+      "data_source_id": "mock-ethereum",
+      "data_source": {
+        "id": "mock-ethereum",
+        "name": "Mock Ethereum Node",
+        "type": "ethereum",
+        "protocol": "http",
+        "endpoint": {
+          "url": "http://localhost:8090/rpc",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "timeout": 10
+        },
+        "rate_limit": {
+          "requests_per_minute": 600,
+          "requests_per_second": 10,
+          "burst_size": 20
+        }
+      },
+      "task_specific_config": {
+        "polling": {
+          "interval_seconds": 5,
+          "method": "eth_getBlockByNumber",
+          "params": {
+            "block": "latest",
+            "full_transactions": false
+          }
+        }
+      },
+      "sequence_field": "number",
+      "output_topic": "chain.ethereum.blocks",
+      "report_to_control_plane": false,
+      "retry_config": {
+        "max_retries": 3,
+        "backoff_base": 2,
+        "backoff_max": 30
+      }
+    },
+    {
+      "task_id": "task-补数据-12347",
+      "task_type": "one_time",
+      "data_source_id": "mock-ethereum",
+      "data_source": {
+        "id": "mock-ethereum",
+        "name": "Mock Ethereum Node",
+        "type": "ethereum",
+        "protocol": "http",
+        "endpoint": {
+          "url": "http://localhost:8090/rpc",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "timeout": 10
+        },
+        "rate_limit": {
+          "requests_per_minute": 600,
+          "requests_per_second": 10,
+          "burst_size": 20
+        }
+      },
+      "task_specific_config": {
+        "one_time": {
+          "method": "eth_getBlockByNumber",
+          "params": {
+            "block": "0x303b",
+            "full_transactions": false
+          }
+        }
+      },
+      "sequence_field": "number",
+      "output_topic": "chain.ethereum.blocks",
+      "report_to_control_plane": false,
+      "retry_config": {
+        "max_retries": 3,
+        "backoff_base": 2,
+        "backoff_max": 30
+      }
+    },
+    {
+      "comment": "Binance数据源示例 - 展示通用化订阅",
+      "task_id": "task-binance-001",
+      "task_type": "long_connection",
+      "data_source_id": "binance-spot",
+      "data_source": {
+        "id": "binance-spot",
+        "name": "Binance Spot",
+        "type": "exchange",
+        "protocol": "websocket",
+        "endpoint": {
+          "url": "wss://stream.binance.com:9443/ws",
+          "timeout": 30
+        },
+        "rate_limit": {
+          "requests_per_minute": 6000,
+          "requests_per_second": 100,
+          "burst_size": 200
+        },
+        "subscription": {
+          "supported": true,
+          "subscribe_method": "SUBSCRIBE",
+          "topics": [],
+          "params": ["btcusdt@trade", "ethusdt@trade"]
+        }
+      },
+      "task_specific_config": {
+        "subscription": {
+          "topics": ["btcusdt@trade"]
+        }
+      },
+      "sequence_field": "T",
+      "output_topic": "exchange.binance.trades",
+      "report_to_control_plane": false,
+      "retry_config": {
+        "max_retries": 5,
+        "backoff_base": 1,
+        "backoff_max": 60
+      }
+    }
+  ]
+}

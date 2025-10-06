@@ -136,9 +136,9 @@ public class PnLAggregatorJob {
             .keyBy(trade -> PnLProcessor.generateStateKey(trade.getAccountAddress(), trade.getTokenAddress()));
         
         // ===== Step 7: PnL状态处理 (核心移动平均成本算法) =====
+        // 注意：价格信息已在AccountTrade中（由上游RedisTokenMetricsBroadcaster注入），无需BroadcastState
         log.info("🔧 Setting up PnL processing with moving average cost algorithm");
         SingleOutputStreamOperator<AccountPnLSnapshot> pnlSnapshotStream = keyedTradeStream
-            .connect(metricsBroadcastStream)
             .process(new PnLProcessor())
             .name("PnL Processor (Moving Average Cost)");
         

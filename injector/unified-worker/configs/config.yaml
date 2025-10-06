@@ -1,0 +1,154 @@
+# Unified Worker配置示例
+
+worker:
+  id: "worker-1"
+  
+  # 角色配置（Worker可运行多个角色）
+  roles:
+    # 角色1: WebSocket订阅MockDataProvider的newHeads
+    - role_id: "mock-ethereum-ws"
+      protocol: "websocket"
+      task_type: "long_connection"
+      data_source_id: "mock-ethereum"
+      
+      # 协议配置
+      protocol_config:
+        url: "ws://localhost:8090/ws"
+      
+      # 任务配置
+      task_config:
+        subscription:
+          topics:
+            - "newHeads"
+      
+      # 输出配置
+      output_topic: "chain.ethereum.blocks"
+      sequence_field: "number"  # 通用化：使用block.number作为序列号
+      report_to_control_plane: true
+      
+      # Runtime配置
+      runtime:
+        connection:
+          timeout_seconds: 10
+          read_timeout_seconds: 60
+          write_timeout_seconds: 10
+        
+        reconnect:
+          enabled: true
+          max_retries: -1  # -1表示无限重试
+          backoff_base_seconds: 2
+          backoff_max_seconds: 60
+        
+        heartbeat:
+          enabled: true
+          interval_seconds: 30
+          timeout_seconds: 60
+        
+        rate_limit:
+          enabled: true
+          capacity: 1000
+          refill_rate: 16.67  # 1000次/分钟 ≈ 16.67次/秒
+          refill_unit: "second"
+        
+        connection_pool:
+          enabled: false  # WebSocket不需要连接池
+          max_idle_conns: 10
+          max_conns_per_host: 5
+    
+    # 角色2: 使用Ethereum SDK轮询本地Hardhat节点（优化版）
+    - role_id: "hardhat-local-polling"
+      protocol: "ethereum-sdk"  # 使用SDK而不是原生HTTP
+      task_type: "polling"
+      data_source_id: "hardhat-local"
+      
+      protocol_config:
+        endpoint: "http://localhost:8545"  # SDK使用endpoint字段
+      
+      task_config:
+        polling:
+          interval_seconds: 2  # 每2秒轮询一次（本地节点响应快）
+          method: "eth_getBlockByNumber"
+          params:
+            block: "latest"
+            full_transactions: true  # 获取完整交易信息（包含logs）
+      
+      # 输出到两个topic（通过解析器分发）
+      output_topic: "dex_transaction"  # 主topic：DEX事件
+      sequence_field: "number"
+      report_to_control_plane: false
+      
+      runtime:
+        connection:
+          timeout_seconds: 10
+          read_timeout_seconds: 10
+          write_timeout_seconds: 10
+        
+        reconnect:
+          enabled: false  # SDK内置重连，无需创建
+        
+        heartbeat:
+          enabled: false  # SDK内置心跳，无需创建
+        
+        rate_limit:
+          enabled: true  # 限流仍需要（业务层）
+          capacity: 1000
+          refill_rate: 10  # 本地节点限制更宽松
+          refill_unit: "second"
+        
+        connection_pool:
+          enabled: false  # SDK内置连接池，无需创建
+          max_idle_conns: 5
+          max_conns_per_host: 3
+    
+    # 角色3: HTTP命令式单次查询（用于从Kafka消费任务，补数据）
+    - role_id: "mock-ethereum-http-onetime"
+      protocol: "http"
+      task_type: "one_time"
+      data_source_id: "mock-ethereum"
+      
+      # 协议配置
+      protocol_config:
+        url: "http://localhost:8090/rpc"
+      
+      # 任务配置（从Kafka动态接收）
+      task_config:
+        one_time:
+          method: "eth_getBlockByNumber"
+          params:
+            block: "latest"
+            full_transactions: false
+      
+      # 输出配置
+      output_topic: "chain.ethereum.blocks.补数据"
+      sequence_field: "number"
+      report_to_control_plane: false  # 补数据不需要上报
+      
+      # Runtime配置
+      runtime:
+        connection:
+          timeout_seconds: 10
+          read_timeout_seconds: 30
+          write_timeout_seconds: 10
+        
+        rate_limit:
+          enabled: true
+          capacity: 100
+          refill_rate: 10  # 600次/分钟 = 10次/秒
+        
+        connection_pool:
+          enabled: true
+          max_idle_conns: 5
+          max_conns_per_host: 3
+
+# Kafka配置
+kafka:
+  brokers:
+    - "localhost:9092"
+  consumer_group: "unified-worker-group"
+  task_topic: "worker.tasks"      # 消费任务配置
+  failure_topic: "worker.failures" # 失败上报
+  sequence_topic: "worker.sequences" # 序列号上报
+  
+  producer:
+    compression: "snappy"
+    batch_size: 16384

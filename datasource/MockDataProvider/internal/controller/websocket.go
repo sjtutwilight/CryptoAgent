@@ -117,7 +117,20 @@ func (c *WebSocketController) handleConnection(connInfo *ConnectionInfo) {
 		log.Printf("WebSocket连接关闭: %s", connInfo.conn.RemoteAddr())
 	}()
 
-	// 设置心跳
+	// 设置心跳处理器
+	// 1. 处理客户端发来的Ping，自动回复Pong
+	connInfo.conn.SetPingHandler(func(appData string) error {
+		log.Printf("收到客户端Ping，回复Pong")
+		connInfo.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		// 回复Pong消息
+		if err := connInfo.conn.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(5*time.Second)); err != nil {
+			log.Printf("发送Pong失败: %v", err)
+			return err
+		}
+		return nil
+	})
+
+	// 2. 处理客户端发来的Pong（如果服务端也发Ping）
 	connInfo.conn.SetPongHandler(func(string) error {
 		connInfo.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 		return nil
@@ -178,12 +191,13 @@ func (c *WebSocketController) handleMessage(connInfo *ConnectionInfo, message []
 	}
 
 	log.Printf("收到请求: %s, ID: %v", request.Method, request.ID)
-
 	switch request.Method {
 	case "eth_subscribe":
 		c.handleSubscribe(connInfo, &request)
 	case "eth_unsubscribe":
 		c.handleUnsubscribe(connInfo, &request)
+	case "eth_getBlockByNumber":
+		c.handleGetBlockByNumber(connInfo, &request)
 	default:
 		c.sendError(connInfo, request.ID, -32601, "Method not found")
 	}
@@ -258,6 +272,48 @@ func (c *WebSocketController) handleUnsubscribe(connInfo *ConnectionInfo, reques
 
 	c.sendResponse(connInfo, &response)
 	log.Printf("取消订阅: %s, 成功: %t", subscriptionID, exists)
+}
+
+// handleGetBlockByNumber 处理获取区块请求（支持WebSocket补数据）
+func (c *WebSocketController) handleGetBlockByNumber(connInfo *ConnectionInfo, request *model.JSONRPCRequest) {
+	var params []interface{}
+	if err := json.Unmarshal(request.Params, &params); err != nil || len(params) == 0 {
+		c.sendError(connInfo, request.ID, -32602, "Invalid params")
+		return
+	}
+
+	// 解析区块号参数（支持hex字符串或"latest"）
+	blockNumberParam, ok := params[0].(string)
+	if !ok {
+		c.sendError(connInfo, request.ID, -32602, "Invalid block number")
+		return
+	}
+
+	var blockNumber int64
+	if blockNumberParam == "latest" {
+		// 获取最新区块号
+		blockNumber = c.dataGenerator.GetCurrentBlockNumber()
+	} else {
+		// 解析16进制区块号
+		_, err := fmt.Sscanf(blockNumberParam, "0x%x", &blockNumber)
+		if err != nil {
+			c.sendError(connInfo, request.ID, -32602, "Invalid hex block number")
+			return
+		}
+	}
+
+	// 生成区块数据
+	blockData := c.dataGenerator.GenerateBlock(blockNumber)
+
+	// 发送响应
+	response := model.JSONRPCResponse{
+		ID:      request.ID,
+		Result:  blockData,
+		JSONRpc: "2.0",
+	}
+
+	c.sendResponse(connInfo, &response)
+	log.Printf("返回区块数据: block_number=%d", blockNumber)
 }
 
 // sendResponse 发送响应

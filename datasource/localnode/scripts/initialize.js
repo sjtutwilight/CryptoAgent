@@ -4,7 +4,6 @@ const path = require("path");
 const hre = require("hardhat");
 const { ethers } = hre;
 const { Client } = require('pg');
-const deployment = require('../deployment.json');
 const Redis = require('ioredis');
 
 // Import initialization modules
@@ -28,7 +27,7 @@ async function main() {
     
     // Wait for file system to complete writing and reload deployment info
     console.log("Reloading deployment info...");
-    delete require.cache[require.resolve('../deployment.json')];
+    delete require.cache[require.resolve('../../deployment.json')];
     const deployment = require('../../deployment.json');
     
     // Initialize Redis and PostgreSQL connections

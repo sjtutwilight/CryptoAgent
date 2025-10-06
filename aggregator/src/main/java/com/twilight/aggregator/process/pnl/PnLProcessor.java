@@ -1,15 +1,11 @@
 package com.twilight.aggregator.process.pnl;
 
 import java.math.BigDecimal;
-import java.util.Map;
 
-import org.apache.flink.api.common.state.BroadcastState;
-import org.apache.flink.api.common.state.MapStateDescriptor;
-import org.apache.flink.api.common.state.ReadOnlyBroadcastState;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.streaming.api.functions.co.KeyedBroadcastProcessFunction;
+import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
 import org.slf4j.Logger;
@@ -19,26 +15,26 @@ import com.twilight.aggregator.model.AccountTrade;
 import com.twilight.aggregator.model.AccountPnLSnapshot;
 import com.twilight.aggregator.model.PnLState;
 import com.twilight.aggregator.model.PnLRealizedEvent;
-import com.twilight.aggregator.model.TokenMetrics;
-import com.twilight.aggregator.process.common.RedisTokenMetricsBroadcaster;
+
 /**
  * PnL处理器：核心的移动平均成本算法和状态管理
- * 基于KeyedBroadcastProcessFunction实现，支持价格广播流
+ * 
+ * 设计说明：
+ * - 使用KeyedProcessFunction而非KeyedBroadcastProcessFunction
+ * - 价格信息已在上游RedisTokenMetricsBroadcaster中注入到AccountTrade
+ * - 直接使用trade.getPriceUsd()作为当前价格，无需BroadcastState
+ * - 简化设计，减少不必要的复杂度
  */
-public class PnLProcessor extends KeyedBroadcastProcessFunction<String, AccountTrade, Map<String, TokenMetrics>, AccountPnLSnapshot> {
+public class PnLProcessor extends KeyedProcessFunction<String, AccountTrade, AccountPnLSnapshot> {
     private static final Logger log = LoggerFactory.getLogger(PnLProcessor.class);
     
     // 侧输出标签：已实现盈亏事件
-    public static final OutputTag<PnLRealizedEvent> REALIZED_EVENT_TAG = new OutputTag<PnLRealizedEvent>("realized-events"){};
+    public static final OutputTag<PnLRealizedEvent> REALIZED_EVENT_TAG = 
+        new OutputTag<PnLRealizedEvent>("realized-events"){};
     
     // 状态描述符
     private static final ValueStateDescriptor<PnLState> PNL_STATE_DESCRIPTOR = 
         new ValueStateDescriptor<>("pnl-state", PnLState.class);
-    
-    // 价格广播状态描述符 - 与RedisTokenMetricsBroadcaster保持一致
-    // 复用RedisTokenMetricsBroadcaster的状态描述符，确保一致性
-    public static final MapStateDescriptor<String, TokenMetrics> TOKEN_PRICE_STATE_DESCRIPTOR = 
-        RedisTokenMetricsBroadcaster.TOKEN_METRICS_STATE_DESCRIPTOR;
     
     // 状态存储
     private transient ValueState<PnLState> pnlState;
@@ -61,9 +57,11 @@ public class PnLProcessor extends KeyedBroadcastProcessFunction<String, AccountT
     }
     
     @Override
-    public void processElement(AccountTrade trade, 
-                             KeyedBroadcastProcessFunction<String, AccountTrade, Map<String, TokenMetrics>, AccountPnLSnapshot>.ReadOnlyContext ctx, 
-                             Collector<AccountPnLSnapshot> out) throws Exception {
+    public void processElement(
+        AccountTrade trade, 
+        Context ctx, 
+        Collector<AccountPnLSnapshot> out
+    ) throws Exception {
         processedTrades++;
         
         try {
@@ -112,8 +110,9 @@ public class PnLProcessor extends KeyedBroadcastProcessFunction<String, AccountT
             
             // 保存更新后的状态
             pnlState.update(state);
-            // 获取当前价格用于未实现盈亏计算
-            BigDecimal currentPrice = getCurrentTokenPrice(ctx, trade.getTokenAddress());
+            
+            // 使用交易价格作为当前价格（已在上游RedisTokenMetricsBroadcaster中注入）
+            BigDecimal currentPrice = trade.getPriceUsd();
             
             // 生成PnL快照
             AccountPnLSnapshot snapshot = generateSnapshot(trade, state, currentPrice);
@@ -135,20 +134,6 @@ public class PnLProcessor extends KeyedBroadcastProcessFunction<String, AccountT
             log.info("📊 PnL processing stats - Processed: {}, Buys: {}, Sells: {}, Snapshots: {}, Errors: {}", 
                     processedTrades, buyTrades, sellTrades, snapshotsGenerated, errorCount);
         }
-    }
-    
-    @Override
-    public void processBroadcastElement(Map<String, TokenMetrics> tokenMetricsMap, 
-                                      KeyedBroadcastProcessFunction<String, AccountTrade, Map<String, TokenMetrics>, AccountPnLSnapshot>.Context ctx, 
-                                      Collector<AccountPnLSnapshot> out) throws Exception {
-        // 更新价格广播状态
-        BroadcastState<String, TokenMetrics> broadcastState = ctx.getBroadcastState(TOKEN_PRICE_STATE_DESCRIPTOR);
-        
-        for (Map.Entry<String, TokenMetrics> entry : tokenMetricsMap.entrySet()) {
-            broadcastState.put(entry.getKey(), entry.getValue());
-        }
-        
-        log.trace("🔄 Updated token price broadcast state with {} tokens", tokenMetricsMap.size());
     }
     
     /**
@@ -208,34 +193,6 @@ public class PnLProcessor extends KeyedBroadcastProcessFunction<String, AccountT
         }
     }
 
-    /**
-     * 获取当前token价格
-     */
-    private BigDecimal getCurrentTokenPrice(KeyedBroadcastProcessFunction<String, AccountTrade, Map<String, TokenMetrics>, AccountPnLSnapshot>.ReadOnlyContext ctx, 
-                                          String tokenAddress) {
-        try {
-            if (tokenAddress == null || tokenAddress.trim().isEmpty()) {
-                return BigDecimal.ZERO;
-            }
-            
-            ReadOnlyBroadcastState<String, TokenMetrics> broadcastState = ctx.getBroadcastState(TOKEN_PRICE_STATE_DESCRIPTOR);
-            // 使用小写的token地址作为key
-            String key = tokenAddress.toLowerCase();
-            TokenMetrics metrics = broadcastState.get(key);
-            
-            if (metrics != null && metrics.getTokenPriceUsd() != null && metrics.getTokenPriceUsd() > 0) {
-                return BigDecimal.valueOf(metrics.getTokenPriceUsd());
-            }
-            
-            log.debug("🔍 No price found for token {}, using zero", key);
-            return BigDecimal.ZERO;
-            
-        } catch (Exception e) {
-            log.warn("⚠️ Failed to get current price for token {}: {}", tokenAddress, e.getMessage());
-            return BigDecimal.ZERO;
-        }
-    }
-    
     /**
      * 生成PnL快照
      */

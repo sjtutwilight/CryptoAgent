@@ -322,7 +322,7 @@ CREATE TABLE IF NOT EXISTS token_recent_metric_ch
     token_id UInt64,
     time_window LowCardinality(String),  -- '20s','1min','5min','1h'
     end_time DateTime,
-    tag LowCardinality(String),          -- 'all','cex','smart_money','whale','fresh_wallet'
+    tag LowCardinality(String),          -- 'all','cex','smart','whale','fresh'
     -- 计数
     txcnt UInt32,
     buy_count UInt32,
