@@ -70,8 +70,23 @@ func (m *Manager) initializeRoles() error {
 	return nil
 }
 
-// createRoleInstance 创建角色实例（使用责任链模式）
+// createRoleInstance 创建角色实例（自动选择v1.0或v2.0）
 func (m *Manager) createRoleInstance(roleConfig config.RoleConfig) (*RoleInstance, error) {
+	// 检测使用v2.0还是v1.0：如果配置了handlers或resources，使用v2.0
+	useV2 := len(roleConfig.Handlers) > 0 || !isEmptyResourcesConfig(roleConfig.Resources)
+
+	if useV2 {
+		log.Printf("[架构] 使用v2.0架构: role_id=%s", roleConfig.RoleID)
+		return m.createRoleInstanceV2(roleConfig)
+	}
+
+	// v1.0兼容模式（保留原有责任链逻辑）
+	log.Printf("[架构] 使用v1.0架构（责任链）: role_id=%s", roleConfig.RoleID)
+	return m.createRoleInstanceV1(roleConfig)
+}
+
+// createRoleInstanceV1 创建角色实例（v1.0责任链模式）
+func (m *Manager) createRoleInstanceV1(roleConfig config.RoleConfig) (*RoleInstance, error) {
 	log.Printf("【责任链】开始创建角色实例: role_id=%s, protocol=%s, task_type=%s",
 		roleConfig.RoleID, roleConfig.Protocol, roleConfig.TaskType)
 
@@ -136,4 +151,12 @@ func (m *Manager) createRoleInstance(roleConfig config.RoleConfig) (*RoleInstanc
 		rateLimiter: rateLimiterResult,
 		taskConfig:  taskConfigResult,
 	}, nil
+}
+
+// isEmptyResourcesConfig 检查resources配置是否为空
+func isEmptyResourcesConfig(config config.ResourcesConfigYAML) bool {
+	return !config.RateLimit.Enabled &&
+		!config.ConnectionPool.Enabled &&
+		!config.Reconnect.Enabled &&
+		!config.Heartbeat.Enabled
 }

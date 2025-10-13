@@ -917,3 +917,163 @@ DexParser输出格式（与listener保持一致）：
 4. 补数据机制（WebSocket eth_getBlockByNumber）
 
 **下一步**: 端到端测试 → 验证所有机制正常运行 → 集成listener逻辑 → 生产部署
+
+---
+
+## 十一、架构重构v2.0（进行中）
+
+### 重构背景
+
+**问题诊断**:
+1. 责任链职责混乱：资源管理（限流、连接池）和数据处理（解析、输出）混在一起
+2. 组件硬编码：Parser、Task逻辑写死，缺乏配置驱动的灵活性
+3. 补数据机制缺失：无法处理序列号缺失场景
+
+**改进方向**:
+1. **职责分离**: 资源层（Resource）、任务层（Fetcher）、处理层（Handler）三层解耦
+2. **配置驱动**: 通过配置动态选择Parser、Fetcher、Handler组件
+3. **补数据机制**: 增加MissingDetector和Refiller处理缺失数据
+
+### 新架构设计
+
+```
+┌─────────────────────────────────────────┐
+│           Worker Manager                 │
+└──────────────┬──────────────────────────┘
+               │
+        ┌──────▼────────┐
+        │  Role Instance │
+        │  ┌──────────┐ │
+        │  │Resources │ │ ← 资源层：限流、连接池、重连、心跳（按需创建）
+        │  └──────────┘ │
+        │  ┌──────────┐ │
+        │  │ Fetcher  │ │ ← 任务层：BalanceFetcher、BlockFetcher（配置驱动）
+        │  └──────────┘ │
+        │  ┌──────────┐ │
+        │  │ Handlers │ │ ← 处理层：Parser→Sequence→MissingDetector→Refiller→Sink
+        │  └──────────┘ │
+        └───────────────┘
+```
+
+### ✅ 已完成组件
+
+#### 1. ResourceManager（资源管理器）
+
+**核心特性**:
+- **配置驱动创建**: 只创建配置中明确声明的资源
+- **SDK能力协商**: 根据ProtocolMetadata自动跳过SDK内置能力
+- **统一资源接口**: 提供AcquireRateLimit、GetConnectionPool等方法
+
+**实现位置**: `/internal/resource/manager.go`
+
+```go
+type ResourceManager struct {
+    roleID string
+    rateLimiter   runtime.RateLimiter      // 可选
+    connPool      runtime.ConnectionPool    // 可选
+    reconnectMgr  runtime.ReconnectManager  // 可选
+    heartbeatMgr  runtime.HeartbeatManager  // 可选
+}
+
+// 创建逻辑：配置驱动 + SDK能力协商
+if config.RateLimit.Enabled && !protocolMeta.HasBuiltInRateLimit {
+    rm.rateLimiter = runtime.NewTokenBucketRateLimiter(config.RateLimit)
+}
+```
+
+#### 2. DataFetcher（数据获取器）
+
+**核心特性**:
+- **Fetcher接口**: 统一数据获取抽象
+- **工厂模式**: 通过`polling_task`配置动态创建
+- **内置实现**: BalanceFetcher、BlockFetcher
+
+**实现位置**: `/internal/fetcher/`
+
+```go
+type DataFetcher interface {
+    Fetch(ctx context.Context, config map[string]interface{}) ([]byte, error)
+    Name() string
+}
+
+// 工厂注册
+factory.Register("balance", NewBalanceFetcher)
+factory.Register("block", NewBlockFetcher)
+```
+
+**BalanceFetcher特性**:
+- 参考listener的BalanceSnapshotGenerator实现
+- 支持多账户、多token余额批量获取
+- 使用`balanceOf` (0x70a08231) 调用合约
+- 输出JSON数组格式
+
+**BlockFetcher特性**:
+- 支持Ethereum SDK获取区块
+- 支持`latest`或指定区块号
+- 支持完整交易信息（含logs）
+
+### 📋 待完成组件
+
+#### 3. Handler Chain（处理链重构）
+
+**目标结构**:
+```
+Parser → SequenceExtractor → MissingDetector → Refiller → KafkaSink
+```
+
+**设计要点**:
+- 每个Handler独立组件，实现统一接口
+- 通过HandlerFactory根据配置动态构建链
+- Parser不再内部嵌套责任链（每角色一个Parser）
+
+#### 4. 配置结构重构
+
+**新配置格式**:
+```yaml
+roles:
+  - role_id: "localnode-balance"
+    protocol: "ethereum-sdk"
+    task_type: "polling"
+    
+    task_config:
+      polling_task: "balance"  # 使用BalanceFetcher
+      interval_seconds: 60
+      accounts: ["0x..."]
+      tokens:
+        - address: "0x..."
+          symbol: "USDC"
+    
+    resources:  # 仅创建配置的资源
+      rate_limit:
+        enabled: true
+        capacity: 100
+    
+    handlers:  # 配置驱动的处理链
+      - type: "parser"
+        name: "BalanceParser"
+      - type: "sequence"
+        field: "timestamp"
+      - type: "missing_detector"
+        threshold: 5
+      - type: "refiller"
+        method: "websocket"
+      - type: "kafka_sink"
+        topic: "account_balance_snapshot"
+```
+
+#### 5. 补数据机制
+
+**触发逻辑**:
+- MissingDetector检测序列号缺失
+- 缺失小于阈值：通过现有WS连接单次请求
+- 缺失超过阈值：记录告警，不补
+
+### 下一步计划
+
+1. Handler独立组件化
+2. HandlerFactory实现
+3. 配置解析器更新
+4. RoleInstance重构
+5. 端到端测试
+
+**检查点**: 资源管理和数据获取层已完成 ✅

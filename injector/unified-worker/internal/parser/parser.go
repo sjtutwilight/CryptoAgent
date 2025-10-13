@@ -65,7 +65,7 @@ func NewParserChain() *ParserChain {
 	// 构建责任链：DexParser -> BlockParser -> BalanceParser -> GenericParser
 	// DexParser优先级最高，因为它需要完整解析交易和事件
 	dexParser := NewDexParser()
-	blockParser := NewBlockParser()
+	blockParser := NewDexParser() // 使用DexParser
 	balanceParser := NewBalanceParser()
 	genericParser := NewGenericParser()
 

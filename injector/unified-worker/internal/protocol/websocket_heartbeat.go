@@ -1,12 +1,12 @@
 package protocol
 
 import (
-    "context"
-    "fmt"
-    "log"
-    "time"
+	"context"
+	"fmt"
+	"log"
+	"time"
 
-    "github.com/gorilla/websocket"
+	"github.com/gorilla/websocket"
 )
 
 // startHeartbeat 启动心跳
@@ -43,24 +43,24 @@ func (w *WebSocketHandler) startHeartbeat(ctx context.Context) {
 	conn := w.conn
 	w.mu.RUnlock()
 
-    if conn != nil {
-        conn.SetPongHandler(func(appData string) error {
-            w.heartbeatMgr.OnPong()
-            log.Printf("收到pong响应")
-            return nil
-        })
+	if conn != nil {
+		conn.SetPongHandler(func(appData string) error {
+			w.heartbeatMgr.OnPong()
+			log.Printf("收到pong响应")
+			return nil
+		})
 
-        // 处理服务端发来的ping：回复pong并刷新心跳时间
-        conn.SetPingHandler(func(appData string) error {
-            w.heartbeatMgr.OnPong()
-            deadline := time.Now().Add(w.runtimeConfig.Connection.WriteTimeout)
-            if err := conn.WriteControl(websocket.PongMessage, []byte(appData), deadline); err != nil {
-                log.Printf("回复pong失败: %v", err)
-                return err
-            }
-            return nil
-        })
-    }
+		// 处理服务端发来的ping：回复pong并刷新心跳时间
+		conn.SetPingHandler(func(appData string) error {
+			w.heartbeatMgr.OnPong()
+			deadline := time.Now().Add(w.runtimeConfig.Connection.WriteTimeout)
+			if err := conn.WriteControl(websocket.PongMessage, []byte(appData), deadline); err != nil {
+				log.Printf("回复pong失败: %v", err)
+				return err
+			}
+			return nil
+		})
+	}
 
 	w.heartbeatMgr.Start(ctx, pingFunc, onTimeout)
 }

@@ -39,10 +39,10 @@ func (gp *GenericParser) Parse(ctx context.Context, rawData []byte, config *Pars
 			},
 		}, nil
 	}
-	
+
 	// 递归提取所有字段
 	extracted := flattenMap(data)
-	
+
 	return &ParsedData{
 		OriginalData:  rawData,
 		ExtractedData: extracted,
@@ -63,7 +63,7 @@ func (gp *GenericParser) GetSequence(parsedData *ParsedData) (interface{}, error
 // flattenMap 递归展平map（便于通用查找）
 func flattenMap(data map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
-	
+
 	for key, value := range data {
 		// 如果值是map，递归展平
 		if nestedMap, ok := value.(map[string]interface{}); ok {
@@ -75,7 +75,7 @@ func flattenMap(data map[string]interface{}) map[string]interface{} {
 			result[key] = value
 		}
 	}
-	
+
 	return result
 }
 
@@ -83,7 +83,7 @@ func flattenMap(data map[string]interface{}) map[string]interface{} {
 func ExtractFieldByPath(data map[string]interface{}, path string) (interface{}, error) {
 	// 支持点号分隔的路径，如"result.number"
 	keys := splitPath(path)
-	
+
 	current := interface{}(data)
 	for _, key := range keys {
 		if m, ok := current.(map[string]interface{}); ok {
@@ -96,7 +96,7 @@ func ExtractFieldByPath(data map[string]interface{}, path string) (interface{}, 
 			return nil, fmt.Errorf("无法继续访问路径: %s", path)
 		}
 	}
-	
+
 	return current, nil
 }
 
@@ -104,7 +104,7 @@ func splitPath(path string) []string {
 	// 简单的点号分割
 	var keys []string
 	var current string
-	
+
 	for _, ch := range path {
 		if ch == '.' {
 			if current != "" {
@@ -115,11 +115,11 @@ func splitPath(path string) []string {
 			current += string(ch)
 		}
 	}
-	
+
 	if current != "" {
 		keys = append(keys, current)
 	}
-	
+
 	return keys
 }
 
@@ -133,7 +133,7 @@ func ConvertToInt64(value interface{}) (int64, error) {
 	case float64:
 		return int64(v), nil
 	case string:
-		return hexToInt64(v), nil
+		return parseHexToInt64(v), nil
 	default:
 		return 0, fmt.Errorf("无法转换为int64: %v (type: %v)", value, reflect.TypeOf(value))
 	}
