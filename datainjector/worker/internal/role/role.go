@@ -2,6 +2,8 @@ package role
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"log"
 	"strconv"
@@ -12,7 +14,9 @@ import (
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/emitter"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/handler"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/queue"
+	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/resource"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/sink"
+	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/status"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/types"
 )
 
@@ -29,10 +33,27 @@ type Role struct {
 	closers        []io.Closer
 	backfillCh     chan types.BackfillCmd
 	backfillers    map[string]caller.BlockFetcher
+	rateLimiter    *resource.RateLimiter // 限流器（可选）
+	statusReporter status.Reporter
 }
 
 func Build(rc config.RoleConfig) (*Role, error) {
-	// 构造传入 caller 的参数：native_call 需要区分 caller_config / caller_params，其他 caller 直接使用 CallerParams
+	// 1. 初始化限流器（如果配置了）
+	var rateLimiter *resource.RateLimiter
+	if rc.CallerConfig != nil {
+		if rateLimitCfg, ok := rc.CallerConfig["rate_limit"].(map[string]any); ok {
+			datasourceID := getStringValue(rc.CallerConfig, "datasource_id", rc.RoleID)
+			rlConfig, err := resource.ParseRateLimitConfig(rateLimitCfg)
+			if err != nil {
+				log.Printf("role %s: failed to parse rate_limit config: %v, skipping rate limiter", rc.RoleID, err)
+			} else {
+				rateLimiter = resource.GetManager().GetOrCreateRateLimiter(datasourceID, rlConfig)
+				log.Printf("role %s: enabled rate limiter for datasource '%s'", rc.RoleID, datasourceID)
+			}
+		}
+	}
+
+	// 2. 构造传入 caller 的参数：native_call 需要区分 caller_config / caller_params，其他 caller 直接使用 CallerParams
 	var paramsForCaller map[string]any
 	switch rc.Caller {
 	case "native_call":
@@ -52,6 +73,7 @@ func Build(rc config.RoleConfig) (*Role, error) {
 		}
 	}
 
+	// 3. 创建 caller
 	cl, err := caller.New(rc.Caller, rc.CallerClass, paramsForCaller)
 	if err != nil {
 		return nil, err
@@ -88,14 +110,16 @@ func Build(rc config.RoleConfig) (*Role, error) {
 	}
 
 	r := &Role{
-		ID:          rc.RoleID,
-		emitterType: rc.Emitter,
-		caller:      cl,
-		q:           queue.NewBounded[*types.Message](rc.Queue.Size),
-		handlers:    handlers,
-		sink:        sk,
-		closers:     closers,
-		backfillers: make(map[string]caller.BlockFetcher),
+		ID:             rc.RoleID,
+		emitterType:    rc.Emitter,
+		caller:         cl,
+		q:              queue.NewBounded[*types.Message](rc.Queue.Size),
+		handlers:       handlers,
+		sink:           sk,
+		closers:        closers,
+		backfillers:    make(map[string]caller.BlockFetcher),
+		rateLimiter:    rateLimiter,
+		statusReporter: status.Get(),
 	}
 
 	if exec, ok := cl.(caller.BlockFetcher); ok {
@@ -176,6 +200,90 @@ func Build(rc config.RoleConfig) (*Role, error) {
 	return r, nil
 }
 
+func extractTaskID(args map[string]any) string {
+	if args == nil {
+		return ""
+	}
+	if v, ok := args["taskId"]; ok {
+		return stringify(v)
+	}
+	if v, ok := args["task_id"]; ok {
+		return stringify(v)
+	}
+	if meta, ok := args["metadata"].(map[string]any); ok {
+		if v, ok := meta["taskId"]; ok {
+			return stringify(v)
+		}
+		if v, ok := meta["task_id"]; ok {
+			return stringify(v)
+		}
+	}
+	return ""
+}
+
+func (r *Role) reportFailure(ctx context.Context, taskID string, err error, duration time.Duration, retryable bool, statusCode int, reason string) {
+	if r.statusReporter == nil || taskID == "" {
+		return
+	}
+	evt := status.Event{
+		TaskID:     taskID,
+		Status:     "FAILED",
+		StatusCode: statusCode,
+		Message:    buildStatusMessage(reason, err),
+		Retryable:  retryable,
+		DurationMs: duration.Milliseconds(),
+		Timestamp:  time.Now().UTC(),
+	}
+	if !retryable {
+		evt.Status = "FAILED"
+	} else {
+		evt.Status = "RETRY"
+	}
+	if err := r.statusReporter.Report(ctx, evt); err != nil {
+		log.Printf("role %s: status report failure: %v", r.ID, err)
+	}
+}
+
+func (r *Role) reportSuccess(ctx context.Context, taskID string, duration time.Duration) {
+	if r.statusReporter == nil || taskID == "" {
+		return
+	}
+	evt := status.Event{
+		TaskID:     taskID,
+		Status:     "SUCCESS",
+		StatusCode: 200,
+		DurationMs: duration.Milliseconds(),
+		Retryable:  false,
+		Timestamp:  time.Now().UTC(),
+	}
+	if err := r.statusReporter.Report(ctx, evt); err != nil {
+		log.Printf("role %s: status report success failed: %v", r.ID, err)
+	}
+}
+
+func buildStatusMessage(reason string, err error) string {
+	if err == nil {
+		return reason
+	}
+	if reason == "" {
+		return err.Error()
+	}
+	return fmt.Sprintf("%s: %v", reason, err)
+}
+
+func stringify(v interface{}) string {
+	switch vv := v.(type) {
+	case string:
+		return vv
+	case fmt.Stringer:
+		return vv.String()
+	case []byte:
+		return string(vv)
+	default:
+		return fmt.Sprintf("%v", vv)
+	}
+}
+
 func toStringSlice(v interface{}) []string {
 	if v == nil {
 		return nil
@@ -213,6 +321,18 @@ func toInt(v interface{}, def int) int {
 	return def
 }
 
+func getStringValue(m map[string]any, key, def string) string {
+	if m == nil {
+		return def
+	}
+	if v, ok := m[key]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return def
+}
+
 func (r *Role) Start(ctx context.Context) error {
 	if closer, ok := r.sink.(io.Closer); ok {
 		defer closer.Close()
@@ -233,22 +353,45 @@ func (r *Role) Start(ctx context.Context) error {
 
 	// 触发器：每次触发调用caller，并把返回消息入队
 	fireFunc := func(args map[string]any) {
-		// 可在此填充args（例如cursor管理）
+		taskID := extractTaskID(args)
+		start := time.Now()
+
+		// 限流检查（如果配置了限流器）
+		if r.rateLimiter != nil {
+			if err := r.rateLimiter.Wait(ctx); err != nil {
+				log.Printf("role %s: rate limit wait error: %v", r.ID, err)
+				r.reportFailure(ctx, taskID, err, time.Since(start), true, 0, "rate limit wait error")
+				return
+			}
+		}
+
+		// 调用 caller
 		msgs, err := r.caller.CallOnce(ctx, args)
 		if err != nil {
+			retryable, statusCode := true, 0
+			var callErr *caller.CallError
+			if errors.As(err, &callErr) {
+				retryable = callErr.Retryable
+				statusCode = callErr.StatusCode
+			}
+			r.reportFailure(ctx, taskID, err, time.Since(start), retryable, statusCode, "caller error")
 			log.Printf("role %s: caller error: %v", r.ID, err)
 			return
 		}
 
+		// 消息入队
 		for _, m := range msgs {
 			if m == nil {
 				continue
 			}
 			if err := r.q.Enqueue(ctx, m); err != nil {
 				log.Printf("role %s: enqueue error: %v", r.ID, err)
+				r.reportFailure(ctx, taskID, err, time.Since(start), true, 0, "enqueue error")
 				return
 			}
 		}
+
+		r.reportSuccess(ctx, taskID, time.Since(start))
 	}
 
 	// 根据emitter类型启动

@@ -35,7 +35,8 @@ type WebSocketController struct {
 type ConnectionInfo struct {
 	conn          *websocket.Conn
 	subscriptions map[string]string // subscription_id -> subscription_type
-	mu            sync.RWMutex
+	mu            sync.RWMutex      // 保护subscriptions
+	writeMu       sync.Mutex        // 保护WebSocket写入操作(防止并发写入)
 }
 
 // NewWebSocketController 创建新的WebSocket控制器
@@ -122,8 +123,11 @@ func (c *WebSocketController) handleConnection(connInfo *ConnectionInfo) {
 	connInfo.conn.SetPingHandler(func(appData string) error {
 		log.Printf("收到客户端Ping，回复Pong")
 		connInfo.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-		// 回复Pong消息
-		if err := connInfo.conn.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(5*time.Second)); err != nil {
+		// 回复Pong消息(加锁保护并发写入)
+		connInfo.writeMu.Lock()
+		err := connInfo.conn.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(5*time.Second))
+		connInfo.writeMu.Unlock()
+		if err != nil {
 			log.Printf("发送Pong失败: %v", err)
 			return err
 		}
@@ -150,7 +154,11 @@ func (c *WebSocketController) handleConnection(connInfo *ConnectionInfo) {
 					continue
 				}
 
-				if err := connInfo.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				// 加锁保护并发写入
+				connInfo.writeMu.Lock()
+				err := connInfo.conn.WriteMessage(websocket.PingMessage, nil)
+				connInfo.writeMu.Unlock()
+				if err != nil {
 					log.Printf("发送ping消息失败: %v", err)
 					return
 				}
@@ -324,7 +332,11 @@ func (c *WebSocketController) sendResponse(connInfo *ConnectionInfo, response *m
 		return
 	}
 
-	if err := connInfo.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+	// 加锁保护并发写入
+	connInfo.writeMu.Lock()
+	err = connInfo.conn.WriteMessage(websocket.TextMessage, data)
+	connInfo.writeMu.Unlock()
+	if err != nil {
 		log.Printf("发送响应失败: %v", err)
 	}
 }
@@ -354,6 +366,12 @@ func (c *WebSocketController) blockGenerator() {
 
 // generateAndBroadcastBlock 生成并广播新区块
 func (c *WebSocketController) generateAndBroadcastBlock() {
+	// 在生成新区块前,检查是否应该注入链重组故障
+	if shouldReorg, reorgDepth := c.faultInjector.ShouldInjectChainReorg(); shouldReorg {
+		log.Printf("[链重组故障] 触发链重组,回退 %d 个区块", reorgDepth)
+		c.dataGenerator.ReorgChain(reorgDepth)
+	}
+
 	block := c.dataGenerator.GenerateNextBlock()
 
 	log.Printf("生成新区块: %s, 高度: %s", block.Hash, block.Number)
@@ -362,13 +380,13 @@ func (c *WebSocketController) generateAndBroadcastBlock() {
 	c.connectionsMu.RLock()
 	defer c.connectionsMu.RUnlock()
 
-	for conn, connInfo := range c.connections {
+	for _, connInfo := range c.connections {
 		connInfo.mu.RLock()
 		for subscriptionID, subscriptionType := range connInfo.subscriptions {
 			if subscriptionType == "newHeads" {
 				// 检查是否应该注入数据丢失故障
 				if c.faultInjector.ShouldInjectWebSocketDataLoss() {
-					log.Printf("注入数据丢失故障，跳过发送区块到连接: %s", conn.RemoteAddr())
+					log.Printf("注入数据丢失故障，跳过发送区块到连接: %s", connInfo.conn.RemoteAddr())
 					continue
 				}
 
@@ -392,7 +410,11 @@ func (c *WebSocketController) generateAndBroadcastBlock() {
 					continue
 				}
 
-				if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+				// 加锁保护并发写入(关键修复)
+				connInfo.writeMu.Lock()
+				err = connInfo.conn.WriteMessage(websocket.TextMessage, data)
+				connInfo.writeMu.Unlock()
+				if err != nil {
 					log.Printf("发送区块通知失败: %v", err)
 					continue
 				}

@@ -21,6 +21,9 @@ const (
 	WebSocketDisconnection
 	WebSocketDataLoss
 	WebSocketHeartbeatAnomaly
+
+	// 链重组故障类型
+	ChainReorg
 )
 
 // FaultInjector 故障注入器
@@ -129,6 +132,41 @@ func (f *FaultInjector) ShouldInjectWebSocketHeartbeatAnomaly() bool {
 	return false
 }
 
+// ShouldInjectChainReorg 判断是否应该注入链重组故障
+// 返回值: (是否注入, 回退区块数)
+func (f *FaultInjector) ShouldInjectChainReorg() (bool, int) {
+	if !f.config.Fault.ChainReorg.Enabled {
+		return false, 0
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.rng.Float64() < f.config.Fault.ChainReorg.Probability {
+		f.stats[ChainReorg]++
+
+		// 在配置的范围内随机选择回退区块数
+		minDepth := f.config.Fault.ChainReorg.ReorgDepthMin
+		maxDepth := f.config.Fault.ChainReorg.ReorgDepthMax
+
+		if minDepth <= 0 {
+			minDepth = 1
+		}
+		if maxDepth < minDepth {
+			maxDepth = minDepth
+		}
+
+		reorgDepth := minDepth
+		if maxDepth > minDepth {
+			reorgDepth = minDepth + f.rng.Intn(maxDepth-minDepth+1)
+		}
+
+		return true, reorgDepth
+	}
+
+	return false, 0
+}
+
 // GetStats 获取故障注入统计信息
 func (f *FaultInjector) GetStats() map[string]int64 {
 	f.mu.RLock()
@@ -141,6 +179,7 @@ func (f *FaultInjector) GetStats() map[string]int64 {
 	result["websocket_disconnection"] = f.stats[WebSocketDisconnection]
 	result["websocket_data_loss"] = f.stats[WebSocketDataLoss]
 	result["websocket_heartbeat_anomaly"] = f.stats[WebSocketHeartbeatAnomaly]
+	result["chain_reorg"] = f.stats[ChainReorg]
 
 	return result
 }

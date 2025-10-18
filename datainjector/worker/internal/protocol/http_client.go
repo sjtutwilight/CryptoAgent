@@ -24,6 +24,19 @@ type HTTPClient struct {
 	client   *http.Client
 }
 
+type HTTPStatusError struct {
+	StatusCode int
+	body       []byte
+}
+
+func (e *HTTPStatusError) Error() string {
+	return fmt.Sprintf("http status %d", e.StatusCode)
+}
+
+func (e *HTTPStatusError) Body() []byte {
+	return e.body
+}
+
 var httpClients sync.Map
 
 func GetHTTPClient(cfg HTTPClientConfig) *HTTPClient {
@@ -93,7 +106,7 @@ func (c *HTTPClient) Call(ctx context.Context, req JSONRPCRequest) ([]byte, erro
 	}
 
 	if resp.StatusCode >= 400 {
-		return respBody, fmt.Errorf("http status %d", resp.StatusCode)
+		return respBody, &HTTPStatusError{StatusCode: resp.StatusCode, body: respBody}
 	}
 	return respBody, nil
 }

@@ -20,6 +20,26 @@ type HTTPCall struct {
 	reqCounter   int64
 }
 
+type CallError struct {
+	StatusCode int
+	Retryable  bool
+	Err        error
+}
+
+func (e *CallError) Error() string {
+	if e == nil || e.Err == nil {
+		return ""
+	}
+	return e.Err.Error()
+}
+
+func (e *CallError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
 func NewHTTPCall(callerConfig map[string]any, params map[string]any) (*HTTPCall, error) {
 	c := &HTTPCall{}
 	if ds := getStringValue(callerConfig, "datasource_id", ""); ds != "" {
@@ -95,7 +115,15 @@ func (h *HTTPCall) CallOnce(ctx context.Context, args map[string]any) ([]*types.
 
 	respBody, err := client.Call(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("http 调用失败: %w", err)
+		callErr := &CallError{
+			Retryable: true,
+			Err:       fmt.Errorf("http 调用失败: %w", err),
+		}
+		if httpErr, ok := err.(*protocol.HTTPStatusError); ok {
+			callErr.StatusCode = httpErr.StatusCode
+			callErr.Retryable = shouldRetryStatus(httpErr.StatusCode)
+		}
+		return nil, callErr
 	}
 
 	var resp protocol.JSONRPCResponse
@@ -136,6 +164,18 @@ func (h *HTTPCall) CallOnce(ctx context.Context, args map[string]any) ([]*types.
 	}
 	log.Printf("[HTTPCall] CallOnce msgs=%d", len(msgs))
 	return msgs, nil
+}
+
+func shouldRetryStatus(code int) bool {
+	if code == 0 {
+		return true
+	}
+	switch code {
+	case 408, 429, 500, 502, 503, 504:
+		return true
+	default:
+		return code >= 500
+	}
 }
 
 func (h *HTTPCall) Close() error {

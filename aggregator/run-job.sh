@@ -51,6 +51,9 @@ get_job_class() {
         "trade")
             echo "com.twilight.aggregator.TradeFactJob"
             ;;
+        "sequence")
+            echo "com.twilight.aggregator.utils.SequenceExtractJob"
+            ;;
         *)
             echo ""
             ;;
@@ -71,6 +74,8 @@ show_help() {
     echo "  token    - Token指标聚合器 (Token实时指标)"
     echo "  pair     - Pair指标聚合器 (交易对分析)"
     echo "  balance  - 账户余额聚合器 (余额跟踪)"
+    echo "  trade    - 交易事实聚合器 (交易事实数据)"
+    echo "  sequence - 区块序列提取器 (数据缺失检测)"
     echo "  all      - 运行所有Job (并行)"
     echo ""
     echo "示例:"
@@ -78,6 +83,7 @@ show_help() {
     echo "  ./run-job.sh token      # 运行Token聚合器"
     echo "  ./run-job.sh all        # 运行所有Job"
     echo "  ./run-job.sh trade      # 运行交易事实聚合器"
+    echo "  ./run-job.sh sequence   # 运行区块序列提取器"
     echo ""
     echo "注意: 脚本会自动编译项目，确保使用最新代码"
     echo "========================================"
@@ -188,7 +194,7 @@ run_all_jobs() {
 is_valid_job() {
     local job_name=$1
     case $job_name in
-        "pnl"|"token"|"pair"|"balance"|"trade")
+        "pnl"|"token"|"pair"|"balance"|"trade"|"sequence")
             return 0
             ;;
         *)

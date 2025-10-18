@@ -5,7 +5,7 @@ server:
 fault:
   http:
     enabled: true
-    failure_probability: 0.05        # 5%的HTTP请求失败概率
+    failure_probability: 0.1        # 5%的HTTP请求失败概率
     rate_limit_probability: 0.05     # 2%的429限流错误概率
     server_error_probability: 0.05   # 3%的5xx服务器错误概率
     
@@ -14,8 +14,21 @@ fault:
     disconnection_probability: 0.02     # 1%的连接断开概率
     data_loss_probability: 0.1           # 2%的数据丢失概率
     heartbeat_anomaly_probability: 0.01   # 1%的心跳异常概率
+  
+  chain_reorg:
+    enabled: false                    # 是否启用链重组模拟
+    probability: 0.1                # 链重组发生概率(0.1%,即千分之一)
+    reorg_depth_min: 1                # 最小回退区块数
+    reorg_depth_max: 5                # 最大回退区块数
 
 data:
   ethereum:
     block_interval: 2          # 区块间隔（秒）
     start_block_number: 1000000 # 起始区块号
+    persistence:
+      enabled: true                          # 是否启用持久化
+      state_file: "./data/block_state.json"  # 状态文件路径
+      save_interval: 10                      # 保存间隔（秒）
+    crash_simulation:
+      enabled: true                         # 是否启用宕机模拟
+      lost_blocks: 20                         # 宕机时丢失的区块数量

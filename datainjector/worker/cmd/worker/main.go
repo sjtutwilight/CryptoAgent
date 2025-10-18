@@ -11,6 +11,7 @@ import (
 
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/config"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/role"
+	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/status"
 )
 
 func main() {
@@ -25,6 +26,9 @@ func main() {
 	if len(cfg.Roles) == 0 {
 		log.Fatalf("no roles in config")
 	}
+
+	status.Init(cfg.StatusReporter)
+	defer status.Close()
 
 	// 仅启动配置中的所有角色（当前关注 localnode-block）
 	ctx, cancel := context.WithCancel(context.Background())

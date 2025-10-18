@@ -146,4 +146,13 @@ public class FlinkConfig extends BaseConfig {
         properties.setProperty("isolation.level", getProperty("kafka.isolation.level", "read_committed"));
         return properties;
     }
+    
+    // 公共配置访问方法，用于扩展性配置
+    public String getConfigProperty(String key) {
+        return getProperty(key);
+    }
+    
+    public String getConfigProperty(String key, String defaultValue) {
+        return getProperty(key, defaultValue);
+    }
 }

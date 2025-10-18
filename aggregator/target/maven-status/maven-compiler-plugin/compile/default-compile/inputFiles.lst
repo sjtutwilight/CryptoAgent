@@ -12,6 +12,7 @@
 /Users/yangguang/DataPlatform/aggregator/src/main/java/com/twilight/aggregator/process/pair/PairEventExtractor.java
 /Users/yangguang/DataPlatform/aggregator/src/main/java/com/twilight/aggregator/utils/SerializableResultFuture.java
 /Users/yangguang/DataPlatform/aggregator/src/main/java/com/twilight/aggregator/sink/AccountBalanceSink.java
+/Users/yangguang/DataPlatform/aggregator/src/main/java/com/twilight/aggregator/utils/SequenceExtractJob.java
 /Users/yangguang/DataPlatform/aggregator/src/main/java/com/twilight/aggregator/TradeFactJob.java
 /Users/yangguang/DataPlatform/aggregator/src/main/java/com/twilight/aggregator/AccountBalanceJob.java
 /Users/yangguang/DataPlatform/aggregator/src/main/java/com/twilight/aggregator/process/pair/PairHierarchicalWindowAggregator.java
