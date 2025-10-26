@@ -1,1460 +1,601 @@
-# DataInjector Worker 架构设计剖析
+# 统一数据接入层
 
-## 1. 架构概览
+采用控制面与数据面分离的方式，控制面负责任务生命周期管理（下发、重试与状态管理）、全局限流、数据质量检测等。数据面通过**配置驱动的方式拉取相应数据。**
 
-DataInjector Worker 是一个高度模块化、配置驱动的数据采集与处理框架，遵循**输入→队列→处理→输出**的经典数据管道模式。其核心设计理念是通过 **Role（角色）** 概念将不同的数据采集任务独立隔离，每个 Role 可独立配置数据源、处理逻辑和输出目标。
+### **配置驱动的统一 Worker 框架**
 
-### 1.1 核心设计原则
+- 解耦任务与运行实例:通过抽象和组件化将主链路从业务代码中完全剥离,新增数据源只需修改配置文件，所有业务代码在可插拔的组件中
+- 职责分离与组件化
+- 适合技术主导的团队，比维护平台更灵活高效。
 
-1. **配置驱动**：所有 Role 通过 YAML 配置文件定义，无需修改代码即可扩展新的数据采集任务
-2. **模块化解耦**：各组件（Emitter、Caller、Handler、Sink）通过接口定义，支持独立扩展
-3. **注册表模式**：使用工厂模式 + 注册表实现组件的动态加载
-4. **并发隔离**：每个 Role 独立运行，互不干扰
-5. **协程安全**：使用 Context 控制生命周期，优雅退出
+### 职责分离与组件化
 
-### 1.2 整体架构图
+```mermaid
+graph LR
+    A[Emitter<br/>触发器] --触发-->R[Role实例]
+    F[resource]--获取相应资源-->R
+    R[Role实例]-->|trigger| B[Caller<br/>数据源调用]
+    B -->|messages| C[Queue<br/>缓冲队列]
+    C -->|dequeue| D[Handler Chain<br/>处理器责任链]
+    D -->|processed| E[Sink<br/>数据下沉]
+
+    style A fill:#e8f5e9
+    style B fill:#fff9c4
+    style C fill:#ffe0b2
+    style D fill:#f3e5f5
+    style E fill:#fce4ec
+
+```
+
+### 组件说明
+
+- **Role:** 任务的执行单元，可弹性为worker集群分配任务，符合云原生理念。
+- **Emitter**：控制任务触发时机,包括Polling(定时)/Single(基于配置变更)/KafkaCommand(事件驱动)
+- **Resource**: 对资源的统一抽象，role调用caller需先获取相应resource，如http连接池、websocket连接数、限流token等。
+- **Protocol:** 底层协议管理，负责单连接管理如websocket断线重连、心跳等。
+- **Caller：**业务适配层，调用协议层完成数据拉取。
+    - NativeCall(HTTP/WS)：原生协议，通常简单参数组装。
+    - SDKCall(如go-ethereum)：通常需实现自定义caller类来调用相应api。
+- **Queue：**解耦采集与处理的有界 channel
+- **Handler：**责任链模式的数据处理链。handler与业务无关。
+
+### 配置示例
+
+```yaml
+roles:
+  - role_id: "ethereum-blocks"
+    emitter: "single"              # 触发方式：single=WebSocket订阅
+    caller: "native_call"          # 调用方式：native_call=原生协议
+    caller_config:
+      protocol: "websocket"
+      url: "wss://eth-mainnet.g.alchemy.com/v2/{key}"
+    caller_params:
+      subscribe: "newHeads"        # 订阅主题
+      heartbeat_ms: 30000
+      poll_interval_ms: 500
+    handlers:
+      - type: "missing_detector"   # 缺失检测
+        with:
+          sequence_field: "block_number"
+          eager_gap: 3
+    sink:
+      type: "kafka"
+      with:
+        topic: "chain.ethereum.blocks"
+```
+
+### WebSocket 缺失检测与补数据
+
+- **背景**：websocket当前仍广泛应用，但普遍存在乱序、数据缺失等问题。
+- **主要场景**
+    - **短时故障：**如网络抖动、连接断开，服务端或worker短时宕机。
+    - **长时故障**： 此时数据缺口较大且服务端可能长期无响应，由控制面统一进行可退避重试的补数据。
+- **设计：采用本地快速补数与控制面兜底的双重保障。**
+
+### 本地快速检测
+
+- 缓冲buffer: 数据出现乱序或缺失则写入buffer
+- 补数触发：缺口超出阈值触发补数，失败可降级至http。
+- 定时清理：通过时间与序列号gap来进行buffer清理。未
+
+### 控制面兜底
+
+- 通过轻量flink job将数据面sink的数据包的序列号汇总到统一topic。
+- 控制面订阅该topic进行缺失检测
+- 下发补数任务到http worker。补回原topic.
+
+## 分层限流
+
+### 限流策略：控制面 + Worker 两级限流
+
+- 背景：调研了binance、cmc等各种数据源的限流额度文档，发现数据源限流策略存在差异，如带权重、按endpoint粒度、时间粒度、隐性限流（如瞬时高峰）。
+- 策略：配置化+层级化的限流方案
+    - **配置化**：可灵活配置限流的范围、权重、时间粒度
+    - **层级化**：月粒度定时校验与报警即可。其余粒度通过控制面全局限流管控，worker局部限流负责平滑高峰。
 
 ```mermaid
 graph TB
-    subgraph "Main Entry"
-        Main[main.go]
-    end
-    
-    subgraph "Configuration Layer"
-        Config[Config Loader]
-        YAML[config.yaml]
-    end
-    
-    subgraph "Role Instance 1"
-        E1[Emitter]
-        C1[Caller]
-        Q1[Queue]
-        H1[Handlers]
-        S1[Sink]
-        
-        E1 -->|trigger| C1
-        C1 -->|messages| Q1
-        Q1 -->|consume| H1
-        H1 -->|processed| S1
-    end
-    
-    subgraph "Role Instance 2"
-        E2[Emitter]
-        C2[Caller]
-        Q2[Queue]
-        H2[Handlers]
-        S2[Sink]
-        
-        E2 -->|trigger| C2
-        C2 -->|messages| Q2
-        Q2 -->|consume| H2
-        H2 -->|processed| S2
-    end
-    
-    subgraph "Backfill Subsystem"
-        BFC[Backfill Channel]
-        MD[MissingDetector]
-        WSB[WebSocket Backfill]
-        HTB[HTTP Backfill]
-        
-        MD -->|cmd| BFC
-        BFC -->|execute| WSB
-        BFC -->|fallback| HTB
-        WSB -->|msgs| Q1
-        HTB -->|msgs| Q1
-    end
-    
-    Main --> Config
-    Config --> YAML
-    Config -->|build| E1
-    Config -->|build| E2
-    
-    H1 -.->|detect gap| MD
-    
-    style Main fill:#e1f5ff
-    style Config fill:#fff4e1
-    style E1 fill:#e8f5e9
-    style C1 fill:#e8f5e9
-    style Q1 fill:#fff9c4
-    style H1 fill:#f3e5f5
-    style S1 fill:#fce4ec
-    style MD fill:#ffebee
+    A[请求] --> B{控制面<br/>Redis 滑动窗口}
+    B -->|通过| C[下发任务到 Kafka]
+    B -->|拒绝| X[返回 429]
+
+    C --> D[Worker 消费任务]
+    D --> E{本地限流器<br/>令牌桶算法}
+    E -->|获取令牌| F[调用数据源]
+    E -->|无令牌| G[阻塞等待]
+
+    F --> H[HTTP 连接池]
+    H -->|有空闲连接| I[发起请求]
+    H -->|连接满| J[排队等待]
+
+    style B fill:#fff3e0
+    style E fill:#e8f5e9
+    style H fill:#e3f2fd
+
 ```
 
----
+## 基于持久化时间戳的任务可延时下发
 
-## 2. 核心模块详解
+### 核心思想
 
-### 2.1 Role（角色）- 任务编排核心
+**方案**：将任务持久化到 PostgreSQL，使用定时扫描器（TimerProducer）根据 `scheduled_time` 字段定期捞取到期任务并发送到 Kafka，实现**延时调度**和**可靠投递**。
 
-**职责**：Role 是 Worker 中的最小调度单元，负责协调各组件完成一个完整的数据采集任务。
+- **亮点**
+    - **任务不丢失**：要么持久化、要么返回失败到请求侧。
+    - **可延时调度**：基于定时器+批量扫描投递kafka方式。
+    - **限流管控**：若触发限流，支持直接计算并将调度时间设置为下一允许请求的时间。
 
-**核心字段**：
-```go
-type Role struct {
-    ID             string                          // 角色唯一标识
-    emitterType    string                          // emitter 类型
-    pollingEmitter *emitter.Polling                // 轮询触发器
-    singleEmitter  *emitter.Single                 // 单次触发器
-    kafkaEmitter   *emitter.KafkaCommand           // Kafka 命令触发器
-    caller         caller.Caller                   // 数据源调用器
-    q              *queue.BoundedQueue[*Message]   // 有界队列
-    handlers       []handler.Handler               // 处理器链
-    sink           sink.Sink                       // 数据下沉
-    backfillCh     chan types.BackfillCmd          // 补数据通道
-    backfillers    map[string]caller.BlockFetcher  // 补数据执行器
-}
-```
-
-**工作流程**：
-
-```mermaid
-sequenceDiagram
-    participant E as Emitter
-    participant R as Role
-    participant C as Caller
-    participant Q as Queue
-    participant H as Handler Chain
-    participant S as Sink
-    
-    E->>R: trigger(args)
-    R->>C: CallOnce(ctx, args)
-    C-->>R: []*Message
-    loop for each message
-        R->>Q: Enqueue(msg)
-    end
-    
-    par Consume Loop
-        Q->>R: Dequeue()
-        R->>H: Handle(msg)
-        H-->>R: processed messages
-        R->>S: Write(msg)
-    end
-```
-
-**生命周期管理**：
-1. **启动阶段**：
-   - 根据配置构建 Emitter、Caller、Handlers、Sink
-   - 启动消费者协程（consume）
-   - 启动补数据协程（runBackfill）
-   - 启动 Emitter 触发器
-   
-2. **运行阶段**：
-   - Emitter 定时/事件触发 `fireFunc`
-   - Caller 返回数据写入 Queue
-   - 消费者从 Queue 读取并依次经过 Handler 链
-   - 最终写入 Sink
-
-3. **退出阶段**：
-   - Context 取消触发各协程退出
-   - 依次关闭 Sink、Handlers、Caller
-
----
-
-### 2.2 Emitter（触发器）- 任务输入源
-
-**职责**：控制 Caller 的调用时机，支持三种触发模式。
-
-#### 2.2.1 Polling（轮询触发器）
-
-**适用场景**：定时拉取数据（如定时获取区块数据）
-
-**核心逻辑**：
-```go
-func (p *Polling) Start(ctx context.Context, fire func(args map[string]any)) error {
-    ticker := time.NewTicker(p.Interval)
-    defer ticker.Stop()
-    fire(nil) // 立即触发一次
-    for {
-        select {
-        case <-ctx.Done():
-            return nil
-        case <-ticker.C:
-            fire(nil) // 周期触发
-        }
-    }
-}
-```
-
-**配置示例**：
-```yaml
-emitter: "polling"
-polling_interval: 2  # 每2秒触发一次
-```
-
-#### 2.2.2 Single（单次触发器）
-
-**适用场景**：WebSocket 订阅场景，第一次建立订阅，后续周期性拉取缓存消息
-
-**核心逻辑**：
-```go
-func (s *Single) Start(ctx context.Context, fire func(args map[string]any)) error {
-    fire(s.Params)  // 第一次触发订阅
-    ticker := time.NewTicker(s.PollInterval)
-    defer ticker.Stop()
-    for {
-        select {
-        case <-ctx.Done():
-            return nil
-        case <-ticker.C:
-            fire(nil)  // 周期拉取缓存消息
-        }
-    }
-}
-```
-
-**配置示例**：
-```yaml
-emitter: "single"
-caller_params:
-  subscribe: "newHeads"
-  poll_interval_ms: 500  # 每500ms拉取一次缓存
-```
-
-#### 2.2.3 KafkaCommand（命令式触发器）
-
-**适用场景**：通过 Kafka 消息驱动的任务（如接收控制面下发的 HTTP 补数任务）
-
-**配置示例**：
-```yaml
-emitter: "kafka_command"
-emitter_config:
-  brokers: ["localhost:9092"]
-  topic: "command.mockprovider.block"
-  group_id: "worker.mockprovider.http"
-```
-
----
-
-### 2.3 Caller（数据源调用器）
-
-**职责**：与外部数据源交互，返回标准化的 Message 列表。
-
-#### 2.3.1 Caller 接口定义
-
-```go
-type Caller interface {
-    CallOnce(ctx context.Context, args map[string]any) ([]*types.Message, error)
-}
-```
-
-#### 2.3.2 NativeCall（原生协议调用）
-
-支持 HTTP 和 WebSocket 两种传输协议，基于 JSON-RPC 标准。
-
-##### WebSocket 实现（NativeCall WebSocket）
-
-**核心特性**：
-- 维护长连接订阅
-- 心跳保活 + 自动重连
-- 消息本地缓冲
-- 支持主动 RPC 调用（用于补数据）
-
-**工作流程**：
-
-```mermaid
-stateDiagram-v2
-    [*] --> Connecting
-    Connecting --> Connected: Connect成功
-    Connecting --> Reconnecting: Connect失败
-    
-    Connected --> Subscribing: 首次CallOnce
-    Subscribing --> Subscribed: 订阅成功
-    Subscribed --> Buffering: 接收消息
-    Buffering --> Subscribed: 继续接收
-    
-    Subscribed --> Backfilling: 收到补数命令
-    Backfilling --> Subscribed: 补数完成
-    
-    Connected --> Reconnecting: 连接断开
-    Reconnecting --> Connected: 重连成功
-    Reconnecting --> [*]: Context取消
-```
-
-**关键代码逻辑**：
-```go
-func (w *WebSocketCall) CallOnce(ctx context.Context, args map[string]any) ([]*types.Message, error) {
-    w.mu.Lock()
-    if !w.subscribed {
-        // 首次调用发起订阅
-        w.wsClient.Subscribe(w.subscribeReq)
-        w.subscribed = true
-    }
-    // 返回缓存的消息并清空
-    msgs := w.msgBuffer
-    w.msgBuffer = make([]*types.Message, 0)
-    w.mu.Unlock()
-    return msgs, nil
-}
-
-// 后台持续接收消息
-func (w *WebSocketCall) receiveMessages() {
-    for data := range w.wsClient.MessageChan() {
-        w.handleIncomingMessage(data)  // 解析并缓存到 msgBuffer
-    }
-}
-```
-
-**补数据支持**（实现 BlockFetcher 接口）：
-```go
-func (w *WebSocketCall) FetchBlocks(ctx context.Context, start, end int64, rpcMethod string, options map[string]any) ([]*types.Message, error) {
-    for blk := start; blk <= end; blk++ {
-        result := w.callWebSocket(ctx, "eth_getBlockByNumber", params)
-        // 封装为与实时订阅一致的格式
-        msgs := buildMessagesFromResult(method, result, meta)
-        all = append(all, msgs...)
-    }
-    return all, nil
-}
-```
-
-##### HTTP 实现（NativeCall HTTP）
-
-**核心特性**：
-- 连接池复用
-- 超时控制
-- 支持批量块查询
-
-**关键代码**：
-```go
-func (h *HTTPCall) CallOnce(ctx context.Context, args map[string]any) ([]*types.Message, error) {
-    req := protocol.JSONRPCRequest{
-        JSONRPC: "2.0",
-        ID:      generateID(),
-        Method:  method,
-        Params:  params,
-    }
-    respBody := client.Call(ctx, req)
-    return buildMessagesFromResult(method, resp.Result, metadata)
-}
-```
-
-#### 2.3.3 SDK Call（SDK 封装调用）
-
-**适用场景**：使用 Go SDK（如 go-ethereum）与本地节点交互
-
-**示例**：LocalGetBlock（区块拉取）
-```go
-func (l *LocalGetBlock) CallOnce(ctx context.Context, args map[string]any) ([]*types.Message, error) {
-    currentBlock := ethClient.BlockNumber(ctx)
-    for i := 0; i < maxBlocksPerPoll && cursor <= currentBlock; i++ {
-        block := ethClient.BlockByNumber(ctx, cursor)
-        receipts := ethClient.BlockReceipts(ctx, blockHash)
-        // 解析交易和事件
-        msgs = append(msgs, buildTxMessages(block, receipts))
-        cursor++
-    }
-    return msgs, nil
-}
-```
-
----
-
-### 2.4 Queue（队列）- 生产消费隔离
-
-**职责**：解耦数据采集与处理，提供背压控制。
-
-**核心实现**：
-```go
-type BoundedQueue[T any] struct {
-    ch chan T  // 有界 channel
-}
-
-func (b *BoundedQueue[T]) Enqueue(ctx context.Context, v T) error {
-    select {
-    case <-ctx.Done():
-        return ctx.Err()
-    case b.ch <- v:  // 阻塞等待，提供反压
-        return nil
-    }
-}
-```
-
-**队列特性**：
-- **有界**：防止内存溢出
-- **阻塞式**：队列满时阻塞生产者（背压机制）
-- **Context 感知**：支持优雅退出
-
-**配置示例**：
-```yaml
-queue: { size: 5000 }  # 队列容量
-```
-
----
-
-### 2.5 Handler（处理器）- 责任链模式
-
-**职责**：对消息进行转换、过滤、增强等处理。
-
-**接口定义**：
-```go
-type Handler interface {
-    Handle(msg *Message) ([]*Message, error)
-}
-```
-
-**责任链执行**：
-```go
-curMsgs := []*Message{msg}
-for _, h := range r.handlers {
-    next := []*Message{}
-    for _, m := range curMsgs {
-        outs, err := h.Handle(m)
-        next = append(next, outs...)
-    }
-    curMsgs = next
-}
-```
-
-#### 2.5.1 核心 Handler 实现
-
-##### DexParser（DEX 交易解析器）
-- 解析区块中的交易和事件
-- 提取 DEX 相关日志（Swap、Transfer 等）
-- 输出标准化的交易事件格式
-
-##### BalanceParser（余额解析器）
-- 从 Redis 读取价格数据
-- 计算账户余额的 USD 价值
-- 数值归一化处理
-
-##### MissingDetector（缺失检测器）★ 核心组件
-详见下文专门章节。
-
----
-
-### 2.6 Sink（数据输出）
-
-**职责**：将处理后的数据写入目标存储。
-
-#### 2.6.1 Kafka Sink
-
-**核心实现**：
-```go
-func (k *Kafka) Write(msg *types.Message) error {
-    key := k.buildKey(msg)  // 从 metadata 提取分区键
-    return k.writer.WriteMessages(context.Background(), kafka.Message{
-        Key:   []byte(key),
-        Value: msg.Payload,
-    })
-}
-```
-
-**分区键策略**：
-```yaml
-sink:
-  type: "kafka"
-  with:
-    brokers: ["localhost:9092"]
-    topic: "chain.ethereum.blocks"
-    key_from: ["chain_id", "block_number"]  # 复合键
-```
-
-#### 2.6.2 Console Sink
-
-用于调试，直接打印到标准输出。
-
----
-
-## 3. 缺失检测与补数据设计（核心机制）
-
-### 3.1 问题背景
-
-在 WebSocket 实时数据流中，常见以下问题：
-1. **网络抖动**：导致消息乱序到达
-2. **服务端压力**：部分消息未推送
-3. **连接中断**：重连期间数据丢失
-
-### 3.2 设计目标
-
-- 确保下游接收**严格有序**的数据序列
-- 自动检测缺口并触发补数
-- 支持 WebSocket 快速补数 + HTTP 降级补数
-- 避免无限缓冲导致内存溢出
-
-### 3.3 架构设计
-
-```mermaid
-graph TB
-    subgraph "实时数据流"
-        WS[WebSocket订阅] -->|消息| MD[MissingDetector]
-    end
-    
-    subgraph "MissingDetector 核心状态"
-        EN[expectedNext: uint64<br/>当前期望序号]
-        BUF[buffer: map[seq][]*Message<br/>乱序缓冲区]
-        FS[firstSeen: map[seq]time<br/>序号首见时间]
-    end
-    
-    subgraph "缺口检测逻辑"
-        MD -->|seq == expected| OUT[直接输出]
-        MD -->|seq > expected| BUF
-        MD -->|gap > eagerGap| BFC[触发补数]
-        FS -->|超时| BFC
-    end
-    
-    subgraph "补数子系统"
-        BFC -->|BackfillCmd| CH[backfillCh]
-        CH -->|优先| WSB[WebSocket快速补数]
-        WSB -->|失败| HTB[HTTP降级补数]
-        WSB -->|成功| Q[回写Queue]
-        HTB -->|成功| Q
-    end
-    
-    subgraph "序列拼接"
-        Q -->|补数消息| MD
-        BUF -->|连续段| DRAIN[冲刷缓冲区]
-        DRAIN -->|有序输出| SINK[Sink]
-    end
-    
-    OUT --> SINK
-    
-    style MD fill:#ffebee
-    style BFC fill:#fff3e0
-    style WSB fill:#e8f5e9
-    style HTB fill:#e3f2fd
-```
-
-### 3.4 核心算法
-
-#### 3.4.1 状态机
-
-```mermaid
-stateDiagram-v2
-    [*] --> 未初始化
-    未初始化 --> 已初始化: 收到首条消息
-    
-    已初始化 --> 直接输出: seq == expectedNext
-    已初始化 --> 缓冲乱序: seq > expectedNext
-    已初始化 --> 丢弃旧数据: seq < expectedNext
-    
-    缓冲乱序 --> 触发快速补数: gap > eagerGap
-    缓冲乱序 --> 等待软超时: gap <= eagerGap
-    
-    等待软超时 --> 触发补数: 超时且未到达
-    等待软超时 --> 直接输出: 数据到达
-    
-    触发快速补数 --> 补数中: 发送BackfillCmd
-    补数中 --> 缓冲乱序: 补数成功
-    
-    缓冲乱序 --> 强制跳过: 硬超时或超过maxGap
-    强制跳过 --> 已初始化: 提升expectedNext
-    
-    直接输出 --> 冲刷缓冲区: expectedNext++
-    冲刷缓冲区 --> 直接输出: 存在连续数据
-    冲刷缓冲区 --> 已初始化: 缓冲区断档
-```
-
-#### 3.4.2 核心处理逻辑
-
-```go
-func (h *MissingDetector) Handle(msg *types.Message) ([]*types.Message, error) {
-    seq := extractSequence(msg)  // 提取 block_number
-    now := time.Now()
-    
-    // 场景1：期望序号，直接输出 + 冲刷缓冲区
-    if seq == h.expectedNext {
-        out := []*Message{msg}
-        h.expectedNext++
-        out = append(out, h.drainBuffer(now)...)  // 持续冲刷连续段
-        return out, nil
-    }
-    
-    // 场景2：未来序号，缓冲 + 检测缺口
-    if seq > h.expectedNext {
-        h.buffer[seq] = append(h.buffer[seq], msg)
-        h.firstSeen[seq] = now
-        
-        gap := seq - h.expectedNext
-        if gap > h.cfg.eagerGap {
-            // 立即触发快速补数
-            h.triggerBackfillRange(h.expectedNext, seq-1, now)
-        }
-        
-        h.evaluateTimeouts(now)  // 检查软/硬超时
-        return nil, nil
-    }
-    
-    // 场景3：过去序号，丢弃
-    return nil, nil
-}
-```
-
-#### 3.4.3 冲刷缓冲区
-
-```go
-func (h *MissingDetector) drainBuffer(now time.Time) []*Message {
-    out := []*Message{}
-    for {
-        msgs, ok := h.buffer[h.expectedNext]
-        if !ok {
-            break  // 断档，停止冲刷
-        }
-        delete(h.buffer, h.expectedNext)
-        delete(h.firstSeen, h.expectedNext)
-        out = append(out, msgs...)
-        h.expectedNext++
-    }
-    return out
-}
-```
-
-#### 3.4.4 超时策略
-
-**软超时（主动补数）**：
-```go
-if now.Sub(firstSeen[expectedNext]) > maxDelay {
-    // 等待时间过长，主动触发补数
-    triggerBackfillRange(expectedNext, expectedNext+maxRange-1, now)
-}
-```
-
-**硬超时（强制跳过）**：
-```go
-if now.Sub(firstSeen[expectedNext]) > hardTimeout || 
-   seenMax - expectedNext > maxGap {
-    // 跳过缺口，避免无限等待
-    target := max(expectedNext+1, seenMax-maxGap)
-    advanceExpected(target, now)
-}
-```
-
-#### 3.4.5 周期清理
-
-```go
-func (h *MissingDetector) sweep(now time.Time) {
-    // 1. 删除过期桶
-    for seq, t := range h.firstSeen {
-        if now.Sub(t) > bucketTTL {
-            delete(h.buffer, seq)
-            delete(h.firstSeen, seq)
-        }
-    }
-    
-    // 2. 限制缓冲区大小
-    for len(h.buffer) > maxBuckets {
-        seq := minBufferedSeq()
-        triggerBackfillRange(seq, seq, now)  // 尝试单点补数
-        delete(h.buffer, seq)
-    }
-}
-```
-
-### 3.5 补数据执行流程
-
-```mermaid
-sequenceDiagram
-    participant MD as MissingDetector
-    participant CH as backfillCh
-    participant R as Role
-    participant WS as WebSocket Caller
-    participant HTTP as HTTP Caller
-    participant Q as Queue
-    
-    MD->>CH: BackfillCmd{start, end, options:[ws,http]}
-    CH->>R: 接收命令
-    
-    R->>WS: FetchBlocks(start, end)
-    alt WebSocket成功
-        WS-->>R: []*Message
-        R->>Q: Enqueue(补数消息)
-        Q->>MD: 消息回流
-    else WebSocket失败
-        WS--xR: error
-        R->>HTTP: FetchBlocks(start, end)
-        alt HTTP成功
-            HTTP-->>R: []*Message
-            R->>Q: Enqueue(补数消息)
-            Q->>MD: 消息回流
-        else HTTP失败
-            HTTP--xR: error
-            Note over R: 记录日志，等待外部干预
-        end
-    end
-```
-
-### 3.6 数据封装一致性
-
-**关键设计**：补数消息与实时消息格式完全一致
-
-**WebSocket 订阅消息**：
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "eth_subscription",
-  "params": {
-    "subscription": "0x123",
-    "result": { "number": "0xa", "hash": "0x..." }
-  }
-}
-```
-
-**WebSocket 补数消息**：
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "eth_subscription",
-  "params": {
-    "subscription": "mockprovider#eth_getBlockByNumber",
-    "result": { "number": "0xa", "hash": "0x..." },
-    "is_backfill": true  // 可选标记
-  }
-}
-```
-
-**HTTP 补数消息**：
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "eth_subscription",
-  "params": {
-    "subscription": "chain#31337#eth_getBlockByNumber",
-    "result": { "number": "0xa", "hash": "0x..." },
-    "is_backfill": true
-  }
-}
-```
-
-**统一封装函数**：
-```go
-func wrapBlockPayload(block map[string]any, meta map[string]any, method string) map[string]any {
-    subscriptionID := meta["subscription"]
-    if subscriptionID == "" {
-        subscriptionID = defaultSubscriptionID(meta, method)
-    }
-    params := map[string]any{
-        "subscription": subscriptionID,
-        "result":       block,
-    }
-    if meta["is_backfill"] == true {
-        params["is_backfill"] = true
-    }
-    return map[string]any{
-        "jsonrpc": "2.0",
-        "method":  "eth_subscription",
-        "params":  params,
-    }
-}
-```
-
-### 3.7 配置示例
-
-```yaml
-handlers:
-  - type: "missing_detector"
-    with:
-      sequence_field: "block_number"     # 序列字段
-      eager_gap: 3                       # 跨度超过3立即补数
-      max_range: 20                      # 单次最多补20个块
-      max_delay_ms: 800                  # 软超时：800ms
-      hard_timeout_ms: 3000              # 硬超时：3秒强制跳过
-      max_gap: 8                         # 最大未确认序列差
-      sweep_interval_ms: 200             # 清理周期
-      bucket_ttl_ms: 3000                # 缓存桶过期时间
-      max_buckets: 2000                  # 最大缓存桶数量
-      backfill:
-        ws:
-          enabled: true
-          rpc_method: "eth_getBlockByNumber"
-          include_full_tx: false
-        http:
-          enabled: true
-          endpoint: "http://localhost:8545"
-          rpc_method: "eth_getBlockByNumber"
-```
-
----
-
-## 4. 数据流与时序图
-
-### 4.1 完整数据流（包含补数）
+### 完整流程
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant WS as WebSocket
-    participant E as Emitter(Single)
-    participant C as Caller(WebSocket)
-    participant Q as Queue
-    participant MD as MissingDetector
-    participant BF as Backfill
-    participant S as Sink(Kafka)
-    
-    Note over E: 第一次触发订阅
-    E->>C: fire(subscribe="newHeads")
-    C->>WS: eth_subscribe
-    WS-->>C: subscriptionId
-    
-    Note over E: 周期拉取缓存
-    loop 每500ms
-        E->>C: fire(nil)
-        C-->>E: 返回msgBuffer
+    participant API as REST API
+    participant MP as MainProcessor
+    participant RL as RateLimiter<br/>(Redis)
+    participant TS as TaskScheduler
+    participant DB as PostgreSQL
+    participant TP as TimerProducer<br/>(定时扫描)
+    participant K as Kafka
+    participant W as Worker
+
+    Note over API,W: 阶段1: 任务创建与持久化
+    API->>MP: POST /tasks<br/>{dataSourceId, payload}
+    MP->>RL: checkRateLimit(dataSourceId, cost)
+
+    alt 限流通过
+        RL-->>MP: allowed=true
+        MP->>MP: scheduledTime = now()
+    else 限流拒绝
+        RL-->>MP: allowed=false, resetTime
+        MP->>MP: scheduledTime = resetTime
+        Note over MP: 延迟调度到限流窗口结束
     end
-    
-    Note over WS,C: 后台持续接收
-    loop 实时消息
-        WS->>C: {"method":"eth_subscription","params":{...}}
-        C->>C: 缓存到msgBuffer
+
+    MP->>TS: createTask(request)
+    TS->>DB: INSERT INTO tasks<br/>SET scheduled_time=scheduledTime<br/>status=PENDING
+    DB-->>TS: task saved
+    TS-->>MP: TaskResponse{taskId, scheduledTime}
+    MP-->>API: 202 Accepted
+
+    Note over API,W: 阶段2: 定时扫描与任务下发
+    loop 每 1000ms 扫描
+        TP->>TP: @Scheduled(fixedDelay=1000)
+        TP->>DB: SELECT * FROM tasks<br/>WHERE status=PENDING<br/>AND scheduled_time <= now()+5s<br/>ORDER BY priority DESC<br/>LIMIT 1000
+        DB-->>TP: List<Task>
+
+        loop 遍历任务
+            TP->>TP: if scheduledTime <= now()
+            TP->>DB: UPDATE tasks<br/>SET status=PROCESSING<br/>WHERE task_id=?
+            TP->>K: send(http.tasks, taskId, payload)
+            K-->>TP: ack
+            Note over TP: 任务已下发，等待 Worker 处理
+        end
     end
-    
-    Note over Q,MD: 消费者处理
-    Q->>MD: msg{block_number=100}
-    MD->>MD: seq==expectedNext, 直接输出
-    MD->>S: Write(msg)
-    
-    Q->>MD: msg{block_number=104}
-    MD->>MD: gap=3 > eagerGap
-    MD->>BF: BackfillCmd{101,103}
-    
-    BF->>C: FetchBlocks(101,103)
-    C->>WS: eth_getBlockByNumber(0x65)
-    WS-->>C: block 101
-    C->>WS: eth_getBlockByNumber(0x66)
-    WS-->>C: block 102
-    C->>WS: eth_getBlockByNumber(0x67)
-    WS-->>C: block 103
-    C-->>BF: [msg101,msg102,msg103]
-    BF->>Q: Enqueue(补数消息)
-    
-    Q->>MD: msg{block_number=101}
-    MD->>MD: seq==expectedNext, 输出
-    MD->>MD: drainBuffer() -> 102,103,104
-    MD->>S: Write(101,102,103,104)
+
+    Note over API,W: 阶段3: Worker 执行
+    K->>W: consume(http.tasks)
+    W->>W: 执行 HTTP 请求
+
 ```
 
-### 4.2 多 Role 并发运行
+## 任务状态管理与重试机制
+
+**方案**：采用**两级重试架构**：
+
+1. **Worker 本地快速重试**：处理瞬时网络抖动
+2. **控制面指数退避重试**：基于状态上报的智能重试
+
+### 两级重试架构
 
 ```mermaid
-gantt
-    title Worker 多 Role 并发时序
-    dateFormat X
-    axisFormat %L
-    
-    section Role1(LocalNode)
-    Polling Trigger: 0, 2000
-    Caller Execute: 2000, 2100
-    Handler Process: 2100, 2150
-    Kafka Write: 2150, 2200
-    
-    section Role2(WebSocket)
-    Single Trigger: 0, 500
-    WS Subscribe: 500, 600
-    Receive Message: 1000, 1050
-    Handler Process: 1050, 1100
-    Kafka Write: 1100, 1150
-    
-    section Role3(Balance)
-    Polling Trigger: 0, 60000
-    Balance Query: 60000, 62000
-    Price Enrich: 62000, 62500
-    Kafka Write: 62500, 63000
+graph TB
+    subgraph "Worker 本地重试（快速）"
+        W1[接收任务] --> W2{HTTP 请求}
+        W2 -->|成功 200| W3[上报 SUCCESS]
+        W2 -->|429/503| W4{重试次数<3?}
+        W4 -->|是| W5[等待 500ms]
+        W5 --> W2
+        W4 -->|否| W6[上报 RETRY<br/>retryable=true]
+    end
+
+    subgraph "控制面重试（指数退避）"
+        C1[StatusListener<br/>接收状态] --> C2{status?}
+        C2 -->|SUCCESS| C3[更新为 SUCCESS]
+        C2 -->|FAILED<br/>retryable=false| C4[更新为 FAILED<br/>不再重试]
+        C2 -->|RETRY<br/>retryable=true| C5{retryCount<maxRetry?}
+        C5 -->|是| C6[retryCount++<br/>status=PENDING<br/>scheduledTime=now+delay]
+        C5 -->|否| C7[更新为 FAILED<br/>超过最大重试次数]
+        C6 --> C8[等待 TimerProducer<br/>再次下发]
+    end
+
+    W3 --> C1
+    W6 --> C1
+    C8 --> W1
+
+    style W1 fill:#e8f5e9
+    style C1 fill:#fff9c4
+    style C6 fill:#ffebee
+    style W4 fill:#e3f2fd
+    style C5 fill:#e3f2fd
+
 ```
 
----
+### 任务表结构
 
-## 5. 设计优点
+```sql
+CREATE TABLE tasks (
+    id BIGSERIAL PRIMARY KEY,
+    task_id VARCHAR(64) UNIQUE NOT NULL,
+    data_source_id VARCHAR(64) NOT NULL,
+    status VARCHAR(16) NOT NULL,           -- PENDING/PROCESSING/SUCCESS/FAILED
+    retry_count INT DEFAULT 0,             -- 当前重试次数
+    max_retry_count INT DEFAULT 3,         -- 最大重试次数
+    scheduled_time TIMESTAMP NOT NULL,     -- 调度时间（核心）
+    started_at TIMESTAMP,                  -- 开始执行时间
+    completed_at TIMESTAMP,                -- 完成时间
+    status_code INT,                       -- HTTP 状态码
+    message TEXT,                          -- 错误信息
+    duration_ms BIGINT,                    -- 执行耗时
+    payload JSONB,                         -- 任务负载
+    metadata JSONB,                        -- 元数据（含重试历史）
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
 
-### 5.1 架构层面
+CREATE INDEX idx_tasks_status_scheduled ON tasks(status, scheduled_time);
+CREATE INDEX idx_tasks_data_source ON tasks(data_source_id);
 
-1. **高度解耦**
-   - 各组件通过接口定义，职责单一
-   - 模块间依赖清晰，易于测试和维护
-
-2. **配置驱动**
-   - 新增数据源无需修改代码，仅需配置
-   - 支持热加载配置（潜在扩展点）
-
-3. **并发安全**
-   - Context 统一控制生命周期
-   - Channel 天然线程安全
-   - 关键路径使用 Mutex 保护
-
-4. **可扩展性强**
-   - 注册表模式支持动态加载新组件
-   - Handler 责任链支持灵活组合
-   - Sink 支持多目标输出
-
-### 5.2 数据处理
-
-1. **背压机制**
-   - 有界队列阻塞生产者，防止内存溢出
-   - 自动限流，保护下游系统
-
-2. **容错能力**
-   - WebSocket 自动重连
-   - 补数据双通道（WS + HTTP）
-   - 硬超时强制跳过，避免死锁
-
-3. **数据一致性**
-   - MissingDetector 确保严格有序输出
-   - 去重逻辑（基于序列号）
-   - 补数数据与实时数据格式统一
-
-### 5.3 可观测性
-
-1. **日志完善**
-   - 关键路径均有日志记录
-   - 错误日志包含上下文信息
-
-2. **状态暴露**
-   - 缓冲区大小、缺口检测、补数触发等关键事件可观测
-
----
-
-## 6. 设计问题与建议
-
-### 6.1 架构层面问题
-
-#### 问题 1：缺少统一的错误处理策略
-
-**现状**：
-- 各模块错误处理方式不一致（有的直接 log，有的返回 error）
-- 缺少重试机制和熔断保护
-- 没有 Dead Letter Queue（DLQ）处理失败消息
-
-**影响**：
-- 偶发错误可能导致数据丢失
-- 难以定位问题根因
-
-**建议**：
-```go
-// 1. 引入统一的重试策略
-type RetryConfig struct {
-    MaxAttempts     int
-    BackoffBase     time.Duration
-    BackoffMax      time.Duration
-    BackoffMultiple float64
-}
-
-// 2. 为 Caller 增加熔断器
-type CircuitBreaker struct {
-    FailureThreshold int
-    Timeout          time.Duration
-    State            State // Open/HalfOpen/Closed
-}
-
-// 3. 为 Sink 增加 DLQ
-type KafkaSinkWithDLQ struct {
-    writer    *kafka.Writer
-    dlqWriter *kafka.Writer  // 失败消息写入 DLQ
-}
 ```
 
-#### 问题 2：资源管理不完善
+## 仿真数据源
 
-**现状**：
-- HTTP 连接池使用全局单例（`protocol.GetHTTPClient`）
-- WebSocket 连接没有连接数限制
-- 没有资源配额管理（如限流、QPS 控制）
+除接入binance，cmc,quicknode等真实节点外，为了更好复现生产环境中的偶发事件，项目设计了仿真数据源来还原功能与非功能性问题。
 
-**影响**：
-- 高并发场景可能耗尽系统资源
-- 难以隔离不同 Role 的资源使用
+### localnode
 
-**建议**：
-```go
-// 1. 为每个 Role 分配独立资源池
-type ResourcePool struct {
-    MaxHTTPConns      int
-    MaxWSConns        int
-    RateLimiter       *rate.Limiter  // 限流器
-    Semaphore         *semaphore.Weighted  // 并发控制
-}
+- **自建dex:** 参考uniswap v2并基于solidity 0.8.x在本地hardhat node搭建的dex。
+- **初始化**：部署多种token（最小代理）与dex,为多账户初始化token、流动性。
+- **交易模拟器**：多账户在本地节点不断交易。
 
-// 2. 在 Role 构建时注入资源池
-func Build(rc config.RoleConfig, pool *ResourcePool) (*Role, error) {
-    // 检查资源配额
-    // 创建带限流的 Caller
-}
-```
+### **MockDataProvider**
 
-#### 问题 3：配置校验不充分
+- 验证数据接入层非功能性处理能力
+- **dataGenerator**: mock数据生成器
+- **faultInjector：**故障注入器
+    - **http故障注入**：请求失败（可重试、不可重试）
+    - **websocket故障注入**：连接断开、数据缺失、心跳异常
 
-**现状**：
-- 配置校验仅在 `validate()` 中做基础检查
-- 缺少配置合理性验证（如 `max_range` 是否过大）
-- 没有配置版本管理
 
-**影响**：
-- 错误配置可能导致运行时崩溃或异常行为
-- 配置变更难以追溯
+# 数据处理层
 
-**建议**：
-```go
-// 1. 增强配置校验
-func (r *RoleConfig) validate() error {
-    // 基础校验...
+```mermaid
+graph TB
+    subgraph "数据源层"
+        K1[Kafka: dex_transaction<br/>DEX交易事件]
+        K2[Kafka: account_balance_snapshot<br/>账户余额快照]
+        R[Redis<br/>元数据 + Token指标]
+    end
     
-    // 业务逻辑校验
-    if r.Handlers != nil {
-        for _, h := range r.Handlers {
-            if h.Type == "missing_detector" {
-                maxRange := cfgInt(h.With, "max_range", 0)
-                if maxRange > 1000 {
-                    return fmt.Errorf("max_range %d too large, max 1000", maxRange)
-                }
-            }
-        }
-    }
-    return nil
-}
-
-// 2. 配置版本管理
-type Config struct {
-    Version string       `yaml:"version"`  // 如 "v1.0"
-    Roles   []RoleConfig `yaml:"roles"`
-}
-```
-
-### 6.2 缺失检测设计问题
-
-#### 问题 4：MissingDetector 假设过于理想
-
-**现状**：
-- 假设序列严格单调递增（`block_number` 连续 +1）
-- 不支持分区场景（如多链、多合约）
-- 不支持非整数序列（如时间戳）
-
-**影响**：
-- 无法处理分叉、重组等区块链特有场景
-- 扩展性受限
-
-**建议**：
-```go
-// 1. 支持分区键
-type MissingDetector struct {
-    sequenceField string
-    partitionKeys []string  // 如 ["chain_id", "shard_id"]
+    subgraph "标准化算子层"
+        F1[UnifiedFilterOperator<br/>🔍 事件过滤]
+        F2[EventEnrichmentMap<br/>📝 元数据增强]
+        F3[RedisTokenMetricsBroadcaster<br/>📡 实时指标广播]
+    end
     
-    // 每个分区独立维护状态
-    partitions map[string]*partitionState
-}
-
-type partitionState struct {
-    expectedNext uint64
-    buffer       map[uint64][]*Message
-    firstSeen    map[uint64]time.Time
-}
-
-// 2. 支持自定义序列比较器
-type SequenceComparator interface {
-    Compare(a, b any) int  // -1: a<b, 0: a==b, 1: a>b
-    Next(current any) any
-}
-```
-
-#### 问题 5：补数据策略不灵活
-
-**现状**：
-- 补数据范围固定（`[expectedNext, seq-1]`）
-- 不支持优先级（如优先补近期数据）
-- 没有补数速率控制
-
-**影响**：
-- 大范围缺失时补数压力过大
-- 可能影响实时数据处理
-
-**建议**：
-```go
-// 1. 补数优先级队列
-type PriorityBackfillQueue struct {
-    heap *minHeap  // 按紧急程度排序
-}
-
-type BackfillTask struct {
-    Start    int64
-    End      int64
-    Priority int  // 越小越紧急
-    Deadline time.Time
-}
-
-// 2. 补数速率限制
-type BackfillRateLimiter struct {
-    MaxConcurrent int  // 最大并发补数任务
-    QPS           int  // 每秒最多补数请求
-}
-```
-
-#### 问题 6：内存管理存在风险
-
-**现状**：
-- `buffer` 和 `firstSeen` 可能无限增长
-- 虽有 `maxBuckets` 限制，但删除策略过于简单（按最小序号）
-- 没有监控内存使用
-
-**影响**：
-- 极端情况下可能 OOM
-- 删除最小序号的桶可能导致数据丢失
-
-**建议**：
-```go
-// 1. LRU 缓存策略
-type LRUBuffer struct {
-    capacity int
-    cache    *lru.Cache  // 使用 LRU 淘汰算法
-}
-
-// 2. 内存监控
-type MemoryMonitor struct {
-    maxMemoryBytes int64
-    currentUsage   int64
-}
-
-func (m *MemoryMonitor) CheckAndEvict(buffer map[uint64][]*Message) {
-    if m.currentUsage > m.maxMemoryBytes {
-        // 按策略淘汰（如 LRU、最老数据等）
-    }
-}
-```
-
-### 6.3 性能问题
-
-#### 问题 7：消息序列化开销
-
-**现状**：
-- 每个 Message 的 Payload 都是 `[]byte`
-- Handler 链中可能多次序列化/反序列化
-- 没有复用 buffer
-
-**影响**：
-- 高吞吐场景下 CPU 和内存开销大
-
-**建议**：
-```go
-// 1. 延迟序列化
-type Message struct {
-    Metadata map[string]any
-    Payload  []byte
+    subgraph "业务处理层"
+        J1[TradeFactJob<br/>💼 交易事实表]
+        J2[PnLAggregatorJob<br/>📊 盈亏聚合]
+        J3[TokenMetricAggregatorJob<br/>📈 Token指标]
+        J4[AccountBalanceJob<br/>💰 账户余额]
+    end
     
-    // 新增：缓存反序列化结果
-    parsedCache interface{}
-    parsedOnce  sync.Once
-}
-
-func (m *Message) GetParsed() (interface{}, error) {
-    m.parsedOnce.Do(func() {
-        json.Unmarshal(m.Payload, &m.parsedCache)
-    })
-    return m.parsedCache, nil
-}
-
-// 2. 使用 sync.Pool 复用 buffer
-var bufferPool = sync.Pool{
-    New: func() interface{} {
-        return new(bytes.Buffer)
-    },
-}
+    subgraph "存储层"
+        C1[ClickHouse<br/>ch_account_trade_fact]
+        C2[ClickHouse<br/>ch_account_pnl_current_ma<br/>ch_pnl_realized_event]
+        C3[ClickHouse<br/>token_recent_metric_ch]
+        C4[ClickHouse<br/>ch_account_balance_snapshot]
+    end
+    
+    K1 --> F1
+    K2 --> J4
+    R --> F2
+    R --> F3
+    
+    F1 --> F2
+    F2 --> F3
+    F3 --> J1
+    F3 --> J2
+    F3 --> J3
+    F3 --> J4
+    
+    J1 --> C1
+    J2 --> C2
+    J3 --> C3
+    J4 --> C4
+    
+    style F1 fill:#fff4e1
+    style F2 fill:#ffe1f5
+    style F3 fill:#e1ffe1
+    style J1 fill:#ffcccc
+    style J2 fill:#ccffcc
+    style J3 fill:#ccccff
+    style J4 fill:#ffccff
 ```
 
-#### 问题 8：锁竞争
+### 设计亮点
 
-**现状**：
-- WebSocketCall 的 `mu` 锁保护范围过大
-- MissingDetector 没有使用锁（假设单消费者），但扩展时可能有问题
+- **标准化流程** : 所有Job共享统一前置算子流
+- **极小状态** ：PnL仅6个字段，内存占用小，性能高
+- **层级窗口 ：**采用增量聚合，减少重复计算
+- **双流对齐：**快照+增量协同，保证数据准确性
 
-**影响**：
-- 高并发场景下性能瓶颈
+## 标准化算子层
 
-**建议**：
-```go
-// 1. 细化锁粒度
-type WebSocketCall struct {
-    // 将 mu 拆分为多个锁
-    subscribeMu sync.Mutex  // 保护订阅状态
-    bufferMu    sync.Mutex  // 保护消息缓冲
-    pendingMu   sync.Mutex  // 保护待处理请求
-}
+### UnifiedFilterOperator（统一事件过滤）
 
-// 2. 使用无锁数据结构
-import "sync/atomic"
+- **职责**：从KafkaMessage中提取并过滤事件，生成ProcessEvent
+- **特点**：支持多种过滤策略（Builder模式），工厂方法预配置不同业务场景
 
-type AtomicBuffer struct {
-    head atomic.Value  // *Node
-    tail atomic.Value  // *Node
-}
-```
+### EventEnrichmentMap（元数据增强）
 
-### 6.4 可观测性问题
+- **职责**：从Redis加载元数据， 根据事件类型智能增强ProcessEvent。
+- **增强内容**：
+    - **AccountMetadata**: 账户ID、地址、标签位图
+    - **TokenMetadata**: TokenID、Symbol、Decimals
+    - **PairMetadata**: PairID、Token0/Token1信息
 
-#### 问题 9：缺少 Metrics 指标
+### **RedisTokenMetricsBroadcaster（实时指标广播）**
 
-**现状**：
-- 仅有日志，没有结构化指标
-- 难以监控系统健康状况
+- **职责**：将Token价格和市场指标广播到所有并行实例
+- **广播内容**：
+    - `tokenPriceUsd`: Token价格
+    - `mcap`: 市值
+    - `fdv`: 完全稀释估值
+    - `liquidityUsd`: 流动性
+- **实现机制**：
+    - 使用Flink BroadcastState机制
+    - Redis定期拉取（默认30秒）
+    - 自动填充到ProcessEvent的TokenMetrics字段
 
-**建议**：
-```go
-// 引入 Prometheus metrics
-import "github.com/prometheus/client_golang/prometheus"
+### 统一输出
 
-var (
-    messagesProcessed = prometheus.NewCounterVec(
-        prometheus.CounterOpts{
-            Name: "worker_messages_processed_total",
-        },
-        []string{"role_id", "status"},
-    )
-    
-    queueSize = prometheus.NewGaugeVec(
-        prometheus.GaugeOpts{
-            Name: "worker_queue_size",
-        },
-        []string{"role_id"},
-    )
-    
-    missingGapDetected = prometheus.NewHistogramVec(
-        prometheus.HistogramOpts{
-            Name:    "worker_missing_gap_size",
-            Buckets: []float64{1, 3, 5, 10, 20, 50, 100},
-        },
-        []string{"role_id"},
-    )
-)
-```
-
-#### 问题 10：缺少分布式追踪
-
-**现状**：
-- 无法追踪单条消息的完整生命周期
-- 难以定位跨模块的性能瓶颈
-
-**建议**：
-```go
-// 引入 OpenTelemetry
-import "go.opentelemetry.io/otel/trace"
-
-func (r *Role) Start(ctx context.Context) error {
-    tracer := otel.Tracer("worker")
-    
-    for {
-        ctx, span := tracer.Start(ctx, "role.process")
-        defer span.End()
-        
-        msg, _ := r.q.Dequeue(ctx)
-        span.SetAttributes(
-            attribute.String("role.id", r.ID),
-            attribute.Int64("block.number", msg.Metadata["block_number"].(int64)),
-        )
-        
-        // 处理消息...
-    }
-}
-```
-
-### 6.5 测试与质量问题
-
-#### 问题 11：缺少单元测试
-
-**现状**：
-- 关键模块（如 MissingDetector）缺少充分测试
-- 没有集成测试覆盖完整数据流
-
-**建议**：
-```go
-// 1. 为 MissingDetector 编写单元测试
-func TestMissingDetector_OrderedSequence(t *testing.T) {
-    md := newMissingDetector(config)
-    
-    // 测试有序输入
-    msg1 := &Message{Metadata: map[string]any{"block_number": 1}}
-    out1, _ := md.Handle(msg1)
-    assert.Equal(t, 1, len(out1))
-}
-
-func TestMissingDetector_GapDetection(t *testing.T) {
-    md := newMissingDetector(config)
-    
-    // 测试缺口检测
-    msg1 := &Message{Metadata: map[string]any{"block_number": 1}}
-    msg2 := &Message{Metadata: map[string]any{"block_number": 5}}
-    
-    md.Handle(msg1)
-    out2, _ := md.Handle(msg2)
-    
-    assert.Equal(t, 0, len(out2))  // 应缓冲
-    assert.Equal(t, 1, len(md.buffer))  // 缓冲区有1个桶
-}
-
-// 2. 集成测试
-func TestEndToEnd_WebSocketWithBackfill(t *testing.T) {
-    // 启动 mock WebSocket 服务器
-    // 模拟消息乱序
-    // 验证最终输出有序
-}
-```
-
----
-
-## 7. 改进建议优先级
-
-### P0（高优先级 - 影响稳定性）
-
-1. **增加错误重试机制**（问题1）
-   - 影响：防止偶发错误导致数据丢失
-   - 工作量：中等（约2-3天）
-   
-2. **完善资源管理**（问题2）
-   - 影响：防止资源耗尽导致系统崩溃
-   - 工作量：较大（约5-7天）
-
-3. **增强配置校验**（问题3）
-   - 影响：避免错误配置导致运行时异常
-   - 工作量：小（约1天）
-
-### P1（中优先级 - 提升可靠性）
-
-4. **MissingDetector 支持分区**（问题4）
-   - 影响：支持多链、分片等复杂场景
-   - 工作量：较大（约5天）
-
-5. **优化补数策略**（问题5）
-   - 影响：提升补数效率和系统稳定性
-   - 工作量：中等（约3-4天）
-
-6. **改进内存管理**（问题6）
-   - 影响：防止极端情况 OOM
-   - 工作量：中等（约3天）
-
-### P2（低优先级 - 性能优化）
-
-7. **减少序列化开销**（问题7）
-   - 影响：提升吞吐量
-   - 工作量：中等（约3天）
-
-8. **优化锁竞争**（问题8）
-   - 影响：提升高并发性能
-   - 工作量：较大（约5天）
-
-9. **增加 Metrics 和 Tracing**（问题9、10）
-   - 影响：提升可观测性
-   - 工作量：中等（约4天）
-
-10. **完善测试覆盖**（问题11）
-    - 影响：提升代码质量
-    - 工作量：持续投入
-
----
-
-## 8. 总结
-
-### 8.1 整体评价
-
-DataInjector Worker 是一个**设计良好、模块化程度高**的数据采集框架，具备以下亮点：
-
-✅ **清晰的架构分层**：Emitter/Caller/Queue/Handler/Sink 职责明确  
-✅ **强大的扩展性**：注册表 + 配置驱动支持灵活扩展  
-✅ **完善的缺失检测机制**：MissingDetector 设计巧妙，能有效处理乱序和缺失  
-✅ **双通道补数**：WebSocket + HTTP 降级保证数据完整性  
-
-### 8.2 关键改进方向
-
-⚠️ **错误处理需加强**：引入重试、熔断、DLQ  
-⚠️ **资源管理需完善**：独立资源池、限流、配额控制  
-⚠️ **可观测性需提升**：Metrics、Tracing、Alerting  
-⚠️ **测试覆盖需增加**：单元测试、集成测试、压力测试  
-
-### 8.3 适用场景
-
-该架构**特别适合**以下场景：
-- ✅ 区块链数据采集（区块、交易、事件）
-- ✅ 需要保证顺序性的消息流处理
-- ✅ 多数据源聚合（HTTP + WebSocket + SDK）
-- ✅ 需要容错和补数的实时数据管道
-
-**不太适合**以下场景：
-- ❌ 超高吞吐（百万 TPS 级别）- 需要进一步性能优化
-- ❌ 强事务一致性要求 - 当前设计偏向最终一致性
-- ❌ 复杂的事件驱动编排 - 建议引入工作流引擎
-
----
-
-## 附录
-
-### A. 关键数据结构速查
-
-```go
-// 消息
-type Message struct {
-    Metadata map[string]any  // 如 chain_id, block_number
-    Payload  []byte          // JSON 序列化后的数据
-}
-
-// 补数命令
-type BackfillCmd struct {
-    Start   int64
-    End     int64
-    Options []BackfillOption  // 按优先级排序
-}
-
-// Role 配置
-type RoleConfig struct {
-    RoleID          string
-    Emitter         string  // "polling" | "single" | "kafka_command"
-    Caller          string  // "sdk_call" | "native_call"
-    CallerConfig    map[string]any
-    CallerParams    map[string]any
-    Handlers        []HandlerConfig
-    Sink            SinkConfig
-    Queue           struct{ Size int }
-}
-```
-
-### B. 配置模板速查
-
-```yaml
-# Polling + SDK Call
-- role_id: "localnode-block"
-  emitter: "polling"
-  polling_interval: 2
-  caller: "sdk_call"
-  caller_class: "LocalGetBlock"
+```markdown
+ProcessEvent {
+  基础字段: eventName, contractAddress, blockId, timestamp...
   
-# Single + WebSocket + MissingDetector
-- role_id: "mockprovider-websocket"
-  emitter: "single"
-  caller: "native_call"
-  caller_config:
-    protocol: "websocket"
-    url: "ws://localhost:8090/ws"
-  caller_params:
-    subscribe: "newHeads"
-    poll_interval_ms: 500
-  handlers:
-    - type: "missing_detector"
-      with:
-        sequence_field: "block_number"
-        eager_gap: 3
-        max_range: 20
+  业务类型: contractType ("erc20" | "dex")
   
-# Kafka Command + HTTP
-- role_id: "http-backfill"
-  emitter: "kafka_command"
-  emitter_config:
-    brokers: ["localhost:9092"]
-    topic: "command.block"
-  caller: "native_call"
-  caller_config:
-    protocol: "http"
-    endpoint: "http://localhost:8545"
+  事件数据 (互斥):
+    - erc20Data:    {toAddress, amount}
+    - dexSwapData:  {amount0In, amount0Out, amount1In, amount1Out}
+    - lpMintData:   {amount0, amount1, sender, to}
+    - lpBurnData:   {amount0, amount1, sender, to}
+  
+  元数据 (增强后填充):
+    - accountMetadata: {id, address, tagBitmap}
+    - tokenMetadata:   {id, symbol, tokenMetrics}
+    - pairMetadata:    {pairId, token0, token1}
+}
 ```
 
-### C. 性能参考指标
+## **Job详细设计**
 
-基于当前实现的预估性能（需实际测试验证）：
+### **TradeFactJob - 交易事实表处理**
 
-| 指标 | 预估值 | 说明 |
-|------|--------|------|
-| 单 Role 吞吐量 | 1000-5000 msg/s | 取决于 Handler 复杂度 |
-| Queue 延迟 | < 1ms | 空闲时几乎无延迟 |
-| 缺失检测延迟 | 800ms (软超时) | 可配置 max_delay_ms |
-| WebSocket 补数延迟 | 50-200ms | 取决于网络和服务端性能 |
-| 内存占用 | 50-500MB | 取决于 Queue 和 Buffer 大小 |
+- **职责 ：**交易事实作为单独job，简单处理直接sink clickhouse
+- **核心处理器：TradeFactProcessor**
 
----
+### **PnLAggregatorJob - 盈亏聚合**
 
-**文档版本**：v1.0  
-**最后更新**：2025-10-13  
-**作者**：AI Assistant  
-**审阅状态**：待审阅
+### **3.2.1 数据流图**
 
+### **核心算法：移动平均成本法（Moving Average Cost）**
 
+**状态设计（极小状态）**：
+
+```java
+PnLState {
+    position:          BigDecimal  // 当前持仓数量
+    avgCost:           BigDecimal  // 移动加权平均成本
+    realizedCost:      BigDecimal  // 已实现成本累计
+    realizedProceeds:  BigDecimal  // 已实现收入累计
+    realizedPnL:       BigDecimal  // 已实现盈亏累计
+    lastTxTime:        Long        // 最后交易时间
+}
+```
+
+**买入逻辑**：
+
+- 新持仓 = 原持仓 + 买入数量
+- 新平均成本 = (原持仓 × 原成本 + 买入数量 × 买入价格) / 新持仓
+
+**卖出逻辑**：
+
+- 实际卖出数量 = min(卖出数量, 当前持仓)  // 防止超卖
+- 已实现成本 = 实际卖出数量 × 平均成本
+- 已实现收入 = 实际卖出数量 × 卖出价格
+- 已实现盈亏 = 已实现收入 - 已实现成本
+- 新持仓 = 原持仓 - 实际卖出数量
+
+**指标计算**：
+
+- 未实现盈亏 = 持仓数量 × (当前价格 - 平均成本)
+- 总盈亏 = 已实现盈亏 + 未实现盈亏
+- 投资回报率ROI = 总盈亏 / (已实现成本 + 持仓数量 × 平均成本)
+
+### **侧输出流**
+
+当发生卖出交易时，通过侧输出流发送已实现盈亏事件：
+
+```java
+PnLRealizedEvent {
+    tokenId, accountId, blockId, blockTime,
+    realizedQty,         // 实际卖出数量
+    realizedCostUsd,     // 已实现成本
+    realizedProceedsUsd, // 已实现收入
+    realizedPnLUsd       // 已实现盈亏
+}
+```
+
+### **TokenMetricAggregatorJob - Token指标聚合**
+
+### **层级化窗口架构**
+
+```mermaid
+graph TB
+    A[Token Stream] --> B[20s Base Window<br/>SlidingEventTimeWindows]
+    B --> C[1min Window<br/>from 20s]
+    C --> D[5min Window<br/>from 1min]
+    D --> E[1h Window<br/>from 5min]
+
+    B --> F[Union]
+    C --> F
+    D --> F
+    E --> F
+
+    F --> G[ClickHouse<br/>token_recent_metric_ch]
+
+    style B fill:#e1f5ff
+    style C fill:#fff4e1
+    style D fill:#ffe1f5
+    style E fill:#e1ffe1
+
+```
+
+### **窗口聚合逻辑**
+
+**TokenWindowManager**：
+
+- 使用`SlidingEventTimeWindows`实现滑动窗口
+- 层级聚合：上层窗口从下层窗口的输出聚合
+- 允许延迟（allowedLateness）配置
+
+**聚合指标**：
+
+```java
+TokenRecentMetric {
+    tokenId, timeWindow, endTime, tag,
+    txcnt, buyCount, sellCount,
+    volumeUsd, buyVolumeUsd, sellVolumeUsd,
+    buyPressureUsd,
+    tokenPriceUsd, mcapUsd, fdvUsd, liquidityUsd
+}
+```
+
+### **AccountBalanceJob - 账户余额处理**
+
+### **双流对齐架构**
+
+```mermaid
+graph TB
+    subgraph Snapshot Stream
+        A[Kafka<br/>account_balance_snapshot<br/>每分钟快照] --> C[KeyBy<br/>accountId_assetType_bizId]
+    end
+
+    subgraph Delta Stream
+        B4[标准化流<br/>processEvent] --> B5[BalanceDeltaExtractor<br/>提取余额变化]
+        B5 --> B6[KeyBy<br/>accountId_assetType_bizId]
+    end
+
+    C --> D[DualStreamAligner<br/>双流对齐处理器]
+    B6 --> D
+
+    D --> E[ClickHouse<br/>ch_account_balance_snapshot]
+
+    style D fill:#ffcccc
+
+```
+
+### **核心处理器：DualStreamAligner**
+
+**对齐规则**：
+
+1. **快照流**: `blockId >= 当前记录的blockId` 才写入
+2. **增量流**: `blockId > 快照流的blockId` 才写入
+
+**状态管理**：
+
+```java
+// 每个key维护的状态
+snapshotBlockIdState:  快照基线的blockId
+lastDeltaBlockIdState: 最后应用的增量blockId
+currentAmountState:    当前累计余额
+lastPriceUsdState:     最新价格
+pendingDeltaQueue:     等待快照的增量队列
+```
+
+**处理流程**：
+
+```mermaid
+sequenceDiagram
+    participant S as Snapshot Stream
+    participant D as Delta Stream
+    participant A as DualStreamAligner
+    participant C as ClickHouse
+
+    S->>A: snapshot (blockId=100)
+    A->>A: 更新基线blockId=100
+    A->>C: 写入快照
+    A->>A: 冲刷队列中blockId>100的增量
+
+    D->>A: delta (blockId=101)
+    A->>A: 累加到currentAmount
+    A->>C: 写入增量记录
+
+    D->>A: delta (blockId=99)
+    A->>A: 丢弃（blockId <= snapshotBlockId）
+
+    S->>A: snapshot (blockId=95)
+    A->>A: 丢弃（blockId < 当前基线）
+
+```
+
+### **标签**
+
+- Key：label:{chain_id}:{address}
+- Value（bitset，UInt16）：
+    - 1<<0 EX（cex）
+    - 1<<1 SM（smart）
+    - 1<<2 WH（whale）
+    - 1<<3 PF（public）
+    - 1<<4 FR（fresh）
+    - 1<<5 TP（TopPnL）
+
+# **统一处理流程深度技术分析**
+
+## **2. 非功能性需求深度分析**
+
+### **分区策略（Partitioning）**
+
+- kafka ：使用txhash分区，数据均衡
+
+数据倾斜问题
+
+### 并行度设计
+
+- source:与kafka分区数一致、若kafka分区数过大可缩减
+- map:与source协同
+- 广播：并行度为1
+
+### Source → map → keyBy → stateful 算子
+
+- **状态算子（聚合、CEP、窗口）**：并行度由 **key 的基数分布**决定。
+    - 并行度过低 → 单个 subtask 状态太大、反压。
+    - 并行度过高 → Key group 分散，状态管理成本升高（RocksDB checkpoint 更慢）。
+
+**经验值**：
+
+- 并行度 ≈ 2–4 × CPU 核数（每 TaskManager），再结合 key 分布调优。
+
+### **Exactly-Once语义保障**
+
+- kafka source: Offset存储在Flink Checkpoint中，避免了kafka原生consumer的重复或丢失问题
+- clickhouse sink:采用ReplacingMergeTree保证幂等性，通过checkpoint 防止数据丢失
+- 局限: 窗口聚合缺失去重，taskmanager宕机可能导致数据重复消费
+
+## **性能优化措施**：
+
+### **BroadcastState访问优化**
+
+todo: 将BroadcastState加入本地缓存Caffeine,通过淘汰策略与ttl来控制缓存利用率与数据新鲜度

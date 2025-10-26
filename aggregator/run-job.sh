@@ -2,7 +2,7 @@
 
 # DeFi聚合器Job运行脚本
 # 使用方法: ./run-job.sh [job_name]
-# 可选的job_name: pnl, token, pair, balance, all
+# 可选的job_name: pnl, token, pair, balance, trade, kline, sequence, all
 
 set -e  # 遇到错误立即退出
 
@@ -51,6 +51,9 @@ get_job_class() {
         "trade")
             echo "com.twilight.aggregator.TradeFactJob"
             ;;
+        "kline")
+            echo "com.twilight.aggregator.KlineSignalJob"
+            ;;
         "sequence")
             echo "com.twilight.aggregator.utils.SequenceExtractJob"
             ;;
@@ -75,12 +78,14 @@ show_help() {
     echo "  pair     - Pair指标聚合器 (交易对分析)"
     echo "  balance  - 账户余额聚合器 (余额跟踪)"
     echo "  trade    - 交易事实聚合器 (交易事实数据)"
+    echo "  kline    - K线信号生成器 (交易信号生成)"
     echo "  sequence - 区块序列提取器 (数据缺失检测)"
     echo "  all      - 运行所有Job (并行)"
     echo ""
     echo "示例:"
     echo "  ./run-job.sh pnl        # 运行PnL聚合器"
     echo "  ./run-job.sh token      # 运行Token聚合器"
+    echo "  ./run-job.sh kline      # 运行K线信号生成器"
     echo "  ./run-job.sh all        # 运行所有Job"
     echo "  ./run-job.sh trade      # 运行交易事实聚合器"
     echo "  ./run-job.sh sequence   # 运行区块序列提取器"
@@ -194,7 +199,7 @@ run_all_jobs() {
 is_valid_job() {
     local job_name=$1
     case $job_name in
-        "pnl"|"token"|"pair"|"balance"|"trade"|"sequence")
+        "pnl"|"token"|"pair"|"balance"|"trade"|"kline"|"sequence")
             return 0
             ;;
         *)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -18,6 +19,8 @@ type WebSocketCall struct {
 	subscribeTopic        string
 	subscribePayload      interface{}
 	subscribeReq          protocol.JSONRPCRequest
+	subscribeMethod       string
+	subscribeJSONRPC      string
 	subscribeID           string
 	wsClient              *protocol.WebSocketClient
 	mu                    sync.Mutex
@@ -29,6 +32,16 @@ type WebSocketCall struct {
 	defaultBackfillMethod string
 	defaultIncludeFullTx  bool
 	fallbacks             []BlockFetcher
+
+	messageFormat        string
+	useRawSubscribe      bool
+	subscribeRaw         []byte
+	skipAckResults       bool
+	defaultStreams       []string
+	staticMetadata       map[string]any
+	notifyMethod         string
+	extractBlockMetadata bool
+	resultMetadata       map[string]string
 }
 
 func NewWebSocketCall(callerConfig map[string]any, params map[string]any) (*WebSocketCall, error) {
@@ -41,17 +54,92 @@ func NewWebSocketCall(callerConfig map[string]any, params map[string]any) (*WebS
 		msgBuffer:             make([]*types.Message, 0),
 		wsPending:             make(map[string]chan wsRPCResponse),
 		defaultBackfillMethod: "eth_getBlockByNumber",
+		subscribeMethod:       "eth_subscribe",
+		subscribeJSONRPC:      "2.0",
+		messageFormat:         "jsonrpc",
+		notifyMethod:          "eth_subscription",
+		extractBlockMetadata:  true,
+		resultMetadata:        make(map[string]string),
 	}
+
+	callerParams, _ := params["caller_params"].(map[string]any)
 
 	if cid := getStringValue(callerConfig, "chain_id", ""); cid != "" {
 		call.chainID = cid
 	}
-
-	callerParams, _ := params["caller_params"].(map[string]any)
 	if callerParams != nil {
 		if cid := getStringValue(callerParams, "chain_id", ""); cid != "" && call.chainID == "" {
 			call.chainID = cid
 		}
+	}
+
+	if format := getStringValue(callerConfig, "message_format", ""); format != "" {
+		call.messageFormat = strings.ToLower(format)
+	}
+	if callerParams != nil {
+		if format := getStringValue(callerParams, "message_format", ""); format != "" {
+			call.messageFormat = strings.ToLower(format)
+		}
+	}
+
+	if nm := getStringValue(callerConfig, "notify_method", ""); nm != "" {
+		call.notifyMethod = nm
+	}
+	if callerParams != nil {
+		if nm := getStringValue(callerParams, "notify_method", ""); nm != "" {
+			call.notifyMethod = nm
+		}
+	}
+
+	if getBoolValue(callerConfig, "disable_block_metadata", false) {
+		call.extractBlockMetadata = false
+	}
+	if callerParams != nil && getBoolValue(callerParams, "disable_block_metadata", false) {
+		call.extractBlockMetadata = false
+	}
+
+	if streams := getStringSlice(callerConfig, "streams"); len(streams) > 0 {
+		call.defaultStreams = streams
+	}
+	if callerParams != nil {
+		if streams := getStringSlice(callerParams, "streams"); len(streams) > 0 {
+			call.defaultStreams = streams
+		}
+	}
+
+	if metaFields, ok := callerConfig["metadata_fields"].(map[string]any); ok {
+		call.resultMetadata = mergeStringMap(call.resultMetadata, metaFields)
+	}
+	if callerParams != nil {
+		if metaFields, ok := callerParams["metadata_fields"].(map[string]any); ok {
+			call.resultMetadata = mergeStringMap(call.resultMetadata, metaFields)
+		}
+	}
+
+	if staticMeta, ok := callerConfig["static_metadata"].(map[string]any); ok {
+		call.staticMetadata = mergeAnyMap(call.staticMetadata, staticMeta)
+	}
+	if callerParams != nil {
+		if staticMeta, ok := callerParams["static_metadata"].(map[string]any); ok {
+			call.staticMetadata = mergeAnyMap(call.staticMetadata, staticMeta)
+		}
+	}
+
+	if call.extractBlockMetadata {
+		if _, ok := call.resultMetadata["block_number"]; !ok {
+			call.resultMetadata["block_number"] = "number"
+		}
+		if _, ok := call.resultMetadata["block_hash"]; !ok {
+			call.resultMetadata["block_hash"] = "hash"
+		}
+	} else {
+		delete(call.resultMetadata, "block_number")
+		delete(call.resultMetadata, "block_hash")
+	}
+
+	call.skipAckResults = getBoolValue(callerConfig, "skip_ack_results", call.messageFormat != "jsonrpc")
+	if callerParams != nil {
+		call.skipAckResults = getBoolValue(callerParams, "skip_ack_results", call.skipAckResults)
 	}
 
 	if bfCfg, ok := callerConfig["backfill"].(map[string]any); ok {
@@ -90,6 +178,21 @@ func NewWebSocketCall(callerConfig map[string]any, params map[string]any) (*WebS
 		reconnectMax = getIntValue(rcMap, "backoff_max_seconds", reconnectMax)
 	}
 
+	if method := getStringValue(callerConfig, "subscribe_method", ""); method != "" {
+		call.subscribeMethod = method
+	}
+	if version := getStringValue(callerConfig, "subscribe_jsonrpc", ""); version != "" {
+		call.subscribeJSONRPC = version
+	}
+	if callerParams != nil {
+		if method := getStringValue(callerParams, "subscribe_method", ""); method != "" {
+			call.subscribeMethod = method
+		}
+		if version := getStringValue(callerParams, "subscribe_jsonrpc", ""); version != "" {
+			call.subscribeJSONRPC = version
+		}
+	}
+
 	cfg := protocol.WebSocketConfig{
 		URL:                url,
 		HeartbeatMs:        heartbeatMs,
@@ -109,12 +212,27 @@ func NewWebSocketCall(callerConfig map[string]any, params map[string]any) (*WebS
 	return call, nil
 }
 
+func (w *WebSocketCall) sendSubscribe() error {
+	if w.wsClient == nil {
+		return fmt.Errorf("websocket client 未初始化")
+	}
+	if w.useRawSubscribe {
+		if len(w.subscribeRaw) == 0 {
+			return fmt.Errorf("subscribe payload 为空")
+		}
+		return w.wsClient.SendRawSubscribe(w.subscribeRaw)
+	}
+	req := w.buildSubscribeRequest(w.subscribeTopic, w.subscribePayload)
+	w.subscribeReq = req
+	return w.wsClient.Subscribe(req)
+}
+
 func (w *WebSocketCall) CallOnce(ctx context.Context, args map[string]any) ([]*types.Message, error) {
 	w.updateSubscribeFromArgs(args)
 
 	w.mu.Lock()
 	if !w.subscribed {
-		if err := w.wsClient.Subscribe(w.subscribeReq); err != nil {
+		if err := w.sendSubscribe(); err != nil {
 			w.mu.Unlock()
 			return nil, fmt.Errorf("websocket 订阅失败: %w", err)
 		}
@@ -240,16 +358,85 @@ func buildHTTPFallback(cfg map[string]any, defaultChainID string) BlockFetcher {
 }
 
 func (w *WebSocketCall) refreshSubscribeRequest(callerParams map[string]any) {
-	topic := "newHeads"
-	if callerParams != nil {
-		if v := getStringValue(callerParams, "subscribe", ""); v != "" {
-			topic = v
+	w.useRawSubscribe = false
+	w.subscribeRaw = nil
+
+	if callerParams == nil {
+		callerParams = map[string]any{}
+	}
+
+	if rawPayload, ok := callerParams["subscribe_raw"]; ok && rawPayload != nil {
+		if payloadBytes, err := normalizeRawJSON(rawPayload); err != nil {
+			log.Printf("[WebSocketCall] subscribe_raw 解析失败: %v", err)
+		} else {
+			w.useRawSubscribe = true
+			w.subscribeRaw = payloadBytes
+			if topic := getStringValue(callerParams, "subscribe", ""); topic != "" {
+				w.subscribeTopic = topic
+			}
+			return
 		}
 	}
-	var extra interface{}
-	if callerParams != nil {
-		extra = callerParams["subscribe_params"]
+
+	if strings.EqualFold(w.messageFormat, "binance") {
+		streams := getStringSlice(callerParams, "streams")
+		if len(streams) == 0 && len(w.defaultStreams) > 0 {
+			streams = append(streams, w.defaultStreams...)
+		}
+		if len(streams) == 0 {
+			if topic := getStringValue(callerParams, "subscribe", ""); topic != "" {
+				streams = append(streams, topic)
+			}
+		}
+		if len(streams) > 0 {
+			method := getStringValue(callerParams, "subscribe_method", "")
+			if method == "" {
+				method = "SUBSCRIBE"
+			}
+			var requestID interface{}
+			if val, ok := callerParams["subscribe_id"]; ok {
+				requestID = val
+			} else if idStr := getStringValue(callerParams, "subscribe_id", ""); idStr != "" {
+				requestID = idStr
+			} else {
+				requestID = w.nextRequestIDString()
+			}
+
+			payload := map[string]any{
+				"method": method,
+				"params": streams,
+				"id":     requestID,
+			}
+			if listenKey := getStringValue(callerParams, "listen_key", ""); listenKey != "" {
+				payload["listenKey"] = listenKey
+			}
+			if extra, ok := callerParams["subscribe_extra"].(map[string]any); ok && len(extra) > 0 {
+				for k, v := range extra {
+					payload[k] = v
+				}
+			}
+			if bytes, err := json.Marshal(payload); err != nil {
+				log.Printf("[WebSocketCall] 构造 Binance 订阅请求失败: %v", err)
+			} else {
+				w.useRawSubscribe = true
+				w.subscribeRaw = bytes
+				w.subscribeTopic = strings.Join(streams, ",")
+				return
+			}
+		} else {
+			log.Printf("[WebSocketCall] Binance 订阅缺少 streams 配置，将跳过订阅")
+		}
 	}
+
+	topic := getStringValue(callerParams, "subscribe", w.subscribeTopic)
+	if topic == "" {
+		topic = "newHeads"
+	}
+	extra := callerParams["subscribe_params"]
+	if extra == nil {
+		extra = w.subscribePayload
+	}
+
 	w.subscribeTopic = topic
 	w.subscribePayload = extra
 	w.subscribeReq = w.buildSubscribeRequest(topic, extra)
@@ -268,12 +455,13 @@ func (w *WebSocketCall) buildSubscribeRequest(topic string, extra interface{}) p
 			params = append(params, v)
 		}
 	}
-	return protocol.JSONRPCRequest{
-		JSONRPC: "2.0",
+	req := protocol.JSONRPCRequest{
+		JSONRPC: w.subscribeJSONRPC,
 		ID:      w.nextRequestIDString(),
-		Method:  "eth_subscribe",
+		Method:  w.subscribeMethod,
 		Params:  params,
 	}
+	return req
 }
 
 func (w *WebSocketCall) receiveMessages() {
@@ -285,6 +473,15 @@ func (w *WebSocketCall) receiveMessages() {
 }
 
 func (w *WebSocketCall) handleIncomingMessage(data []byte) error {
+	switch w.messageFormat {
+	case "binance":
+		return w.handleBinanceMessage(data)
+	default:
+		return w.handleJSONRPCMessage(data)
+	}
+}
+
+func (w *WebSocketCall) handleJSONRPCMessage(data []byte) error {
 	var base struct {
 		JSONRPC string          `json:"jsonrpc"`
 		ID      json.RawMessage `json:"id"`
@@ -311,40 +508,28 @@ func (w *WebSocketCall) handleIncomingMessage(data []byte) error {
 		return fmt.Errorf("websocket 返回错误: code=%d msg=%s", base.Error.Code, base.Error.Message)
 	}
 
-	if base.Method == "eth_subscription" {
-		var notif struct {
-			JSONRPC string `json:"jsonrpc"`
-			Method  string `json:"method"`
-			Params  struct {
-				Subscription string          `json:"subscription"`
-				Result       json.RawMessage `json:"result"`
-			} `json:"params"`
+	if base.Method == w.notifyMethod {
+		var params struct {
+			Subscription string          `json:"subscription"`
+			Result       json.RawMessage `json:"result"`
 		}
-		if err := json.Unmarshal(data, &notif); err != nil {
+		if err := json.Unmarshal(base.Params, &params); err != nil {
 			return fmt.Errorf("解析订阅通知失败: %w", err)
 		}
 
-		metadata := map[string]any{
-			"protocol":     "websocket",
-			"subscription": notif.Params.Subscription,
+		meta := w.baseMetadata()
+		if params.Subscription != "" {
+			meta["subscription"] = params.Subscription
 		}
-		if w.chainID != "" {
-			metadata["chain_id"] = w.chainID
-		}
-		var block map[string]any
-		if err := json.Unmarshal(notif.Params.Result, &block); err == nil {
-			if numHex, ok := block["number"].(string); ok {
-				if n, err := parseHexUint64(numHex); err == nil {
-					metadata["block_number"] = int64(n)
-				}
+
+		var payload interface{}
+		if len(params.Result) > 0 {
+			if err := json.Unmarshal(params.Result, &payload); err != nil {
+				log.Printf("[WebSocketCall] 解析订阅结果失败: %v", err)
 			}
 		}
-		payload := make([]byte, len(data))
-		copy(payload, data)
-
-		w.mu.Lock()
-		w.msgBuffer = append(w.msgBuffer, &types.Message{Metadata: metadata, Payload: payload})
-		w.mu.Unlock()
+		w.applyResultMetadata(meta, payload)
+		w.bufferMessage(meta, data)
 		return nil
 	}
 
@@ -361,18 +546,194 @@ func (w *WebSocketCall) handleIncomingMessage(data []byte) error {
 	return nil
 }
 
+func (w *WebSocketCall) handleBinanceMessage(data []byte) error {
+	var payload interface{}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return fmt.Errorf("解析 websocket 数据失败: %w", err)
+	}
+
+	if obj, ok := payload.(map[string]any); ok {
+		if _, hasResult := obj["result"]; hasResult && len(obj) <= 2 {
+			// 订阅确认或心跳，直接忽略
+			return nil
+		}
+	}
+
+	meta := w.baseMetadata()
+	if obj, ok := payload.(map[string]any); ok {
+		if stream, ok := obj["stream"].(string); ok && stream != "" {
+			meta["stream"] = stream
+			if _, exists := meta["subscription"]; !exists {
+				meta["subscription"] = stream
+			}
+		}
+	}
+
+	w.applyResultMetadata(meta, payload)
+	if obj, ok := payload.(map[string]any); ok {
+		if dataField, ok := obj["data"]; ok {
+			w.applyResultMetadata(meta, dataField)
+		}
+	}
+
+	w.bufferMessage(meta, data)
+	return nil
+}
+
+func (w *WebSocketCall) baseMetadata() map[string]any {
+	meta := make(map[string]any, len(w.staticMetadata)+3)
+	if w.staticMetadata != nil {
+		for k, v := range w.staticMetadata {
+			meta[k] = v
+		}
+	}
+	meta["protocol"] = "websocket"
+	if w.chainID != "" {
+		if _, ok := meta["chain_id"]; !ok {
+			meta["chain_id"] = w.chainID
+		}
+	}
+	if w.subscribeTopic != "" {
+		if _, ok := meta["subscription"]; !ok {
+			meta["subscription"] = w.subscribeTopic
+		}
+	}
+	return meta
+}
+
+func (w *WebSocketCall) applyResultMetadata(meta map[string]any, payload interface{}) {
+	if payload == nil {
+		return
+	}
+
+	if len(w.resultMetadata) > 0 {
+		for key, path := range w.resultMetadata {
+			if value, ok := lookupJSONPath(payload, path); ok && value != nil {
+				meta[key] = normalizeMetadataValue(value)
+			}
+		}
+	}
+
+	if !w.extractBlockMetadata {
+		return
+	}
+
+	switch v := payload.(type) {
+	case map[string]any:
+		if _, ok := meta["block_hash"]; !ok {
+			if hash, ok := v["hash"].(string); ok && hash != "" {
+				meta["block_hash"] = hash
+			}
+		}
+		ensureBlockNumber(meta, v)
+	case []interface{}:
+		for _, item := range v {
+			if block, ok := item.(map[string]any); ok {
+				if _, ok := meta["block_hash"]; !ok {
+					if hash, ok := block["hash"].(string); ok && hash != "" {
+						meta["block_hash"] = hash
+					}
+				}
+				ensureBlockNumber(meta, block)
+				if _, exists := meta["block_number"]; exists {
+					break
+				}
+			}
+		}
+	}
+}
+
+func (w *WebSocketCall) bufferMessage(meta map[string]any, data []byte) {
+	if meta == nil {
+		meta = make(map[string]any)
+	}
+	payload := make([]byte, len(data))
+	copy(payload, data)
+
+	w.mu.Lock()
+	w.msgBuffer = append(w.msgBuffer, &types.Message{Metadata: meta, Payload: payload})
+	w.mu.Unlock()
+}
+
+func lookupJSONPath(data interface{}, path string) (interface{}, bool) {
+	if path == "" {
+		return data, true
+	}
+	current := data
+	segments := strings.Split(path, ".")
+	for _, segment := range segments {
+		if segment == "" {
+			continue
+		}
+		idx := -1
+		name := segment
+		if open := strings.Index(segment, "["); open >= 0 && strings.HasSuffix(segment, "]") {
+			name = segment[:open]
+			indexPart := segment[open+1 : len(segment)-1]
+			if indexPart != "" {
+				if n, err := strconv.Atoi(indexPart); err == nil {
+					idx = n
+				} else {
+					return nil, false
+				}
+			}
+		}
+
+		if name != "" {
+			obj, ok := current.(map[string]any)
+			if !ok {
+				return nil, false
+			}
+			next, ok := obj[name]
+			if !ok {
+				return nil, false
+			}
+			current = next
+		}
+
+		if idx >= 0 {
+			arr, ok := current.([]interface{})
+			if !ok || idx < 0 || idx >= len(arr) {
+				return nil, false
+			}
+			current = arr[idx]
+		}
+	}
+	return current, true
+}
+
+func normalizeMetadataValue(value interface{}) interface{} {
+	switch v := value.(type) {
+	case string:
+		s := strings.TrimSpace(v)
+		if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
+			if n, err := parseHexUint64(s); err == nil {
+				return int64(n)
+			}
+		}
+		if n, err := strconv.ParseInt(s, 10, 64); err == nil {
+			return int64(n)
+		}
+		return s
+	case float64:
+		return int64(v)
+	case int:
+		return int64(v)
+	case int64:
+		return v
+	default:
+		return v
+	}
+}
+
 func (w *WebSocketCall) updateSubscribeFromArgs(args map[string]any) {
 	if args == nil {
 		return
 	}
-	if topic, ok := args["subscribe"].(string); ok && topic != "" && topic != w.subscribeTopic {
-		w.subscribeTopic = topic
-		w.subscribePayload = args["subscribe_params"]
-		w.subscribeReq = w.buildSubscribeRequest(topic, w.subscribePayload)
-		w.mu.Lock()
-		w.subscribed = false
-		w.mu.Unlock()
-	}
+	w.refreshSubscribeRequest(args)
+	w.mu.Lock()
+	w.subscribed = false
+	w.mu.Unlock()
 }
 
 func (w *WebSocketCall) callWebSocket(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {

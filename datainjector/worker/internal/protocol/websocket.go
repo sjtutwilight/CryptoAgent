@@ -121,6 +121,32 @@ func (c *WebSocketClient) Subscribe(req JSONRPCRequest) error {
 	return nil
 }
 
+// SendRawSubscribe 发送原生订阅payload，并记录用于重连
+func (c *WebSocketClient) SendRawSubscribe(payload []byte) error {
+	c.mu.RLock()
+	conn := c.conn
+	c.mu.RUnlock()
+
+	if conn == nil {
+		return fmt.Errorf("websocket未连接")
+	}
+	if len(payload) == 0 {
+		return fmt.Errorf("订阅消息为空")
+	}
+
+	if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+		return fmt.Errorf("发送订阅消息失败: %w", err)
+	}
+
+	c.mu.Lock()
+	c.lastSubscribeMsg = make([]byte, len(payload))
+	copy(c.lastSubscribeMsg, payload)
+	c.mu.Unlock()
+
+	log.Printf("[WebSocket] 发送订阅(raw): %s", string(payload))
+	return nil
+}
+
 // Unsubscribe 发送退订消息（JSON-RPC）
 func (c *WebSocketClient) Unsubscribe(req JSONRPCRequest) error {
 	c.mu.RLock()

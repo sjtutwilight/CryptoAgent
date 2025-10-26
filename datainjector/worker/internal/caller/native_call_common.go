@@ -284,3 +284,98 @@ func isBackfillMethod(method string) bool {
 		return false
 	}
 }
+
+func normalizeRawJSON(value interface{}) ([]byte, error) {
+	switch v := value.(type) {
+	case nil:
+		return nil, nil
+	case []byte:
+		return v, nil
+	case json.RawMessage:
+		return []byte(v), nil
+	case string:
+		return []byte(v), nil
+	default:
+		return json.Marshal(v)
+	}
+}
+
+func getStringSlice(m map[string]any, key string) []string {
+	if m == nil {
+		return nil
+	}
+	v, ok := m[key]
+	if !ok || v == nil {
+		return nil
+	}
+	switch vv := v.(type) {
+	case []string:
+		out := make([]string, 0, len(vv))
+		for _, item := range vv {
+			if strings.TrimSpace(item) != "" {
+				out = append(out, strings.TrimSpace(item))
+			}
+		}
+		return out
+	case []interface{}:
+		out := make([]string, 0, len(vv))
+		for _, item := range vv {
+			str := toString(item)
+			if strings.TrimSpace(str) != "" {
+				out = append(out, strings.TrimSpace(str))
+			}
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	case string:
+		if strings.TrimSpace(vv) == "" {
+			return nil
+		}
+		if strings.Contains(vv, ",") {
+			parts := strings.Split(vv, ",")
+			out := make([]string, 0, len(parts))
+			for _, item := range parts {
+				if s := strings.TrimSpace(item); s != "" {
+					out = append(out, s)
+				}
+			}
+			if len(out) == 0 {
+				return nil
+			}
+			return out
+		}
+		return []string{strings.TrimSpace(vv)}
+	default:
+		return nil
+	}
+}
+
+func mergeStringMap(dst map[string]string, src map[string]any) map[string]string {
+	if src == nil {
+		return dst
+	}
+	if dst == nil {
+		dst = make(map[string]string, len(src))
+	}
+	for k, v := range src {
+		if s, ok := v.(string); ok {
+			dst[k] = s
+		}
+	}
+	return dst
+}
+
+func mergeAnyMap(dst map[string]any, src map[string]any) map[string]any {
+	if src == nil {
+		return dst
+	}
+	if dst == nil {
+		dst = make(map[string]any, len(src))
+	}
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}

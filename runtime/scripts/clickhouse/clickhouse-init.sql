@@ -129,6 +129,7 @@ SETTINGS deduplicate_merge_projection_mode = 'rebuild'
 -- ===========================
 
 -- 物化视图：从快照表提取最新两个snapshot的持仓数据
+-- 注意：统一地址为小写，避免同一账户因地址大小写不同产生重复记录
 CREATE MATERIALIZED VIEW mv_holder_balance_latest
 TO ch_token_holder_balance_latest
 AS
@@ -142,7 +143,7 @@ SELECT
   snapshot_id,
   biz_id AS token_id,
   account_id,
-  account_address,
+  lower(argMax(account_address, block_id)) AS account_address,
   argMax(amount, block_id) AS amount,
   argMax(value_usd, block_id) AS value_usd,
   argMax(label_mask, block_id) AS label_mask,
@@ -150,7 +151,7 @@ SELECT
 FROM ch_account_balance_snapshot
 WHERE asset_type = 'erc20'
   AND snapshot_id IN (SELECT snapshot_id FROM latest_snapshots)
-GROUP BY snapshot_id, biz_id, account_id,account_address
+GROUP BY snapshot_id, biz_id, account_id
 
 
 -- ===========================
@@ -158,6 +159,7 @@ GROUP BY snapshot_id, biz_id, account_id,account_address
 -- ===========================
 
 -- 1) Top持币地址视图（基于最新snapshot）
+-- 注意：使用手动去重逻辑，避免ReplacingMergeTree后台merge延迟导致的重复数据
 CREATE OR REPLACE VIEW v_token_top_holders_latest AS
 WITH latest_snapshot AS (
   SELECT max(snapshot_id) AS max_snapshot_id 
@@ -171,16 +173,40 @@ SELECT
   round(h.value_usd / nullIf(toFloat64(sum(h.value_usd) OVER (PARTITION BY h.token_id)), 0), 6) AS ownership_pct,
   h.amount,
   h.label_mask
-FROM ch_token_holder_balance_latest h
+FROM (
+  SELECT 
+    snapshot_id,
+    token_id,
+    account_id,
+    lower(argMax(account_address, version)) as account_address,
+    argMax(value_usd, version) as value_usd,
+    argMax(amount, version) as amount,
+    argMax(label_mask, version) as label_mask
+  FROM ch_token_holder_balance_latest
+  WHERE snapshot_id = (SELECT max_snapshot_id FROM latest_snapshot)
+  GROUP BY snapshot_id, token_id, account_id
+) h
 INNER JOIN latest_snapshot l ON h.snapshot_id = l.max_snapshot_id
 WHERE h.value_usd > 0
 ORDER BY h.token_id, h.value_usd DESC
 LIMIT 100 BY h.token_id;
 -- 2) Token分布统计视图（基于最新snapshot直接聚合）
+-- 注意：使用子查询去重，确保每个(snapshot_id, token_id, account_id)只保留最新version
 CREATE OR REPLACE VIEW v_token_distribution_minute AS
 WITH latest_snapshot AS (
   SELECT max(snapshot_id) AS max_snapshot_id 
   FROM ch_token_holder_balance_latest
+),
+deduplicated_data AS (
+  SELECT 
+    snapshot_id,
+    token_id,
+    account_id,
+    argMax(value_usd, version) as value_usd,
+    argMax(label_mask, version) as label_mask
+  FROM ch_token_holder_balance_latest
+  WHERE snapshot_id = (SELECT max_snapshot_id FROM latest_snapshot)
+  GROUP BY snapshot_id, token_id, account_id
 )
 SELECT
     h.token_id,
@@ -191,25 +217,29 @@ SELECT
     avgIf(h.value_usd, h.value_usd > 0) AS avg_holder_value_usd,
     topK(2)(h.value_usd) AS top2_values,
     arraySum(topK(2)(h.value_usd)) AS top2_value_usd,
-    if(sumIf(h.value_usd, h.value_usd > 0) > 0,
-       arraySum(topK(2)(h.value_usd)) / sumIf(h.value_usd, h.value_usd > 0),
+    if(sumIf(toFloat64(h.value_usd), h.value_usd > 0) > 0,
+       arraySum(topK(2)(toFloat64(h.value_usd))) / sumIf(toFloat64(h.value_usd), h.value_usd > 0),
        0) AS top2_share,
-    if(sumIf(h.value_usd, h.value_usd > 0) > 0,
-       sumIf(h.value_usd, h.value_usd > 0 AND (h.label_mask & toUInt16(1)) != 0) / sumIf(h.value_usd, h.value_usd > 0),
+    if(sumIf(toFloat64(h.value_usd), h.value_usd > 0) > 0,
+       sumIf(toFloat64(h.value_usd), h.value_usd > 0 AND bitAnd(h.label_mask, toUInt16(16)) != 0) / sumIf(toFloat64(h.value_usd), h.value_usd > 0),
        0) AS fresh_holder_value_share
-FROM ch_token_holder_balance_latest h
+FROM deduplicated_data h
 INNER JOIN latest_snapshot l ON h.snapshot_id = l.max_snapshot_id
 GROUP BY h.token_id, l.max_snapshot_id
 ORDER BY h.token_id ASC;
 
 -- 3) 标签分布视图（基于最新两个snapshot计算变化率）
+-- 注意：使用去重逻辑，确保每个key只保留最新version
+-- 标签位图定义与后端LabelBitmapUtil保持一致
 CREATE OR REPLACE VIEW v_token_holder_tag_minute AS
 WITH tags AS (
   SELECT arrayJoin([
-    ('fresh', toUInt16(1)),
-    ('whale', toUInt16(2)),
-    ('smart', toUInt16(4)),
-    ('cex',   toUInt16(8))
+    ('exchange',      toUInt16(1)),   -- Bit 0: 交易所
+    ('smart_money',   toUInt16(2)),   -- Bit 1: 聪明钱
+    ('whale',         toUInt16(4)),   -- Bit 2: 巨鲸
+    ('public_figure', toUInt16(8)),   -- Bit 3: 公众人物
+    ('fresh_wallet',  toUInt16(16)),  -- Bit 4: 新钱包
+    ('top_pnl',       toUInt16(32))   -- Bit 5: Top PnL
   ]) AS t
 ),
 latest_snapshots AS (
@@ -218,15 +248,36 @@ latest_snapshots AS (
   ORDER BY snapshot_id DESC
   LIMIT 1,2
 ),
+deduplicated_current AS (
+  SELECT 
+    snapshot_id,
+    token_id,
+    account_id,
+    argMax(value_usd, version) as value_usd,
+    argMax(label_mask, version) as label_mask
+  FROM ch_token_holder_balance_latest
+  WHERE snapshot_id = (SELECT max(snapshot_id) FROM latest_snapshots)
+  GROUP BY snapshot_id, token_id, account_id
+),
+deduplicated_previous AS (
+  SELECT 
+    snapshot_id,
+    token_id,
+    account_id,
+    argMax(value_usd, version) as value_usd,
+    argMax(label_mask, version) as label_mask
+  FROM ch_token_holder_balance_latest
+  WHERE snapshot_id = (SELECT min(snapshot_id) FROM latest_snapshots)
+  GROUP BY snapshot_id, token_id, account_id
+),
 current_data AS (
   SELECT
     h.token_id,
     t.1 AS tag,
     sumIf(h.value_usd, bitAnd(h.label_mask, t.2) != 0 AND h.value_usd > 0) AS current_value_usd,
     uniqExactIf(h.account_id, bitAnd(h.label_mask, t.2) != 0 AND h.value_usd > 0) AS current_holders_count
-  FROM ch_token_holder_balance_latest h
+  FROM deduplicated_current h
   CROSS JOIN tags
-  WHERE h.snapshot_id = (SELECT max(snapshot_id) FROM latest_snapshots)
   GROUP BY h.token_id, tag
 ),
 previous_data AS (
@@ -234,9 +285,8 @@ previous_data AS (
     h.token_id,
     t.1 AS tag,
     sumIf(h.value_usd, bitAnd(h.label_mask, t.2) != 0 AND h.value_usd > 0) AS prev_value_usd
-  FROM ch_token_holder_balance_latest h
+  FROM deduplicated_previous h
   CROSS JOIN tags
-  WHERE h.snapshot_id = (SELECT min(snapshot_id) FROM latest_snapshots)
   GROUP BY h.token_id, tag
 )
 SELECT

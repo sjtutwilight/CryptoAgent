@@ -7,9 +7,11 @@ import com.twilight.backend.model.TokenDistribution;
 import com.twilight.backend.model.AccountDetail;
 
 import com.twilight.backend.repository.*;
+import com.twilight.backend.service.WebSocketPushService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -36,6 +38,7 @@ public class NewAnalyticsController {
 
     private final TokenRepository tokenRepository;
     private final AccountRepository accountRepository;
+    private final WebSocketPushService webSocketPushService;
 
     // private final TokenOverviewService tokenOverviewService;
     // private final EnhancedWebSocketService webSocketService;
@@ -299,47 +302,94 @@ public class NewAnalyticsController {
 //         return ApiResponse.success(result);
 //     }
 
-//     // ============ WebSocket 消息处理 ============
+    // ============ WebSocket 消息处理 ============
 
-//     /**
-//      * 客户端订阅代币概览实时数据
-//      */
-//     @MessageMapping("/subscribe/token/{tokenId}/overview")
-//     @SendTo("/topic/token/{tokenId}/overview")
-//     public Map<String, Object> subscribeTokenOverview(
-//             @DestinationVariable Long tokenId,
-//             Map<String, Object> subscriptionData) {
-        
-//         String timeRange = (String) subscriptionData.getOrDefault("timeRange", "5min");
-//         log.info("客户端订阅代币概览实时数据: tokenId={}, timeRange={}", tokenId, timeRange);
-        
-//         // 立即返回当前数据
-//         Map<String, Object> response = new HashMap<>();
-//         response.put("type", "subscription_confirmed");
-//         response.put("tokenId", tokenId);
-//         response.put("timeRange", timeRange);
-//         response.put("subscribed", true);
-//         response.put("timestamp", java.time.LocalDateTime.now());
-        
-//         return response;
-//     }
+    @MessageMapping("/analytics/tokens/list")
+    @SendTo("/topic/analytics/tokens/list")
+    public ApiResponse<List<TokenListItem>> streamTokenList(TokenListSubscriptionRequest request) {
+        TokenListSubscriptionRequest actual = request != null ? request : new TokenListSubscriptionRequest();
+        log.info("WebSocket订阅代币列表, page: {}, pageSize: {}, sortBy: {}, order: {}",
+                actual.getPage(), actual.getPageSize(), actual.getSortBy(), actual.getOrder());
+        try {
+            List<TokenListItem> tokenItems = tokenRepository.findTokenListItems(
+                    actual.getPage(), actual.getPageSize(), actual.getSortBy(), actual.getOrder());
+            log.info("WebSocket推送代币列表, 返回{}条记录", tokenItems.size());
+            return ApiResponse.success(tokenItems);
+        } catch (Exception e) {
+            log.error("WebSocket推送代币列表失败", e);
+            return ApiResponse.serverError("获取代币列表失败: " + e.getMessage());
+        }
+    }
 
-//     /**
-//      * 客户端订阅PnL实时数据
-//      */
-//     @MessageMapping("/subscribe/token/{tokenId}/pnl")
-//     @SendTo("/topic/token/{tokenId}/pnl")
-//     public Map<String, Object> subscribeTokenPnL(@DestinationVariable Long tokenId) {
-//         log.info("客户端订阅PnL实时数据: {}", tokenId);
+    @MessageMapping("/analytics/tokens/{tokenId}/overview")
+    public void streamTokenOverview(@DestinationVariable Long tokenId,
+                                    TokenTimeRangeRequest request) {
+        TokenTimeRangeRequest actual = request != null ? request : TokenTimeRangeRequest.defaultRequest();
+        log.info("WebSocket注册代币概览订阅, tokenId: {}, timeRange: {}", tokenId, actual.getTimeRange());
         
-//         Map<String, Object> response = new HashMap<>();
-//         response.put("type", "subscription_confirmed");
-//         response.put("tokenId", tokenId);
-//         response.put("subscribed", true);
-//         response.put("timestamp", java.time.LocalDateTime.now());
+        // 注册订阅，后续由定时任务推送数据
+        webSocketPushService.registerOverviewSubscription(tokenId, actual.getTimeRange());
+    }
+
+    @MessageMapping("/analytics/tokens/{tokenId}/distribution")
+    public void streamTokenDistribution(@DestinationVariable Long tokenId,
+                                        TokenTimeRangeRequest request) {
+        TokenTimeRangeRequest actual = request != null ? request : TokenTimeRangeRequest.defaultRequest();
+        log.info("WebSocket注册代币分布订阅, tokenId: {}, timeRange: {}", tokenId, actual.getTimeRange());
         
-//         return response;
-//     }
+        // 注册订阅，后续由定时任务推送数据
+        webSocketPushService.registerDistributionSubscription(tokenId, actual.getTimeRange());
+    }
+
+    @MessageMapping("/analytics/accounts/{accountId}")
+    @SendTo("/topic/analytics/accounts/{accountId}")
+    public ApiResponse<AccountDetail> streamAccountDetail(@DestinationVariable Long accountId) {
+        log.info("WebSocket订阅账户详情, accountId: {}", accountId);
+        try {
+            AccountDetail accountDetail = accountRepository.findAccountDetailById(accountId);
+            if (accountDetail == null) {
+                return ApiResponse.badRequest("账户不存在");
+            }
+            return ApiResponse.success(accountDetail);
+        } catch (Exception e) {
+            log.error("WebSocket推送账户详情失败", e);
+            return ApiResponse.serverError("获取账户详情失败: " + e.getMessage());
+        }
+    }
+
+    @MessageMapping("/analytics/tokens/{tokenId}/pnl")
+    public void streamTokenPnL(@DestinationVariable Long tokenId,
+                               TokenPnLSubscriptionRequest request) {
+        TokenPnLSubscriptionRequest actual = request != null ? request : new TokenPnLSubscriptionRequest();
+        log.info("WebSocket注册代币PnL订阅, tokenId: {}, timeRange: {}, topLimit: {}",
+                tokenId, actual.getTimeRange(), actual.getTopLimit());
+        
+        // 注册订阅，后续由定时任务推送数据
+        webSocketPushService.registerPnLSubscription(tokenId, actual.getTimeRange(), actual.getTopLimit());
+    }
+
+    @Data
+    private static class TokenListSubscriptionRequest {
+        private Integer page = 1;
+        private Integer pageSize = 50;
+        private String sortBy = "mcap";
+        private String order = "desc";
+    }
+
+    @Data
+    private static class TokenTimeRangeRequest {
+        private String timeRange = "5min";
+
+        static TokenTimeRangeRequest defaultRequest() {
+            return new TokenTimeRangeRequest();
+        }
+    }
+
+    @Data
+    private static class TokenPnLSubscriptionRequest {
+        private String timeRange = "1min";
+        private Integer topLimit = 50;
+    }
 
 //     // ============ 数据构建辅助方法 ============
 
