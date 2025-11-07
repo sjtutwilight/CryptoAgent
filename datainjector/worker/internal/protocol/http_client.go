@@ -111,6 +111,23 @@ func (c *HTTPClient) Call(ctx context.Context, req JSONRPCRequest) ([]byte, erro
 	return respBody, nil
 }
 
+func (c *HTTPClient) Do(req *http.Request) ([]byte, int, error) {
+	if c == nil {
+		return nil, 0, fmt.Errorf("http client not initialized")
+	}
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, resp.StatusCode, err
+	}
+	return respBody, resp.StatusCode, nil
+}
+
 func jsonMarshal(v interface{}) ([]byte, error) {
 	return json.Marshal(v)
 }

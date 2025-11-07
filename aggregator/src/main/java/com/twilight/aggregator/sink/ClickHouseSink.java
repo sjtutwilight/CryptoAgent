@@ -1,5 +1,6 @@
 package com.twilight.aggregator.sink;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -8,6 +9,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.Map;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
@@ -20,6 +22,9 @@ import com.twilight.aggregator.model.TokenRecentMetric;
 import com.twilight.aggregator.model.AccountPnLSnapshot;
 import com.twilight.aggregator.model.PnLRealizedEvent;
 import com.twilight.aggregator.model.TradeFact;
+import com.twilight.aggregator.model.KlineMetrics;
+import com.twilight.aggregator.model.KlineSignal;
+import com.twilight.aggregator.model.IndicatorMetric;
 
 /**
  * ClickHouse高性能批量写入Sink
@@ -148,6 +153,18 @@ public class ClickHouseSink<T> extends RichSinkFunction<T> {
             setPnLRealizedEventParameters(stmt, (PnLRealizedEvent) value);
         } else if (value instanceof TradeFact) {
             setTradeFactParameters(stmt, (TradeFact) value);
+        } else if (value instanceof com.twilight.aggregator.model.perp.ExecutionMetrics) {
+            setExecutionMetricsParameters(stmt, (com.twilight.aggregator.model.perp.ExecutionMetrics) value);
+        } else if (value instanceof com.twilight.aggregator.model.perp.ContextMetrics) {
+            setContextMetricsParameters(stmt, (com.twilight.aggregator.model.perp.ContextMetrics) value);
+        } else if (value instanceof com.twilight.aggregator.model.perp.PerpSignal) {
+            setPerpSignalParameters(stmt, (com.twilight.aggregator.model.perp.PerpSignal) value);
+        } else if (value instanceof com.twilight.aggregator.model.perp.PanelMetrics) {
+            setPanelMetricsParameters(stmt, (com.twilight.aggregator.model.perp.PanelMetrics) value);
+        } else if (value instanceof KlineMetrics) {
+            setKlineMetricsParameters(stmt, (KlineMetrics) value);
+        } else if (value instanceof IndicatorMetric) {
+            setIndicatorMetricParameters(stmt, (IndicatorMetric) value);
         } else {
             throw new IllegalArgumentException("Unsupported data type: " + value.getClass().getName());
         }
@@ -302,6 +319,85 @@ public class ClickHouseSink<T> extends RichSinkFunction<T> {
         stmt.setInt(15, tradeFact.getLabelMask());                     // label_mask
     }
 
+    private void setKlineMetricsParameters(PreparedStatement stmt, KlineMetrics metrics) throws SQLException {
+        stmt.setString(1, metrics.getExchange());
+        stmt.setString(2, metrics.getSymbol());
+        stmt.setString(3, metrics.getInterval());
+
+        stmt.setTimestamp(4, metrics.getEventTime() != null ? new Timestamp(metrics.getEventTime()) : null);
+        stmt.setTimestamp(5, metrics.getStartTime() != null ? new Timestamp(metrics.getStartTime()) : null);
+        stmt.setTimestamp(6, metrics.getCloseTime() != null ? new Timestamp(metrics.getCloseTime()) : null);
+        stmt.setObject(7, metrics.getClosed(), java.sql.Types.BOOLEAN);
+        stmt.setTimestamp(8, metrics.getIngestTime() != null ? new Timestamp(metrics.getIngestTime()) : null);
+
+        stmt.setBigDecimal(9, metrics.getOpenPrice());
+        stmt.setBigDecimal(10, metrics.getHighPrice());
+        stmt.setBigDecimal(11, metrics.getLowPrice());
+        stmt.setBigDecimal(12, metrics.getClosePrice());
+
+        stmt.setBigDecimal(13, metrics.getBaseVolume());
+        stmt.setBigDecimal(14, metrics.getQuoteVolume());
+        stmt.setObject(15, metrics.getTradeCount(), java.sql.Types.INTEGER);
+
+        stmt.setBigDecimal(16, metrics.getAmplitudePercent());
+        stmt.setBigDecimal(17, metrics.getChangePercent());
+
+        stmt.setObject(18, metrics.getShortPeriod(), java.sql.Types.INTEGER);
+        stmt.setObject(19, metrics.getMediumPeriod(), java.sql.Types.INTEGER);
+        stmt.setObject(20, metrics.getLongPeriod(), java.sql.Types.INTEGER);
+
+        stmt.setBigDecimal(21, metrics.getShortMa());
+        stmt.setBigDecimal(22, metrics.getMediumMa());
+        stmt.setBigDecimal(23, metrics.getLongMa());
+
+        stmt.setString(24, metrics.getSignalType() != null ? metrics.getSignalType().name() : KlineSignal.SignalType.HOLD.name());
+        stmt.setBigDecimal(25, metrics.getSignalStrength() != null ? metrics.getSignalStrength() : BigDecimal.ZERO);
+        stmt.setString(26, metrics.getSignalDetail() != null ? metrics.getSignalDetail() : "");
+        long signalTs = metrics.getSignalTimestamp() != null ? metrics.getSignalTimestamp() : System.currentTimeMillis();
+        stmt.setTimestamp(27, new Timestamp(signalTs));
+
+        Timestamp now = new Timestamp(System.currentTimeMillis());
+        stmt.setTimestamp(28, now); // process_time
+        stmt.setTimestamp(29, now); // create_time
+    }
+
+    private void setIndicatorMetricParameters(PreparedStatement stmt, IndicatorMetric metric) throws SQLException {
+        stmt.setString(1, metric.getExchange());
+        stmt.setString(2, metric.getSymbol());
+        stmt.setString(3, metric.getInterval());
+
+        stmt.setTimestamp(4, toTimestampOrDefault(metric.getStartTime()));
+        stmt.setTimestamp(5, toTimestampOrDefault(metric.getEndTime()));
+
+        stmt.setString(6, metric.getIndicator());
+        stmt.setString(7, metric.getVariant());
+
+        stmt.setDouble(8, metric.getValue() != null ? metric.getValue().doubleValue() : 0.0d);
+
+        ArrayPair componentArrays = mapToArrays(metric.getComponents());
+        stmt.setArray(9, stmt.getConnection().createArrayOf("String", componentArrays.keys));
+        stmt.setArray(10, stmt.getConnection().createArrayOf("Float64", componentArrays.values));
+
+        ArrayPair thresholdArrays = mapToArrays(metric.getThresholds());
+        stmt.setArray(11, stmt.getConnection().createArrayOf("String", thresholdArrays.keys));
+        stmt.setArray(12, stmt.getConnection().createArrayOf("Float64", thresholdArrays.values));
+
+        KlineSignal.SignalType signalType = metric.getSignalType() != null
+                ? metric.getSignalType()
+                : KlineSignal.SignalType.HOLD;
+        stmt.setString(13, mapSignalType(signalType));
+
+        BigDecimal strength = metric.getSignalStrength() != null ? metric.getSignalStrength() : BigDecimal.ZERO;
+        stmt.setDouble(14, strength.doubleValue());
+
+        stmt.setString(15, metric.getSignalDetail() != null ? metric.getSignalDetail() : "");
+
+        long process = metric.getProcessTime() != null ? metric.getProcessTime() : System.currentTimeMillis();
+        Timestamp processTs = new Timestamp(process);
+        stmt.setTimestamp(16, processTs);
+        stmt.setTimestamp(17, new Timestamp(System.currentTimeMillis()));
+    }
+
     public static ClickHouseSink<TradeFact> createTradeFactSink() {
         String insertSql = "INSERT INTO ch_account_trade_fact " +
                 "(chain_id, token_id, account_id, account_address, side, pair_id, pair_address, block_time, block_id, " +
@@ -309,5 +405,259 @@ public class ClickHouseSink<T> extends RichSinkFunction<T> {
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         return new ClickHouseSink<>("ch_account_trade_fact", insertSql, 200, 10000);  // 200条批量，10秒刷新
+    }
+
+    public static ClickHouseSink<KlineMetrics> createKlineMetricsSink() {
+        String insertSql = "INSERT INTO kline_metrics " +
+                "(exchange, symbol, interval, event_time, start_time, close_time, is_closed, ingest_time, " +
+                "open_price, high_price, low_price, close_price, base_volume, quote_volume, trade_count, " +
+                "amplitude_pct, change_pct, ma_short_period, ma_medium_period, ma_long_period, " +
+                "ma_short_value, ma_medium_value, ma_long_value, signal_type, signal_strength, signal_detail, " +
+                "signal_timestamp, process_time, create_time) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        return new ClickHouseSink<>("kline_metrics", insertSql, 500, 5000);
+    }
+
+    public static ClickHouseSink<IndicatorMetric> createKlineIndicatorMetricsSink() {
+        String insertSql = "INSERT INTO kline_indicator_metrics " +
+                "(exchange, symbol, interval, start_time, end_time, indicator, variant, value, " +
+                "components.name, components.val, thresholds.name, thresholds.val, signal_type, signal_strength, signal_detail, " +
+                "process_time, create_time) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        return new ClickHouseSink<>("kline_indicator_metrics", insertSql, 500, 5000);
+    }
+
+    private ArrayPair mapToArrays(Map<String, BigDecimal> source) {
+        if (source == null || source.isEmpty()) {
+            return ArrayPair.EMPTY;
+        }
+
+        String[] keys = new String[source.size()];
+        Double[] values = new Double[source.size()];
+        int index = 0;
+        for (Map.Entry<String, BigDecimal> entry : source.entrySet()) {
+            keys[index] = entry.getKey();
+            values[index] = entry.getValue() != null ? entry.getValue().doubleValue() : 0.0d;
+            index++;
+        }
+        return new ArrayPair(keys, values);
+    }
+
+    private static final class ArrayPair {
+        private static final ArrayPair EMPTY = new ArrayPair(new String[0], new Double[0]);
+
+        private final String[] keys;
+        private final Double[] values;
+
+        private ArrayPair(String[] keys, Double[] values) {
+            this.keys = keys;
+            this.values = values;
+        }
+    }
+
+    private String mapSignalType(KlineSignal.SignalType signalType) {
+        if (signalType == null) {
+            return "NONE";
+        }
+        switch (signalType) {
+            case BUY:
+                return "BUY";
+            case SELL:
+                return "SELL";
+            default:
+                return "NONE";
+        }
+    }
+
+    private Timestamp toTimestampOrDefault(Long epochMillis) {
+        long value = epochMillis != null ? epochMillis : System.currentTimeMillis();
+        return new Timestamp(value);
+    }
+
+    // ===== 永续合约指标Sink =====
+
+    /**
+     * 设置执行面指标参数
+     */
+    private void setExecutionMetricsParameters(PreparedStatement stmt, 
+            com.twilight.aggregator.model.perp.ExecutionMetrics metrics) throws SQLException {
+        stmt.setString(1, metrics.getSymbol());
+        stmt.setString(2, metrics.getExchange());
+        stmt.setTimestamp(3, new Timestamp(metrics.getEndTime()));
+        stmt.setString(4, metrics.getAlgoVersion());
+        
+        // 订单簿指标
+        stmt.setBigDecimal(5, metrics.getMidPrice());
+        stmt.setDouble(6, metrics.getSpreadBps() != null ? metrics.getSpreadBps() : 0.0);
+        stmt.setBigDecimal(7, metrics.getSpreadAbs());
+        stmt.setBigDecimal(8, metrics.getDepth10k());
+        stmt.setBigDecimal(9, metrics.getDepth50k());
+        stmt.setBigDecimal(10, metrics.getDepth100k());
+        stmt.setDouble(11, metrics.getImbalanceTop5() != null ? metrics.getImbalanceTop5() : 0.0);
+        stmt.setDouble(12, metrics.getImbalanceTotal() != null ? metrics.getImbalanceTotal() : 0.0);
+        stmt.setDouble(13, metrics.getImpact10kBps() != null ? metrics.getImpact10kBps() : 0.0);
+        stmt.setDouble(14, metrics.getImpact50kBps() != null ? metrics.getImpact50kBps() : 0.0);
+        stmt.setDouble(15, metrics.getImpact100kBps() != null ? metrics.getImpact100kBps() : 0.0);
+        
+        // OFI
+        stmt.setDouble(16, metrics.getOfi() != null ? metrics.getOfi() : 0.0);
+        
+        // 成交指标
+        stmt.setInt(17, metrics.getTradeCount() != null ? metrics.getTradeCount() : 0);
+        stmt.setBigDecimal(18, metrics.getVolumeUsd());
+        stmt.setBigDecimal(19, metrics.getVwap());
+        stmt.setBigDecimal(20, metrics.getBuyVolumeUsd());
+        stmt.setBigDecimal(21, metrics.getSellVolumeUsd());
+        
+        // 流动性指标（可选）
+        stmt.setDouble(22, metrics.getIlliqLambda() != null ? metrics.getIlliqLambda() : 0.0);
+        
+        // 元数据
+        stmt.setTimestamp(23, new Timestamp(metrics.getProcessTime() != null ? metrics.getProcessTime() : System.currentTimeMillis()));
+    }
+
+    /**
+     * 设置语境面指标参数
+     */
+    private void setContextMetricsParameters(PreparedStatement stmt, 
+            com.twilight.aggregator.model.perp.ContextMetrics metrics) throws SQLException {
+        stmt.setString(1, metrics.getSymbol());
+        stmt.setString(2, metrics.getExchange());
+        stmt.setTimestamp(3, new Timestamp(metrics.getEndTime()));
+        stmt.setString(4, metrics.getAlgoVersion());
+        
+        // 价格指标
+        stmt.setBigDecimal(5, metrics.getMarkPrice());
+        stmt.setBigDecimal(6, metrics.getIndexPrice());
+        stmt.setDouble(7, metrics.getBasisBps() != null ? metrics.getBasisBps() : 0.0);
+        
+        // 资金费率
+        stmt.setBigDecimal(8, metrics.getFundingRate());
+        stmt.setBigDecimal(9, metrics.getFundingRate8h());
+        stmt.setBigDecimal(10, metrics.getFundingEma24h());
+        stmt.setTimestamp(11, metrics.getNextFundingTime() != null ? new Timestamp(metrics.getNextFundingTime()) : null);
+        
+        // 持仓量
+        stmt.setBigDecimal(12, metrics.getOi());
+        stmt.setBigDecimal(13, metrics.getOiUsd());
+        stmt.setBigDecimal(14, metrics.getOiDelta1m());
+        stmt.setDouble(15, metrics.getOiDeltaPct() != null ? metrics.getOiDeltaPct() : 0.0);
+        stmt.setBoolean(16, metrics.getIsOiCarried() != null ? metrics.getIsOiCarried() : false);
+        
+        // 元数据
+        stmt.setTimestamp(17, new Timestamp(metrics.getProcessTime() != null ? metrics.getProcessTime() : System.currentTimeMillis()));
+    }
+
+    /**
+     * 设置信号参数
+     */
+    private void setPerpSignalParameters(PreparedStatement stmt, 
+            com.twilight.aggregator.model.perp.PerpSignal signal) throws SQLException {
+        stmt.setString(1, signal.getSymbol());
+        stmt.setString(2, signal.getExchange());
+        stmt.setTimestamp(3, new Timestamp(signal.getSignalTime()));
+        stmt.setString(4, signal.getSignalType() != null ? signal.getSignalType().name() : null);
+        stmt.setString(5, signal.getSignalLevel() != null ? signal.getSignalLevel().name() : null);
+        stmt.setString(6, signal.getMetricName());
+        stmt.setDouble(7, signal.getMetricValue() != null ? signal.getMetricValue() : 0.0);
+        stmt.setDouble(8, signal.getThreshold() != null ? signal.getThreshold() : 0.0);
+        stmt.setString(9, signal.getContextJson());
+        stmt.setString(10, signal.getAlgoVersion());
+        stmt.setTimestamp(11, new Timestamp(signal.getProcessTime() != null ? signal.getProcessTime() : System.currentTimeMillis()));
+    }
+
+    /**
+     * 创建执行面指标Sink
+     */
+    public static ClickHouseSink<com.twilight.aggregator.model.perp.ExecutionMetrics> createExecutionMetricsSink() {
+        String insertSql = "INSERT INTO dws_exec_1s " +
+                "(symbol, exchange, end_time, algo_version, " +
+                "mid_price, spread_bps, spread_abs, depth_10k, depth_50k, depth_100k, " +
+                "imbalance_top5, imbalance_total, impact_10k_bps, impact_50k_bps, impact_100k_bps, " +
+                "ofi, trade_count, volume_usd, vwap, buy_volume_usd, sell_volume_usd, " +
+                "illiq_lambda, process_time) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        return new ClickHouseSink<>("dws_exec_1s", insertSql, 1000, 5000);
+    }
+
+    /**
+     * 创建语境面指标Sink
+     */
+    public static ClickHouseSink<com.twilight.aggregator.model.perp.ContextMetrics> createContextMetricsSink() {
+        String insertSql = "INSERT INTO dws_perps_ctx_1m " +
+                "(symbol, exchange, end_time, algo_version, " +
+                "mark_price, index_price, basis_bps, " +
+                "funding_rate, funding_rate_8h, funding_ema_24h, next_funding_time, " +
+                "oi, oi_usd, oi_delta_1m, oi_delta_pct, is_oi_carried, " +
+                "process_time) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        return new ClickHouseSink<>("dws_perps_ctx_1m", insertSql, 500, 5000);
+    }
+
+    /**
+     * 创建信号Sink
+     */
+    public static ClickHouseSink<com.twilight.aggregator.model.perp.PerpSignal> createPerpSignalSink() {
+        String insertSql = "INSERT INTO perp_signals " +
+                "(symbol, exchange, signal_time, signal_type, signal_level, " +
+                "metric_name, metric_value, threshold, context_json, algo_version, process_time) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        return new ClickHouseSink<>("perp_signals", insertSql, 100, 3000);
+    }
+
+    /**
+     * 设置Panel指标参数（汇合面板）
+     */
+    private void setPanelMetricsParameters(PreparedStatement stmt, 
+            com.twilight.aggregator.model.perp.PanelMetrics panel) throws SQLException {
+        stmt.setString(1, panel.getSymbol());
+        stmt.setString(2, panel.getExchange());
+        stmt.setTimestamp(3, new Timestamp(panel.getEndTime()));
+        stmt.setString(4, "v1.0");  // algo_version
+        
+        // 执行面聚合指标（从1s rollup）
+        stmt.setDouble(5, panel.getAvgSpreadBps() != null ? panel.getAvgSpreadBps() : 0.0);
+        stmt.setDouble(6, panel.getMaxSpreadBps() != null ? panel.getMaxSpreadBps() : 0.0);
+        stmt.setBigDecimal(7, panel.getAvgDepth50k());
+        stmt.setDouble(8, panel.getAvgImpact50kBps() != null ? panel.getAvgImpact50kBps() : 0.0);
+        stmt.setDouble(9, panel.getAvgImbalance() != null ? panel.getAvgImbalance() : 0.0);
+        stmt.setDouble(10, panel.getSumOfi() != null ? panel.getSumOfi() : 0.0);
+        stmt.setBigDecimal(11, panel.getVolumeUsd());
+        stmt.setInt(12, panel.getTradeCount() != null ? panel.getTradeCount() : 0);
+        
+        // 语境面指标
+        stmt.setBigDecimal(13, panel.getMarkPrice());
+        stmt.setDouble(14, panel.getBasisBps() != null ? panel.getBasisBps() : 0.0);
+        stmt.setBigDecimal(15, panel.getFundingRate());
+        stmt.setBigDecimal(16, panel.getFundingEma24h());
+        stmt.setBigDecimal(17, panel.getOiUsd());
+        stmt.setBigDecimal(18, panel.getOiDelta1m());
+        
+        // 衍生指标
+        stmt.setString(19, panel.getLiquidityRegime());
+        stmt.setDouble(20, panel.getCrowdingScore() != null ? panel.getCrowdingScore() : 0.0);
+        
+        // 元数据
+        stmt.setTimestamp(21, new Timestamp(System.currentTimeMillis()));
+    }
+
+    /**
+     * 创建Panel指标Sink（汇合面板）
+     */
+    public static ClickHouseSink<com.twilight.aggregator.model.perp.PanelMetrics> createPanelMetricsSink() {
+        String insertSql = "INSERT INTO dws_perps_panel_1m " +
+                "(symbol, exchange, end_time, algo_version, " +
+                "avg_spread_bps, max_spread_bps, avg_depth_50k, avg_impact_50k_bps, " +
+                "avg_imbalance, sum_ofi, volume_usd, trade_count, " +
+                "mark_price, basis_bps, funding_rate, funding_ema_24h, oi_usd, oi_delta_1m, " +
+                "liquidity_regime, crowding_score, process_time) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        return new ClickHouseSink<>("dws_perps_panel_1m", insertSql, 500, 5000);
     }
 }

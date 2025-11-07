@@ -177,6 +177,13 @@
             <version>${jackson.version}</version>
         </dependency>
 
+        <!-- T-Digest for statistical calculations (Z-score, quantiles) -->
+        <dependency>
+            <groupId>com.tdunning</groupId>
+            <artifactId>t-digest</artifactId>
+            <version>3.3</version>
+        </dependency>
+
         <!-- Logging -->
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>

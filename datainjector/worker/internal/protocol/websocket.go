@@ -17,6 +17,8 @@ type WebSocketConfig struct {
 	HeartbeatMs        int    // 心跳间隔(毫秒)
 	BackoffBaseSeconds int    // 重连基础延迟(秒)
 	BackoffMaxSeconds  int    // 重连最大延迟(秒)
+	HeartbeatPayload   []byte // 自定义心跳载荷（留空则发送 Ping frame）
+	HeartbeatOpcode    int    // websocket 消息类型，默认 websocket.PingMessage
 }
 
 // WebSocketClient websocket客户端，负责连接管理、心跳、重连
@@ -28,9 +30,11 @@ type WebSocketClient struct {
 	msgChan chan []byte   // 接收到的消息通道
 	errChan chan error    // 错误通道
 	closeCh chan struct{} // 关闭信号
+	subMu   sync.Mutex    // 订阅消息记录锁
+	unsubMu sync.Mutex    // 退订消息记录锁
 
-	lastSubscribeMsg   []byte
-	lastUnsubscribeMsg []byte
+	lastSubscribeMsgs   [][]byte
+	lastUnsubscribeMsgs [][]byte
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -50,6 +54,9 @@ func NewWebSocketClient(cfg WebSocketConfig) *WebSocketClient {
 	}
 	if cfg.BackoffMaxSeconds <= 0 {
 		cfg.BackoffMaxSeconds = 60
+	}
+	if cfg.HeartbeatOpcode == 0 {
+		cfg.HeartbeatOpcode = websocket.PingMessage
 	}
 
 	return &WebSocketClient{
@@ -112,10 +119,11 @@ func (c *WebSocketClient) Subscribe(req JSONRPCRequest) error {
 	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
 		return fmt.Errorf("发送订阅消息失败: %w", err)
 	}
-
-	c.mu.Lock()
-	c.lastSubscribeMsg = data
-	c.mu.Unlock()
+	payloadCopy := make([]byte, len(data))
+	copy(payloadCopy, data)
+	c.subMu.Lock()
+	c.lastSubscribeMsgs = [][]byte{payloadCopy}
+	c.subMu.Unlock()
 
 	log.Printf("[WebSocket] 发送订阅: %s", string(data))
 	return nil
@@ -138,12 +146,32 @@ func (c *WebSocketClient) SendRawSubscribe(payload []byte) error {
 		return fmt.Errorf("发送订阅消息失败: %w", err)
 	}
 
-	c.mu.Lock()
-	c.lastSubscribeMsg = make([]byte, len(payload))
-	copy(c.lastSubscribeMsg, payload)
-	c.mu.Unlock()
+	c.subMu.Lock()
+	payloadCopy := make([]byte, len(payload))
+	copy(payloadCopy, payload)
+	c.lastSubscribeMsgs = append(c.lastSubscribeMsgs, payloadCopy)
+	c.subMu.Unlock()
 
 	log.Printf("[WebSocket] 发送订阅(raw): %s", string(payload))
+	return nil
+}
+
+// SendRawSubscribes 批量发送原生订阅，并记录以便重连
+func (c *WebSocketClient) SendRawSubscribes(payloads [][]byte) error {
+	if len(payloads) == 0 {
+		return fmt.Errorf("订阅消息为空")
+	}
+	c.subMu.Lock()
+	c.lastSubscribeMsgs = c.lastSubscribeMsgs[:0]
+	c.subMu.Unlock()
+	for _, payload := range payloads {
+		if len(payload) == 0 {
+			continue
+		}
+		if err := c.SendRawSubscribe(payload); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -173,9 +201,11 @@ func (c *WebSocketClient) Unsubscribe(req JSONRPCRequest) error {
 		return fmt.Errorf("发送退订消息失败: %w", err)
 	}
 
-	c.mu.Lock()
-	c.lastUnsubscribeMsg = data
-	c.mu.Unlock()
+	payloadCopy := make([]byte, len(data))
+	copy(payloadCopy, data)
+	c.unsubMu.Lock()
+	c.lastUnsubscribeMsgs = [][]byte{payloadCopy}
+	c.unsubMu.Unlock()
 
 	log.Printf("[WebSocket] 发送退订: %s", string(data))
 	return nil
@@ -228,6 +258,14 @@ func (c *WebSocketClient) heartbeatLoop() {
 			c.mu.RUnlock()
 
 			if conn == nil {
+				continue
+			}
+
+			if len(c.config.HeartbeatPayload) > 0 {
+				if err := conn.WriteMessage(c.config.HeartbeatOpcode, c.config.HeartbeatPayload); err != nil {
+					log.Printf("[WebSocket] 心跳失败: %v, 尝试重连", err)
+					c.reconnect()
+				}
 				continue
 			}
 
@@ -320,11 +358,22 @@ func (c *WebSocketClient) reconnect() {
 		log.Printf("[WebSocket] 重连成功")
 
 		// 重连后尝试恢复订阅
-		c.mu.RLock()
-		subMsg := c.lastSubscribeMsg
-		c.mu.RUnlock()
-		if len(subMsg) > 0 {
-			if err := conn.WriteMessage(websocket.TextMessage, subMsg); err != nil {
+		c.subMu.Lock()
+		subMsgs := make([][]byte, len(c.lastSubscribeMsgs))
+		for i, payload := range c.lastSubscribeMsgs {
+			if len(payload) == 0 {
+				continue
+			}
+			copied := make([]byte, len(payload))
+			copy(copied, payload)
+			subMsgs[i] = copied
+		}
+		c.subMu.Unlock()
+		for _, payload := range subMsgs {
+			if len(payload) == 0 {
+				continue
+			}
+			if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
 				log.Printf("[WebSocket] 重发订阅失败: %v", err)
 			} else {
 				log.Printf("[WebSocket] 重发订阅成功")

@@ -12,7 +12,7 @@ fault:
   websocket:
     enabled: true
     disconnection_probability: 0.02     # 1%的连接断开概率
-    data_loss_probability: 0.1           # 2%的数据丢失概率
+    data_loss_probability: 0.0           # 2%的数据丢失概率
     heartbeat_anomaly_probability: 0.01   # 1%的心跳异常概率
   
   chain_reorg:
@@ -32,3 +32,18 @@ data:
     crash_simulation:
       enabled: true                         # 是否启用宕机模拟
       lost_blocks: 20                         # 宕机时丢失的区块数量
+  binance:
+    enabled: true
+    interval_ms: 200
+    snapshot_depth: 200
+    symbols:
+      - symbol: "BTCUSDT"
+        base_price: 27000
+        price_tick: 0.5
+        quantity_tick: 0.01
+        levels: 50
+      - symbol: "ETHUSDT"
+        base_price: 1800
+        price_tick: 0.1
+        quantity_tick: 0.05
+        levels: 40

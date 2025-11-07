@@ -53,6 +53,7 @@ type ChainReorgFaultConfig struct {
 // DataConfig 数据生成配置
 type DataConfig struct {
 	Ethereum EthereumConfig `mapstructure:"ethereum"`
+	Binance  BinanceConfig  `mapstructure:"binance"`
 }
 
 // EthereumConfig 以太坊数据生成配置
@@ -74,6 +75,23 @@ type PersistenceConfig struct {
 type CrashSimulationConfig struct {
 	Enabled    bool  `mapstructure:"enabled"`     // 是否启用宕机模拟
 	LostBlocks int64 `mapstructure:"lost_blocks"` // 宕机时丢失的区块数量
+}
+
+// BinanceConfig Binance订单簿模拟配置
+type BinanceConfig struct {
+	Enabled       bool                  `mapstructure:"enabled"`
+	IntervalMs    int                   `mapstructure:"interval_ms"`
+	SnapshotDepth int                   `mapstructure:"snapshot_depth"`
+	Symbols       []BinanceSymbolConfig `mapstructure:"symbols"`
+}
+
+// BinanceSymbolConfig 单个交易对配置
+type BinanceSymbolConfig struct {
+	Symbol       string  `mapstructure:"symbol"`
+	BasePrice    float64 `mapstructure:"base_price"`
+	PriceTick    float64 `mapstructure:"price_tick"`
+	QuantityTick float64 `mapstructure:"quantity_tick"`
+	Levels       int     `mapstructure:"levels"`
 }
 
 var globalConfig *Config
@@ -130,6 +148,9 @@ func setDefaults() {
 	// 数据生成配置
 	viper.SetDefault("data.ethereum.block_interval", 12)
 	viper.SetDefault("data.ethereum.start_block_number", 1000000)
+	viper.SetDefault("data.binance.enabled", false)
+	viper.SetDefault("data.binance.interval_ms", 200)
+	viper.SetDefault("data.binance.snapshot_depth", 200)
 
 	// 持久化配置
 	viper.SetDefault("data.ethereum.persistence.enabled", true)

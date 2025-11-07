@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/types"
+	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/util"
 )
 
 type wsRPCResponse struct {
@@ -31,31 +32,8 @@ func copyMetadata(src map[string]any) map[string]any {
 	return dst
 }
 
-func toString(v interface{}) string {
-	if v == nil {
-		return ""
-	}
-	switch vv := v.(type) {
-	case string:
-		return vv
-	case fmt.Stringer:
-		return vv.String()
-	default:
-		return fmt.Sprintf("%v", vv)
-	}
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if strings.TrimSpace(v) != "" {
-			return v
-		}
-	}
-	return ""
-}
-
 func wrapBlockPayload(block map[string]any, meta map[string]any, method string) map[string]any {
-	subscriptionID := toString(meta["subscription"])
+	subscriptionID := util.ToString(meta["subscription"])
 	if subscriptionID == "" {
 		subscriptionID = defaultSubscriptionID(meta, method)
 	}
@@ -74,10 +52,10 @@ func wrapBlockPayload(block map[string]any, meta map[string]any, method string) 
 }
 
 func defaultSubscriptionID(meta map[string]any, method string) string {
-	if id := toString(meta["datasource_id"]); id != "" {
+	if id := util.ToString(meta["datasource_id"]); id != "" {
 		return fmt.Sprintf("%s#%s", id, method)
 	}
-	if chainID := toString(meta["chain_id"]); chainID != "" {
+	if chainID := util.ToString(meta["chain_id"]); chainID != "" {
 		return fmt.Sprintf("chain#%s#%s", chainID, method)
 	}
 	return fmt.Sprintf("backfill#%s", method)
@@ -320,7 +298,7 @@ func getStringSlice(m map[string]any, key string) []string {
 	case []interface{}:
 		out := make([]string, 0, len(vv))
 		for _, item := range vv {
-			str := toString(item)
+			str := util.ToString(item)
 			if strings.TrimSpace(str) != "" {
 				out = append(out, strings.TrimSpace(str))
 			}

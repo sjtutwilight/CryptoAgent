@@ -74,3 +74,7 @@ public class KlineSignal implements Serializable {
     }
 }
 
+
+
+
+

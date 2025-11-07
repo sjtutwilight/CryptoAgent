@@ -5,23 +5,35 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	kafka "github.com/segmentio/kafka-go"
 
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/types"
+	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/util"
 )
 
 type KafkaConfig struct {
-	Brokers []string
-	Topic   string
-	KeyFrom []string
-	Linger  time.Duration
+	Brokers    []string
+	Topic      string
+	KeyFrom    []string
+	Linger     time.Duration
+	TopicField string
+	TopicMap   map[string]string
 }
 
 type Kafka struct {
-	writer  *kafka.Writer
-	keyFrom []string
+	defaultWriter *kafka.Writer
+	brokers       []string
+	defaultTopic  string
+	keyFrom       []string
+	linger        time.Duration
+	topicField    string
+	topicMap      map[string]string
+
+	mu      sync.Mutex
+	writers map[string]*kafka.Writer
 }
 
 func init() {
@@ -30,13 +42,22 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		w := kafka.NewWriter(kafka.WriterConfig{
+		writer := kafka.NewWriter(kafka.WriterConfig{
 			Brokers:      kc.Brokers,
 			Topic:        kc.Topic,
 			Balancer:     &kafka.Hash{},
 			BatchTimeout: kc.Linger,
 		})
-		return &Kafka{writer: w, keyFrom: kc.KeyFrom}, nil
+		return &Kafka{
+			defaultWriter: writer,
+			brokers:       kc.Brokers,
+			defaultTopic:  kc.Topic,
+			keyFrom:       kc.KeyFrom,
+			linger:        kc.Linger,
+			topicField:    kc.TopicField,
+			topicMap:      kc.TopicMap,
+			writers:       make(map[string]*kafka.Writer),
+		}, nil
 	})
 }
 
@@ -96,25 +117,55 @@ func parseKafkaConfig(cfg map[string]any) (*KafkaConfig, error) {
 			}
 		}
 	}
+	if topicField, ok := cfg["topic_field"].(string); ok {
+		if tf := strings.TrimSpace(topicField); tf != "" {
+			kc.TopicField = tf
+		}
+	}
+	if topicMap, ok := cfg["topic_map"].(map[string]any); ok {
+		kc.TopicMap = make(map[string]string, len(topicMap))
+		for k, v := range topicMap {
+			if s, ok := v.(string); ok {
+				if trimmed := strings.TrimSpace(s); trimmed != "" {
+					kc.TopicMap[k] = trimmed
+				}
+			}
+		}
+	}
 	return kc, nil
 }
 
 func (k *Kafka) Write(msg *types.Message) error {
-	if k.writer == nil {
-		return fmt.Errorf("kafka sink not initialized")
+	writer, _, err := k.writerForMessage(msg)
+	if err != nil {
+		return err
 	}
 	key := k.buildKey(msg)
-	return k.writer.WriteMessages(context.Background(), kafka.Message{
+	return writer.WriteMessages(context.Background(), kafka.Message{
 		Key:   []byte(key),
 		Value: msg.Payload,
 	})
 }
 
 func (k *Kafka) Close() error {
-	if k.writer != nil {
-		return k.writer.Close()
+	var err error
+	if k.defaultWriter != nil {
+		if cerr := k.defaultWriter.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
 	}
-	return nil
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	for topic, writer := range k.writers {
+		if writer == nil {
+			continue
+		}
+		if cerr := writer.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+		delete(k.writers, topic)
+	}
+	return err
 }
 
 func (k *Kafka) buildKey(msg *types.Message) string {
@@ -140,4 +191,42 @@ func (k *Kafka) buildKey(msg *types.Message) string {
 		parts = append(parts, "")
 	}
 	return strings.Join(parts, "|")
+}
+
+func (k *Kafka) writerForMessage(msg *types.Message) (*kafka.Writer, string, error) {
+	if k.defaultWriter == nil {
+		return nil, "", fmt.Errorf("kafka sink not initialized")
+	}
+	topic := k.defaultTopic
+	if k.topicField != "" && msg != nil && msg.Metadata != nil {
+		if val, ok := msg.Metadata[k.topicField]; ok {
+			str := strings.TrimSpace(util.ToString(val))
+			if mapped, ok := k.topicMap[str]; ok && strings.TrimSpace(mapped) != "" {
+				str = strings.TrimSpace(mapped)
+			}
+			if str != "" {
+				topic = str
+			}
+		}
+	}
+	if topic == "" {
+		return nil, "", fmt.Errorf("kafka sink: topic not resolved")
+	}
+	if topic == k.defaultTopic {
+		return k.defaultWriter, topic, nil
+	}
+
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if writer, ok := k.writers[topic]; ok {
+		return writer, topic, nil
+	}
+	writer := kafka.NewWriter(kafka.WriterConfig{
+		Brokers:      k.brokers,
+		Topic:        topic,
+		Balancer:     &kafka.Hash{},
+		BatchTimeout: k.linger,
+	})
+	k.writers[topic] = writer
+	return writer, topic, nil
 }

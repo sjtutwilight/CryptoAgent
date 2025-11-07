@@ -15,7 +15,7 @@
 - role_id: `mockprovider-websocket`
   - emitter: `single` → 维护订阅链路并周期拉取缓存
   - caller: `native_call(websocket)` → 长连订阅 + 支持本地/HTTP 补数
-  - handler: `missing_detector` → 管理乱序/缺失、自动触发补数
+  - handler: `integrity` → 统一处理乱序、缺失、幂等与补数
   - sink: `kafka`(`chain.ethereum.blocks`)
 
 目标：以最少概念实现“配置驱动 + 可扩展”的骨架，使后续能平滑扩展 Source/Handler/Sink，而本次仅实现 Pull（Trigger+Caller）路径中的 `polling` + `sdk_call` 调用。
@@ -184,7 +184,10 @@ datainjector/worker/
       caller.go             # 接口 + 注册表
       sdk_local_get_block.go# LocalGetBlock 示例实现
       balance_snapshot.go   # 批量余额查询 caller
-      native_call.go        # WebSocket/HTTP 原生协议 caller
+      native_call.go        # WebSocket 原生协议 caller
+      native_call_http.go   # JSON-RPC / REST 通用 HTTP caller
+    orderbook/              # Binance 订单簿本地状态
+    binance/                # Binance 消息定义与解码
     protocol/jsonrpc.go     # JSON-RPC 通用结构体
     protocol/websocket.go   # WebSocket 连接/心跳/重连管理
     protocol/http_client.go # HTTP JSON-RPC 客户端 + 连接池
@@ -197,6 +200,126 @@ datainjector/worker/
     role/role.go            # Role 装配与生命周期管理
   configs/config.yaml       # 示例配置（多 role 并行）
 ```
+
+## Binance 永续 BTC 最小接入方案
+
+- `binance-perp-btc-orderbook`
+  - emitter: `single`
+  - caller: `native_call(websocket)` 订阅 `btcusdt@depth@100ms`（handler 内置 HTTP 快照初始化）
+  - handlers: `orderbook_snapshot` → `binance_parser(depth)` → `orderbook_diff` → `orderbook_validator`
+  - sink: `console`（调试阶段，可切换至 Kafka `binance.perp.orderbook.btcusdt`）
+- `binance-perp-btc-trades`
+  - emitter: `single`
+  - caller: `native_call(websocket)` 订阅 `/btcusdt@trade`
+  - handlers: `binance_parser(trade)` → `trade_normalizer`
+  - sink: `kafka(topic=binance.perp.trades.btcusdt)`
+- `binance-perp-btc-mark-index`
+  - emitter: `single`
+  - caller: `native_call(websocket)` 订阅 `/btcusdt@markPrice@1s`
+  - handlers: `binance_parser(mark_index)` → `mark_index_parser`
+  - sink: `kafka(topic=binance.perp.mark_index.btcusdt)`
+- `binance-perp-btc-funding`
+  - emitter: `polling`（默认 5 分钟，可调）
+  - caller: `native_call(http, transport=rest)` 调用 `/fapi/v1/fundingRate?symbol=BTCUSDT&limit=1`
+  - handlers: `funding_normalizer`
+  - sink: `kafka(topic=binance.perp.funding.btcusdt)`
+- `binance-perp-btc-openinterest`
+  - emitter: `polling`（1m）
+  - caller: `native_call(http, transport=rest)` 调用 `/futures/data/openInterestHist?symbol=BTCUSDT&period=5m&limit=1`
+  - handlers: `oi_normalizer`
+  - sink: `kafka(topic=binance.perp.oi.btcusdt)`
+- `binance-perp-btc-liquidations`
+  - emitter: `single`
+  - caller: `native_call(websocket)` 订阅 `/btcusdt@forceOrder`
+  - handlers: `binance_parser(liquidation)` → `liquidation_normalizer`
+  - sink: `kafka(topic=binance.perp.liquidations.btcusdt)`
+
+### 本地订单簿状态管理
+
+- 独立包 `internal/resource/orderbook` 管理快照与 diff 合并，暴露 `BookState`（缓存 `lastUpdateID`、`bids/asks`、待应用 diff 队列）。
+- `orderbook_snapshot` handler 通过 `native_call_http` 的 REST transport 拉取快照并写入 `BookState`。
+- `orderbook_diff` handler 逐条校验 `U/u` 与本地 `lastUpdateID`，应用成功后返回标准化结构给后续 handler。
+- `orderbook_validator` handler 进行 level 裁剪、深度统计等轻量校验，并附带 `ingest_ts`。
+
+### Sink 数据格式（BTC）
+
+```jsonc
+// OrderBook: binance.perp.orderbook.btcusdt
+{
+  "symbol": "BTCUSDT",
+  "exchange": "binance",
+  "snapshot": false,
+  "depth": {
+    "bids": [["64231.1", "0.521"], ["64230.9", "0.342"]],
+    "asks": [["64232.0", "0.410"], ["64232.1", "0.225"]]
+  },
+  "seq": 1234567890,
+  "exchange_ts": 1712209123456,
+  "ingest_ts": 1712209123470
+}
+
+// Trades: binance.perp.trades.btcusdt
+{
+  "symbol": "BTCUSDT",
+  "price": "64231.1",
+  "size": "0.021",
+  "side": "buy",
+  "buyer_maker": false,
+  "exchange_ts": 1712209123400,
+  "ingest_ts": 1712209123415,
+  "trade_id": 1234567890123
+}
+
+// Mark/Index: binance.perp.mark_index.btcusdt
+{
+  "symbol": "BTCUSDT",
+  "mark_price": "64225.5",
+  "index_price": "64220.8",
+  "fair_basis": "0.0007",
+  "next_funding_time": 1712227200000,
+  "last_funding_rate": "0.00010",
+  "exchange_ts": 1712209123000,
+  "ingest_ts": 1712209123015
+}
+
+// Funding: binance.perp.funding.btcusdt
+{
+  "symbol": "BTCUSDT",
+  "funding_rate": "0.00010",
+  "funding_time": 1712208000000,
+  "funding_interval": "8h",
+  "exchange_ts": 1712208000000,
+  "ingest_ts": 1712209125000
+}
+
+// Open Interest: binance.perp.oi.btcusdt
+{
+  "symbol": "BTCUSDT",
+  "oi": "98765.432",
+  "oi_usd": "634210000.12",
+  "exchange_ts": 1712209080000,
+  "ingest_ts": 1712209081000
+}
+
+// Liquidations: binance.perp.liquidations.btcusdt
+{
+  "symbol": "BTCUSDT",
+  "side": "sell",
+  "qty": "12.5",
+  "price": "64010.0",
+  "exchange_ts": 1712209123600,
+  "ingest_ts": 1712209123620,
+  "order_id": "9876543210"
+}
+```
+
+### 对实时分析能力的支撑
+
+- 行情微观：OrderBook 提供深度快照 + 增量序列，支撑盘口重建、价差监控、滑点估计。
+- 成交流：Trades 包含方向、主动方，满足成交密度、买卖差、逐笔回放等指标。
+- 永续要素：Mark/Index/Funding/OI/Liquidations 分别覆盖风险控制、资金费率、杠杆热度、风险事件，满足大多数策略与风险看板需求。
+- 时间一致性：所有 topic 均输出 `exchange_ts` 与 `ingest_ts`，方便计算延迟、对齐多源数据。
+- 单 Symbol：初期仅 BTCUSDT，配置与 handler 复用能力完备，可按需横向扩展其它币对。
 
 ## 缺失检测与补数据设计（唯一共识）
 
@@ -267,22 +390,25 @@ roles:
       heartbeat_ms: 30000
       poll_interval_ms: 500
     handlers:
-      - type: "missing_detector"
+      - type: "integrity"
         with:
+          profile: "chain_blocks"
           sequence_field: "block_number"
-          eager_gap: 3                # 乱序跨度超过 3 立即触发快速补数
-          max_range: 20               # 单次本地补数的最大跨度
-          max_delay_ms: 800           # 软超时，超过则主动补数
-          hard_timeout_ms: 3000       # 硬超时允许跳过缺口
-          max_gap: 8                  # 实时预算：最大未确认序列差
-          sweep_interval_ms: 200      # 定期清理 / 老化周期
-          bucket_ttl_ms: 3000         # 缓存桶过期时间
-          max_buckets: 2000           # 缓存桶最大数量
+          stream_key_field: "chain_id"
+          eager_gap: 3
+          max_range: 20
+          max_delay_ms: 800
+          hard_timeout_ms: 3000
+          max_gap: 8
+          sweep_interval_ms: 200
+          bucket_ttl_ms: 3000
+          max_buckets: 2000
+          gate_mode: "finality"
+          finality_blocks: 12
           backfill:
             ws:
               enabled: true
               rpc_method: "eth_getBlockByNumber"
-              include_full_tx: false
             http:
               enabled: true
               endpoint: "http://localhost:8545"

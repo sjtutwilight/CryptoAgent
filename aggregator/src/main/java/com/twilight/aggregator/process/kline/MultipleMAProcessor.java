@@ -18,7 +18,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.twilight.aggregator.model.KlineData;
+import com.twilight.aggregator.model.KlineMetrics;
+import com.twilight.aggregator.model.IndicatorMetric;
 import com.twilight.aggregator.model.KlineSignal;
+import com.twilight.aggregator.process.kline.IndicatorOutputTags;
 
 /**
  * 多重移动平均策略处理器
@@ -41,7 +44,7 @@ import com.twilight.aggregator.model.KlineSignal;
 public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData, KlineSignal> {
     private static final long serialVersionUID = 1L;
     private static final Logger log = LoggerFactory.getLogger(MultipleMAProcessor.class);
-    
+
     // MA周期配置
     private final int shortPeriod;   // 短期MA周期
     private final int mediumPeriod;  // 中期MA周期
@@ -59,7 +62,18 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
     public MultipleMAProcessor() {
         this(5, 10, 20);
     }
-    
+
+    private Map<String, Object> buildStrategyParams(BigDecimal shortMA, BigDecimal mediumMA, BigDecimal longMA) {
+        Map<String, Object> strategyParams = new HashMap<>();
+        strategyParams.put("ma_short", shortPeriod);
+        strategyParams.put("ma_medium", mediumPeriod);
+        strategyParams.put("ma_long", longPeriod);
+        strategyParams.put("ma_short_value", shortMA != null ? shortMA.doubleValue() : null);
+        strategyParams.put("ma_medium_value", mediumMA != null ? mediumMA.doubleValue() : null);
+        strategyParams.put("ma_long_value", longMA != null ? longMA.doubleValue() : null);
+        return strategyParams;
+    }
+
     /**
      * 构造函数（自定义MA周期）
      */
@@ -148,8 +162,8 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
         // 获取上一次的MA值
         MAValues lastMA = lastMAState.value();
         
-        // 生成交易信号
-        KlineSignal signal = generateSignal(
+        // 生成交易信号及指标
+        SignalResult signalResult = evaluateSignal(
             klineData, 
             shortMA, mediumMA, longMA, 
             lastMA,
@@ -159,15 +173,83 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
         // 更新上一次MA值
         MAValues currentMA = new MAValues(shortMA, mediumMA, longMA);
         lastMAState.update(currentMA);
-        
-        // 输出信号
-        if (signal != null) {
-            out.collect(signal);
-            log.info("Generated signal for {}: {} at price {}, strength: {}", 
-                     signal.getSymbol(), 
-                     signal.getSignalType(), 
-                     signal.getCurrentPrice(),
-                     signal.getSignalStrength());
+
+        if (signalResult != null) {
+            KlineMetrics metrics = KlineMetrics.builder()
+                    .exchange(klineData.getExchange())
+                    .symbol(klineData.getSymbol())
+                    .interval(klineData.getInterval())
+                    .eventTime(klineData.getEventTime())
+                    .startTime(klineData.getStartTime())
+                    .closeTime(klineData.getCloseTime())
+                    .closed(klineData.isClosed())
+                    .ingestTime(klineData.getIngestTime())
+                    .openPrice(klineData.getOpenPrice())
+                    .highPrice(klineData.getHighPrice())
+                    .lowPrice(klineData.getLowPrice())
+                    .closePrice(closePrice)
+                    .baseVolume(klineData.getBaseVolume())
+                    .quoteVolume(klineData.getQuoteVolume())
+                    .tradeCount(klineData.getKline() != null ? klineData.getKline().getTradeCount() : null)
+                    .amplitudePercent(klineData.getAmplitude())
+                    .changePercent(klineData.getChangePercent())
+                    .shortPeriod(shortPeriod)
+                    .mediumPeriod(mediumPeriod)
+                    .longPeriod(longPeriod)
+                    .shortMa(shortMA)
+                    .mediumMa(mediumMA)
+                    .longMa(longMA)
+                    .signalType(signalResult.getSignalType())
+                    .signalStrength(signalResult.getSignalStrength())
+                    .signalDetail(signalResult.getSignalDetail())
+                    .signalTimestamp(signalResult.getSignalTimestamp())
+                    .build();
+
+            ctx.output(IndicatorOutputTags.KLINE_METRICS_TAG, metrics);
+
+            Map<String, BigDecimal> components = new HashMap<>();
+            if (shortMA != null) {
+                components.put("ma_short", shortMA);
+            }
+            if (mediumMA != null) {
+                components.put("ma_medium", mediumMA);
+            }
+            if (longMA != null) {
+                components.put("ma_long", longMA);
+            }
+            components.put("price", closePrice);
+
+            IndicatorMetric indicatorMetric = IndicatorMetric.builder()
+                    .exchange(klineData.getExchange())
+                    .symbol(klineData.getSymbol())
+                    .interval(klineData.getInterval())
+                    .eventTime(klineData.getEventTime())
+                    .startTime(klineData.getStartTime())
+                    .endTime(klineData.getCloseTime())
+                    .ingestTime(klineData.getIngestTime())
+                    .indicator("MA")
+                    .variant(String.format("short=%d,medium=%d,long=%d", shortPeriod, mediumPeriod, longPeriod))
+                    .value(shortMA)
+                    .components(components)
+                    .thresholds(null)
+                    .signalType(signalResult.getSignalType() != null ? signalResult.getSignalType() : KlineSignal.SignalType.HOLD)
+                    .signalStrength(signalResult.getSignalStrength() != null ? signalResult.getSignalStrength() : BigDecimal.ZERO)
+                    .signalDetail(signalResult.getSignalDetail())
+                    .signalTimestamp(signalResult.getSignalTimestamp())
+                    .processTime(System.currentTimeMillis())
+                    .build();
+
+            ctx.output(IndicatorOutputTags.INDICATOR_METRICS_TAG, indicatorMetric);
+
+            // 输出信号
+            if (signalResult.getSignal() != null) {
+                out.collect(signalResult.getSignal());
+                log.info("Generated signal for {}: {} at price {}, strength: {}", 
+                         signalResult.getSignal().getSymbol(), 
+                         signalResult.getSignal().getSignalType(), 
+                         signalResult.getSignal().getCurrentPrice(),
+                         signalResult.getSignal().getSignalStrength());
+            }
         }
     }
     
@@ -196,7 +278,7 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
     /**
      * 生成交易信号
      */
-    private KlineSignal generateSignal(
+    private SignalResult evaluateSignal(
             KlineData klineData,
             BigDecimal shortMA,
             BigDecimal mediumMA,
@@ -204,12 +286,18 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
             MAValues lastMA,
             BigDecimal currentPrice) {
         
-        // 第一次计算，无历史数据，不生成信号
+        KlineSignal.SignalType signalType = KlineSignal.SignalType.HOLD;
+        BigDecimal signalStrength = BigDecimal.ZERO;
+        String signalDetail = "";
+        Long signalTimestamp = null;
+
+        // 第一次计算，无历史数据，不生成信号，但输出指标
         if (lastMA == null) {
             log.debug("First MA calculation for {}, no signal generated", klineData.getSymbol());
-            return null;
+            Map<String, Object> initialStrategyParams = buildStrategyParams(shortMA, mediumMA, longMA);
+            return new SignalResult(null, signalType, signalStrength, signalDetail, initialStrategyParams, null);
         }
-        
+
         // 判断MA交叉情况
         boolean shortCrossMediumUp = isCrossUp(lastMA.shortMA, shortMA, lastMA.mediumMA, mediumMA);
         boolean shortCrossMediumDown = isCrossDown(lastMA.shortMA, shortMA, lastMA.mediumMA, mediumMA);
@@ -219,16 +307,13 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
         boolean bullishAlignment = shortMA.compareTo(mediumMA) > 0 && mediumMA.compareTo(longMA) > 0;
         boolean bearishAlignment = shortMA.compareTo(mediumMA) < 0 || mediumMA.compareTo(longMA) < 0;
         
-        KlineSignal.SignalType signalType = KlineSignal.SignalType.HOLD;
-        BigDecimal signalStrength = BigDecimal.ZERO;
-        String signalDetail = "";
-        
         // 买入信号：短期MA上穿中期MA，且中期MA在长期MA之上
         if (shortCrossMediumUp && mediumMA.compareTo(longMA) > 0) {
             signalType = KlineSignal.SignalType.BUY;
             signalStrength = calculateSignalStrength(shortMA, mediumMA, longMA, true);
             signalDetail = String.format("短期MA(%.4f)上穿中期MA(%.4f)，中期MA高于长期MA(%.4f)，多头排列", 
                                         shortMA, mediumMA, longMA);
+            signalTimestamp = System.currentTimeMillis();
         }
         // 强买入信号：三线多头排列
         else if (bullishAlignment && !shortCrossMediumDown && shortMA.compareTo(lastMA.shortMA) > 0) {
@@ -237,6 +322,7 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
                             .multiply(BigDecimal.valueOf(0.7)); // 弱于金叉信号
             signalDetail = String.format("三线多头排列，短期MA(%.4f) > 中期MA(%.4f) > 长期MA(%.4f)", 
                                         shortMA, mediumMA, longMA);
+            signalTimestamp = System.currentTimeMillis();
         }
         // 卖出信号：短期MA下穿中期MA
         else if (shortCrossMediumDown) {
@@ -244,6 +330,7 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
             signalStrength = calculateSignalStrength(shortMA, mediumMA, longMA, false);
             signalDetail = String.format("短期MA(%.4f)下穿中期MA(%.4f)，趋势转弱", 
                                         shortMA, mediumMA);
+            signalTimestamp = System.currentTimeMillis();
         }
         // 卖出信号：中期MA下穿长期MA
         else if (mediumCrossLongDown) {
@@ -252,6 +339,7 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
                             .multiply(BigDecimal.valueOf(1.2)); // 强于短期死叉
             signalDetail = String.format("中期MA(%.4f)下穿长期MA(%.4f)，主趋势转空", 
                                         mediumMA, longMA);
+            signalTimestamp = System.currentTimeMillis();
         }
         // 弱卖出信号：空头排列
         else if (bearishAlignment && shortMA.compareTo(lastMA.shortMA) < 0) {
@@ -260,24 +348,17 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
                             .multiply(BigDecimal.valueOf(0.6)); // 弱于死叉信号
             signalDetail = String.format("空头排列，短期MA(%.4f) 弱于中期MA或长期MA(%.4f)", 
                                         shortMA, longMA);
+            signalTimestamp = System.currentTimeMillis();
         }
-        
-        // 只输出买入或卖出信号，不输出持有信号
+
+        Map<String, Object> strategyParams = buildStrategyParams(shortMA, mediumMA, longMA);
+
         if (signalType == KlineSignal.SignalType.HOLD) {
-            return null;
+            return new SignalResult(null, signalType, signalStrength, signalDetail, strategyParams, null);
         }
-        
-        // 构建策略参数
-        Map<String, Object> strategyParams = new HashMap<>();
-        strategyParams.put("ma_short", shortPeriod);
-        strategyParams.put("ma_medium", mediumPeriod);
-        strategyParams.put("ma_long", longPeriod);
-        strategyParams.put("ma_short_value", shortMA.doubleValue());
-        strategyParams.put("ma_medium_value", mediumMA.doubleValue());
-        strategyParams.put("ma_long_value", longMA.doubleValue());
-        
+
         // 构建信号
-        return KlineSignal.builder()
+        KlineSignal signal = KlineSignal.builder()
                 .exchange(klineData.getExchange())
                 .symbol(klineData.getSymbol())
                 .interval(klineData.getInterval())
@@ -286,10 +367,12 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
                 .signalStrength(signalStrength)
                 .currentPrice(currentPrice)
                 .klineTimestamp(klineData.getStartTime())
-                .signalTimestamp(System.currentTimeMillis())
+                .signalTimestamp(signalTimestamp)
                 .strategyParams(strategyParams)
                 .signalDetail(signalDetail)
                 .build();
+
+        return new SignalResult(signal, signalType, signalStrength, signalDetail, strategyParams, signalTimestamp);
     }
     
     /**
@@ -342,6 +425,56 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
             return BigDecimal.valueOf(0.5); // 默认中等强度
         }
     }
+
+    /**
+     * 信号计算结果（包含信号本身及衍生指标）
+     */
+    private static class SignalResult {
+        private final KlineSignal signal;
+        private final KlineSignal.SignalType signalType;
+        private final BigDecimal signalStrength;
+        private final String signalDetail;
+        private final Map<String, Object> strategyParams;
+        private final Long signalTimestamp;
+
+        private SignalResult(KlineSignal signal,
+                             KlineSignal.SignalType signalType,
+                             BigDecimal signalStrength,
+                             String signalDetail,
+                             Map<String, Object> strategyParams,
+                             Long signalTimestamp) {
+            this.signal = signal;
+            this.signalType = signalType;
+            this.signalStrength = signalStrength;
+            this.signalDetail = signalDetail;
+            this.strategyParams = strategyParams;
+            this.signalTimestamp = signalTimestamp;
+        }
+
+        public KlineSignal getSignal() {
+            return signal;
+        }
+
+        public KlineSignal.SignalType getSignalType() {
+            return signalType;
+        }
+
+        public BigDecimal getSignalStrength() {
+            return signalStrength;
+        }
+
+        public String getSignalDetail() {
+            return signalDetail;
+        }
+
+        public Map<String, Object> getStrategyParams() {
+            return strategyParams;
+        }
+
+        public Long getSignalTimestamp() {
+            return signalTimestamp;
+        }
+    }
     
     /**
      * MA值的数据结构
@@ -362,4 +495,3 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
         }
     }
 }
-

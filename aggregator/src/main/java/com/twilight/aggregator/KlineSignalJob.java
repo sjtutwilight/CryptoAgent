@@ -10,6 +10,7 @@ import org.apache.flink.connector.kafka.sink.KafkaSink;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -19,10 +20,20 @@ import org.slf4j.LoggerFactory;
 import com.twilight.aggregator.config.FlinkConfig;
 import com.twilight.aggregator.model.KlineData;
 import com.twilight.aggregator.model.KlineSignal;
+import com.twilight.aggregator.model.KlineMetrics;
+import com.twilight.aggregator.model.IndicatorMetric;
 import com.twilight.aggregator.process.kline.MultipleMAProcessor;
+import com.twilight.aggregator.process.kline.IndicatorOutputTags;
+import com.twilight.aggregator.process.kline.indicators.oscillator.RSIProcessor;
+import com.twilight.aggregator.process.kline.indicators.oscillator.KDJProcessor;
+import com.twilight.aggregator.process.kline.indicators.trend.MACDProcessor;
+import com.twilight.aggregator.process.kline.indicators.trend.EMAProcessor;
+import com.twilight.aggregator.process.kline.indicators.volatility.BollingerBandsProcessor;
+import com.twilight.aggregator.process.kline.indicators.volatility.ATRProcessor;
 import com.twilight.aggregator.serialization.KlineDataDeserializer;
 import com.twilight.aggregator.serialization.KlineSignalSerializer;
 import com.twilight.aggregator.source.KlineDataGenerator;
+import com.twilight.aggregator.sink.ClickHouseSink;
 
 /**
  * K线信号生成作业 - 基于多重移动平均策略
@@ -110,12 +121,54 @@ public class KlineSignalJob {
         KeyedStream<KlineData, String> keyedKlineStream = klineStream
             .keyBy(kline -> kline.getSymbol() + "_" + kline.getInterval()); // 按symbol+interval分组
         
-        // ===== Step 5: 应用多重移动平均策略 =====
+        // ===== Step 5: 指标处理链 =====
         log.info("🔧 Setting up Multiple MA Processor (short={}, medium={}, long={})", 
                  SHORT_MA_PERIOD, MEDIUM_MA_PERIOD, LONG_MA_PERIOD);
-        DataStream<KlineSignal> signalStream = keyedKlineStream
+        SingleOutputStreamOperator<KlineSignal> maSignalStream = keyedKlineStream
             .process(new MultipleMAProcessor(SHORT_MA_PERIOD, MEDIUM_MA_PERIOD, LONG_MA_PERIOD))
             .name("Multiple MA Processor");
+
+        log.info("🧮 Enabling oscillator/trend/volatility processors (RSI, MACD, EMA, BOLL, ATR, KDJ)");
+        SingleOutputStreamOperator<KlineSignal> rsiSignalStream = keyedKlineStream
+            .process(new RSIProcessor())
+            .name("RSI Processor");
+
+        SingleOutputStreamOperator<KlineSignal> macdSignalStream = keyedKlineStream
+            .process(new MACDProcessor())
+            .name("MACD Processor");
+
+        SingleOutputStreamOperator<KlineSignal> emaSignalStream = keyedKlineStream
+            .process(new EMAProcessor(20))
+            .name("EMA20 Processor");
+
+        SingleOutputStreamOperator<KlineSignal> bollingerSignalStream = keyedKlineStream
+            .process(new BollingerBandsProcessor())
+            .name("Bollinger Bands Processor");
+
+        SingleOutputStreamOperator<KlineSignal> atrSignalStream = keyedKlineStream
+            .process(new ATRProcessor())
+            .name("ATR Processor");
+
+        SingleOutputStreamOperator<KlineSignal> kdjSignalStream = keyedKlineStream
+            .process(new KDJProcessor())
+            .name("KDJ Processor");
+
+        DataStream<KlineSignal> combinedSignalStream = maSignalStream
+            .union(rsiSignalStream, macdSignalStream, emaSignalStream, bollingerSignalStream, atrSignalStream, kdjSignalStream);
+
+        DataStream<KlineMetrics> metricsStream = maSignalStream
+            .getSideOutput(IndicatorOutputTags.KLINE_METRICS_TAG);
+
+        DataStream<IndicatorMetric> indicatorMetricsStream = maSignalStream
+            .getSideOutput(IndicatorOutputTags.INDICATOR_METRICS_TAG)
+            .union(
+                rsiSignalStream.getSideOutput(IndicatorOutputTags.INDICATOR_METRICS_TAG),
+                macdSignalStream.getSideOutput(IndicatorOutputTags.INDICATOR_METRICS_TAG),
+                emaSignalStream.getSideOutput(IndicatorOutputTags.INDICATOR_METRICS_TAG),
+                bollingerSignalStream.getSideOutput(IndicatorOutputTags.INDICATOR_METRICS_TAG),
+                atrSignalStream.getSideOutput(IndicatorOutputTags.INDICATOR_METRICS_TAG),
+                kdjSignalStream.getSideOutput(IndicatorOutputTags.INDICATOR_METRICS_TAG)
+            );
         
         // ===== Step 6: 输出到Kafka - 信号主题 =====
         log.info("📤 Setting up Kafka sink for signals: {}", SIGNAL_SINK_TOPIC);
@@ -140,7 +193,7 @@ public class KlineSignalJob {
             .build();
         
         // 添加Print Sink用于调试（观察生成的信号）
-        signalStream
+        combinedSignalStream
             .map(signal -> String.format(
                 "[SIGNAL] %s %s - %s | Price: %.2f | Strength: %.2f | Detail: %s",
                 signal.getSymbol(),
@@ -154,9 +207,20 @@ public class KlineSignalJob {
             .name("Signal Print Sink (Debug)");
         
         // Kafka Sink输出信号
-        signalStream
+        combinedSignalStream
             .sinkTo(kafkaSink)
             .name("Signal Kafka Sink");
+
+        // ===== Step 7: 输出到ClickHouse - 指标落库 =====
+        log.info("💾 Setting up ClickHouse sink for kline metrics (kline_metrics)");
+        metricsStream
+            .addSink(ClickHouseSink.createKlineMetricsSink())
+            .name("ClickHouse Sink (kline_metrics)");
+
+        log.info("💾 Setting up ClickHouse sink for indicator metrics (kline_indicator_metrics)");
+        indicatorMetricsStream
+            .addSink(ClickHouseSink.createKlineIndicatorMetricsSink())
+            .name("ClickHouse Sink (kline_indicator_metrics)");
         
         // ===== 执行任务 =====
         log.info("✅ Kline Signal Pipeline setup completed");
@@ -164,7 +228,10 @@ public class KlineSignalJob {
         log.info("  ├─ DataGen Source (模拟BTCUSDT上涨趋势)");
         log.info("  ├─ KeyBy (symbol + interval)");
         log.info("  ├─ Multiple MA Processor (MA5/MA10/MA20)");
-        log.info("  └─ Kafka Sink ({})", SIGNAL_SINK_TOPIC);
+        log.info("  ├─ RSI/MACD/EMA/BOLL/ATR/KDJ processors");
+        log.info("  ├─ Kafka Sink ({})", SIGNAL_SINK_TOPIC);
+        log.info("  ├─ ClickHouse Sink (kline_metrics)");
+        log.info("  └─ ClickHouse Sink (kline_indicator_metrics)");
         log.info("");
         log.info("🎯 策略说明:");
         log.info("  📈 短期MA: {} 周期", SHORT_MA_PERIOD);
@@ -176,7 +243,6 @@ public class KlineSignalJob {
         log.info("⚠️  注意: 当前使用DataGen模拟数据源，生产环境请切换到Kafka源");
         log.info("🚀 Starting job execution: Kline Signal Generation Job (TEST MODE)");
         
-        env.execute("Kline Signal Generation Job (Multiple MA)");
+        env.execute("Kline Signal & Indicator Pipeline");
     }
 }
-

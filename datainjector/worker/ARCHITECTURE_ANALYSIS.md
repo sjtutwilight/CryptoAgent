@@ -54,17 +54,18 @@ roles:
       heartbeat_ms: 30000
       poll_interval_ms: 500
     handlers:
-      - type: "missing_detector"   # 缺失检测
+      - type: "integrity"          # 数据正确性
         with:
+          profile: "chain_blocks"
           sequence_field: "block_number"
-          eager_gap: 3
+          stream_key_field: "chain_id"
     sink:
       type: "kafka"
       with:
         topic: "chain.ethereum.blocks"
 ```
 
-### WebSocket 缺失检测与补数据
+### WebSocket 数据正确性与补数据
 
 - **背景**：websocket当前仍广泛应用，但普遍存在乱序、数据缺失等问题。
 - **主要场景**
@@ -599,3 +600,6 @@ sequenceDiagram
 ### **BroadcastState访问优化**
 
 todo: 将BroadcastState加入本地缓存Caffeine,通过淘汰策略与ttl来控制缓存利用率与数据新鲜度
+
+
+

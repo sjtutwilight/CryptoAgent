@@ -5,6 +5,7 @@ API工具包装器
 import requests
 import json
 from typing import Dict, Any, List, Optional
+from urllib.parse import quote
 from pydantic import BaseModel, Field
 import logging
 from config import BACKEND_API_CONFIG
@@ -12,6 +13,64 @@ from config import BACKEND_API_CONFIG
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+SUPPORTED_KLINE_INTERVALS = {"1m", "5m"}
+
+
+def _to_csv(values: Optional[Any]) -> Optional[str]:
+    """将列表或集合转换为逗号分隔字符串"""
+    if values is None:
+        return None
+    if isinstance(values, str):
+        cleaned = values.strip()
+        return cleaned or None
+    if isinstance(values, (list, tuple, set)):
+        tokens = [str(v).strip() for v in values if v is not None and str(v).strip()]
+        if not tokens:
+            return None
+        return ",".join(tokens)
+    # 其他类型直接转为字符串
+    return str(values)
+
+
+def _sanitize_params(params: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """去除参数中值为None的字段"""
+    if not params:
+        return None
+    sanitized = {key: value for key, value in params.items() if value is not None}
+    return sanitized or None
+
+
+def _normalize_kline_interval(interval: Optional[str]) -> str:
+    """将任意间隔规范化为支持的K线周期"""
+    default_interval = "1m"
+    if not interval:
+        return default_interval
+
+    normalized = interval.strip().lower()
+    if not normalized:
+        return default_interval
+
+    # 统一大小写，例如 1M -> 1m
+    if normalized.endswith("m") and normalized[:-1].isdigit():
+        normalized = f"{int(normalized[:-1])}m"
+
+    if normalized in SUPPORTED_KLINE_INTERVALS:
+        return normalized
+
+    # 非分钟级或超出支持范围的周期，回退到5m
+    fallback = "5m"
+    if normalized.endswith("m") and normalized[:-1].isdigit():
+        minutes = int(normalized[:-1])
+        fallback = "5m" if minutes >= 5 else "1m"
+    elif normalized.endswith(("h", "d", "w")):
+        fallback = "5m"
+    if fallback not in SUPPORTED_KLINE_INTERVALS:
+        fallback = default_interval
+
+    logger.warning("Unsupported kline interval '%s', fallback to '%s'", interval, fallback)
+    return fallback
+
 
 class APIConfig:
     """API配置"""
@@ -28,7 +87,9 @@ class APIClient:
     def _make_request(self, method: str, endpoint: str, params: Dict = None, data: Dict = None) -> Dict[str, Any]:
         """发送API请求"""
         url = f"{self.base_url}{endpoint}"
-        
+        params = _sanitize_params(params)
+        data = _sanitize_params(data)
+
         try:
             logger.info(f"发送{method}请求: {url}, params: {params}")
             
@@ -153,6 +214,187 @@ def get_token_pnl(token_id: int, time_range: str = "1min", top_limit: int = 50) 
     
     return api_client._make_request("GET", f"/tokens/{token_id}/pnl", params=params)
 
+
+def get_kline_market_snapshots(
+        symbols: Optional[List[str]] = None,
+        exchange: Optional[str] = None,
+        interval: str = "1m",
+        page: int = 1,
+        page_size: int = 50,
+        sort_by: str = "volume",
+        order: str = "desc") -> Dict[str, Any]:
+    """
+    获取K线市场快照
+    """
+    normalized_interval = _normalize_kline_interval(interval)
+    params = {
+        "symbols": _to_csv(symbols),
+        "exchange": exchange,
+        "interval": normalized_interval,
+        "page": page,
+        "pageSize": page_size,
+        "sortBy": sort_by,
+        "order": order
+    }
+    return api_client._make_request("GET", "/klines/markets", params=params)
+
+
+def get_kline_series(
+        symbol: str,
+        exchange: Optional[str] = None,
+        interval: str = "1m",
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        limit: int = 1000) -> Dict[str, Any]:
+    """
+    获取K线时间序列
+    """
+    normalized_interval = _normalize_kline_interval(interval)
+    params = {
+        "exchange": exchange,
+        "interval": normalized_interval,
+        "startTime": start_time,
+        "endTime": end_time,
+        "limit": limit
+    }
+    encoded_symbol = quote(symbol, safe="")
+    return api_client._make_request("GET", f"/klines/{encoded_symbol}/candles", params=params)
+
+
+def get_kline_indicators(
+        symbol: str,
+        exchange: Optional[str] = None,
+        interval: str = "1m",
+        indicators: Optional[List[str]] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        limit: int = 1000) -> Dict[str, Any]:
+    """
+    获取K线指标时间序列
+    """
+    normalized_interval = _normalize_kline_interval(interval)
+    params = {
+        "exchange": exchange,
+        "interval": normalized_interval,
+        "indicators": _to_csv(indicators),
+        "startTime": start_time,
+        "endTime": end_time,
+        "limit": limit
+    }
+    encoded_symbol = quote(symbol, safe="")
+    return api_client._make_request("GET", f"/klines/{encoded_symbol}/indicators", params=params)
+
+
+def get_perp_market_snapshots(
+        symbols: Optional[List[str]] = None,
+        exchange: Optional[str] = None,
+        algo: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 20,
+        sort_by: str = "volume",
+        order: str = "desc") -> Dict[str, Any]:
+    """
+    获取永续市场快照
+    """
+    params = {
+        "symbols": _to_csv(symbols),
+        "exchange": exchange,
+        "algo": algo,
+        "page": page,
+        "pageSize": page_size,
+        "sortBy": sort_by,
+        "order": order
+    }
+    return api_client._make_request("GET", "/perps/markets", params=params)
+
+
+def get_perp_execution_series(
+        symbol: str,
+        exchange: Optional[str] = None,
+        algo: Optional[str] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        limit: int = 1800) -> Dict[str, Any]:
+    """
+    获取永续执行面时间序列
+    """
+    params = {
+        "exchange": exchange,
+        "algo": algo,
+        "startTime": start_time,
+        "endTime": end_time,
+        "limit": limit
+    }
+    encoded_symbol = quote(symbol, safe="")
+    return api_client._make_request("GET", f"/perps/{encoded_symbol}/execution", params=params)
+
+
+def get_perp_context_series(
+        symbol: str,
+        exchange: Optional[str] = None,
+        algo: Optional[str] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        limit: int = 1440) -> Dict[str, Any]:
+    """
+    获取永续语境面时间序列
+    """
+    params = {
+        "exchange": exchange,
+        "algo": algo,
+        "startTime": start_time,
+        "endTime": end_time,
+        "limit": limit
+    }
+    encoded_symbol = quote(symbol, safe="")
+    return api_client._make_request("GET", f"/perps/{encoded_symbol}/context", params=params)
+
+
+def get_perp_panel_series(
+        symbol: str,
+        exchange: Optional[str] = None,
+        algo: Optional[str] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        limit: int = 1440) -> Dict[str, Any]:
+    """
+    获取永续面板时间序列
+    """
+    params = {
+        "exchange": exchange,
+        "algo": algo,
+        "startTime": start_time,
+        "endTime": end_time,
+        "limit": limit
+    }
+    encoded_symbol = quote(symbol, safe="")
+    return api_client._make_request("GET", f"/perps/{encoded_symbol}/panel", params=params)
+
+
+def get_perp_signals(
+        symbols: Optional[List[str]] = None,
+        exchanges: Optional[List[str]] = None,
+        types: Optional[List[str]] = None,
+        levels: Optional[List[str]] = None,
+        algo: Optional[str] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        limit: int = 200) -> Dict[str, Any]:
+    """
+    获取永续异常信号
+    """
+    params = {
+        "symbols": _to_csv(symbols),
+        "exchanges": _to_csv(exchanges),
+        "types": _to_csv(types),
+        "levels": _to_csv(levels),
+        "algo": algo,
+        "startTime": start_time,
+        "endTime": end_time,
+        "limit": limit
+    }
+    return api_client._make_request("GET", "/perps/signals", params=params)
+
 # ====== LangChain 工具定义 ======
 
 from langchain_core.tools import BaseTool
@@ -184,6 +426,91 @@ class TokenPnLInput(BaseModel):
     token_id: int = Field(description="代币ID")
     time_range: str = Field(default="1min", description="时间范围")
     top_limit: int = Field(default=50, description="Top PnL排行榜数量限制")
+
+
+class KlineMarketInput(BaseModel):
+    """K线市场快照查询输入"""
+    symbols: Optional[List[str]] = Field(default=None, description="交易对列表，示例: ['BTCUSDT','ETHUSDT']")
+    exchange: Optional[str] = Field(default=None, description="交易所，如 binance/okx/hyperliquid")
+    interval: str = Field(default="1m", description="K线周期，仅支持1m或5m，其他值将自动回退")
+    page: int = Field(default=1, description="页码，从1开始")
+    page_size: int = Field(default=50, description="每页数量，最大500")
+    sort_by: str = Field(default="volume", description="排序字段: volume/change/amplitude/tradeCount等")
+    order: str = Field(default="desc", description="排序方向: asc 或 desc")
+
+
+class KlineSeriesInput(BaseModel):
+    """K线时间序列查询输入"""
+    symbol: str = Field(description="交易对，如 BTCUSDT")
+    exchange: Optional[str] = Field(default=None, description="交易所过滤")
+    interval: str = Field(default="1m", description="K线周期，仅支持1m或5m，其他值将自动回退")
+    start_time: Optional[str] = Field(default=None, description="起始时间 ISO8601")
+    end_time: Optional[str] = Field(default=None, description="结束时间 ISO8601")
+    limit: int = Field(default=1000, description="返回条数，最大5000")
+
+
+class KlineIndicatorInput(BaseModel):
+    """K线指标查询输入"""
+    symbol: str = Field(description="交易对，如 BTCUSDT")
+    exchange: Optional[str] = Field(default=None, description="交易所过滤")
+    interval: str = Field(default="1m", description="K线周期，仅支持1m或5m，其他值将自动回退")
+    indicators: Optional[List[str]] = Field(default=None, description="指标列表，如 ['RSI','MACD']")
+    start_time: Optional[str] = Field(default=None, description="起始时间 ISO8601")
+    end_time: Optional[str] = Field(default=None, description="结束时间 ISO8601")
+    limit: int = Field(default=1000, description="返回条数，最大5000")
+
+
+class PerpMarketInput(BaseModel):
+    """永续市场快照输入"""
+    symbols: Optional[List[str]] = Field(default=None, description="交易对列表，如 ['BTCUSDT']")
+    exchange: Optional[str] = Field(default=None, description="交易所过滤")
+    algo: Optional[str] = Field(default=None, description="算法版本，如 prod/exp")
+    page: int = Field(default=1, description="页码，从1开始")
+    page_size: int = Field(default=20, description="每页数量，最大500")
+    sort_by: str = Field(default="volume", description="排序字段: volume/spread/basis等")
+    order: str = Field(default="desc", description="排序方向")
+
+
+class PerpExecutionInput(BaseModel):
+    """永续执行面查询输入"""
+    symbol: str = Field(description="交易对，如 BTCUSDT")
+    exchange: Optional[str] = Field(default=None, description="交易所过滤")
+    algo: Optional[str] = Field(default=None, description="算法版本过滤")
+    start_time: Optional[str] = Field(default=None, description="起始时间 ISO8601")
+    end_time: Optional[str] = Field(default=None, description="结束时间 ISO8601")
+    limit: int = Field(default=1800, description="返回条数，最大10000")
+
+
+class PerpContextInput(BaseModel):
+    """永续语境面查询输入"""
+    symbol: str = Field(description="交易对，如 BTCUSDT")
+    exchange: Optional[str] = Field(default=None, description="交易所过滤")
+    algo: Optional[str] = Field(default=None, description="算法版本过滤")
+    start_time: Optional[str] = Field(default=None, description="起始时间 ISO8601")
+    end_time: Optional[str] = Field(default=None, description="结束时间 ISO8601")
+    limit: int = Field(default=1440, description="返回条数，最大1440")
+
+
+class PerpPanelInput(BaseModel):
+    """永续面板查询输入"""
+    symbol: str = Field(description="交易对，如 BTCUSDT")
+    exchange: Optional[str] = Field(default=None, description="交易所过滤")
+    algo: Optional[str] = Field(default=None, description="算法版本过滤")
+    start_time: Optional[str] = Field(default=None, description="起始时间 ISO8601")
+    end_time: Optional[str] = Field(default=None, description="结束时间 ISO8601")
+    limit: int = Field(default=1440, description="返回条数，最大1440")
+
+
+class PerpSignalsInput(BaseModel):
+    """永续异常信号查询输入"""
+    symbols: Optional[List[str]] = Field(default=None, description="交易对过滤")
+    exchanges: Optional[List[str]] = Field(default=None, description="交易所过滤")
+    types: Optional[List[str]] = Field(default=None, description="信号类型过滤")
+    levels: Optional[List[str]] = Field(default=None, description="信号等级过滤")
+    algo: Optional[str] = Field(default=None, description="算法版本过滤")
+    start_time: Optional[str] = Field(default=None, description="起始时间 ISO8601")
+    end_time: Optional[str] = Field(default=None, description="结束时间 ISO8601")
+    limit: int = Field(default=200, description="返回条数，最大1000")
 
 class HealthCheckTool(BaseTool):
     """健康检查工具"""
@@ -269,6 +596,187 @@ class TokenPnLTool(BaseTool):
         result = get_token_pnl(token_id, time_range, top_limit)
         return json.dumps(result, ensure_ascii=False)
 
+
+class KlineMarketTool(BaseTool):
+    """K线市场快照工具"""
+    name: str = "get_kline_market_snapshots"
+    description: str = """获取K线市场快照，适用于大盘排序、筛选高动量或高成交量标的（当前仅支持1m/5m）。
+    常见问题：
+    - 最近成交量最高的交易对有哪些？
+    - 指定交易所某周期的涨幅排名？
+    - 某几个交易对的最新K线快照详情"""
+    args_schema: type = KlineMarketInput
+
+    def _run(
+            self,
+            symbols: Optional[List[str]] = None,
+            exchange: Optional[str] = None,
+            interval: str = "1m",
+            page: int = 1,
+            page_size: int = 50,
+            sort_by: str = "volume",
+            order: str = "desc") -> str:
+        result = get_kline_market_snapshots(symbols, exchange, interval, page, page_size, sort_by, order)
+        return json.dumps(result, ensure_ascii=False)
+
+
+class KlineSeriesTool(BaseTool):
+    """K线时间序列工具"""
+    name: str = "get_kline_series"
+    description: str = """查询历史K线序列，支持指定交易所、时间区间和返回条数（周期仅支持1m/5m，如输入其他值将自动回退）。
+    常见问题：
+    - 获取某交易对最近N根K线用于画图
+    - 分析某个时间段内的涨跌、均线、信号
+    - 对比不同交易所同一交易对的走势"""
+    args_schema: type = KlineSeriesInput
+
+    def _run(
+            self,
+            symbol: str,
+            exchange: Optional[str] = None,
+            interval: str = "1m",
+            start_time: Optional[str] = None,
+            end_time: Optional[str] = None,
+            limit: int = 1000) -> str:
+        result = get_kline_series(symbol, exchange, interval, start_time, end_time, limit)
+        return json.dumps(result, ensure_ascii=False)
+
+
+class KlineIndicatorTool(BaseTool):
+    """K线指标时间序列工具"""
+    name: str = "get_kline_indicators"
+    description: str = """查询指定交易对的技术指标输出，支持一次拉取多个指标（周期仅支持1m/5m，其他值自动回退）。
+    常见问题：
+    - 获取MACD/RSI指标序列
+    - 观察指标给出的买卖信号
+    - 结合价格走势分析指标背离"""
+    args_schema: type = KlineIndicatorInput
+
+    def _run(
+            self,
+            symbol: str,
+            exchange: Optional[str] = None,
+            interval: str = "1m",
+            indicators: Optional[List[str]] = None,
+            start_time: Optional[str] = None,
+            end_time: Optional[str] = None,
+            limit: int = 1000) -> str:
+        result = get_kline_indicators(symbol, exchange, interval, indicators, start_time, end_time, limit)
+        return json.dumps(result, ensure_ascii=False)
+
+
+class PerpMarketTool(BaseTool):
+    """永续市场快照工具"""
+    name: str = "get_perp_market_snapshots"
+    description: str = """获取永续合约市场最新快照，用于大盘排序与选取流动性良好的合约。
+    常见问题：
+    - 当前点差/深度最好的合约
+    - 某交易所永续合约的成交量排名
+    - 关注交易对的最新面板指标"""
+    args_schema: type = PerpMarketInput
+
+    def _run(
+            self,
+            symbols: Optional[List[str]] = None,
+            exchange: Optional[str] = None,
+            algo: Optional[str] = None,
+            page: int = 1,
+            page_size: int = 20,
+            sort_by: str = "volume",
+            order: str = "desc") -> str:
+        result = get_perp_market_snapshots(symbols, exchange, algo, page, page_size, sort_by, order)
+        return json.dumps(result, ensure_ascii=False)
+
+
+class PerpExecutionTool(BaseTool):
+    """永续执行面时间序列工具"""
+    name: str = "get_perp_execution_series"
+    description: str = """获取秒级执行面指标，如点差、盘口深度、成交量等。
+    常见问题：
+    - 监控最近30分钟的流动性变化
+    - 分析点差、冲击成本是否异常
+    - 结合成交量判断交易活跃度"""
+    args_schema: type = PerpExecutionInput
+
+    def _run(
+            self,
+            symbol: str,
+            exchange: Optional[str] = None,
+            algo: Optional[str] = None,
+            start_time: Optional[str] = None,
+            end_time: Optional[str] = None,
+            limit: int = 1800) -> str:
+        result = get_perp_execution_series(symbol, exchange, algo, start_time, end_time, limit)
+        return json.dumps(result, ensure_ascii=False)
+
+
+class PerpContextTool(BaseTool):
+    """永续语境面时间序列工具"""
+    name: str = "get_perp_context_series"
+    description: str = """获取分钟级语境指标，包括资金费率、持仓量、OI变化等。
+    常见问题：
+    - 分析资金费率异常与持仓量共振
+    - 判断是否存在强制平仓或杠杆攀升风险
+    - 计算某时间段的持仓变化"""
+    args_schema: type = PerpContextInput
+
+    def _run(
+            self,
+            symbol: str,
+            exchange: Optional[str] = None,
+            algo: Optional[str] = None,
+            start_time: Optional[str] = None,
+            end_time: Optional[str] = None,
+            limit: int = 1440) -> str:
+        result = get_perp_context_series(symbol, exchange, algo, start_time, end_time, limit)
+        return json.dumps(result, ensure_ascii=False)
+
+
+class PerpPanelTool(BaseTool):
+    """永续面板时间序列工具"""
+    name: str = "get_perp_panel_series"
+    description: str = """获取面板指标（执行面+语境面整合），适合做综合得分跟踪。
+    常见问题：
+    - 观察拥挤度、流动性 regime 的演化
+    - 跟踪策略得分或信号强度
+    - 分析跨时段的执行/语境指标组合"""
+    args_schema: type = PerpPanelInput
+
+    def _run(
+            self,
+            symbol: str,
+            exchange: Optional[str] = None,
+            algo: Optional[str] = None,
+            start_time: Optional[str] = None,
+            end_time: Optional[str] = None,
+            limit: int = 1440) -> str:
+        result = get_perp_panel_series(symbol, exchange, algo, start_time, end_time, limit)
+        return json.dumps(result, ensure_ascii=False)
+
+
+class PerpSignalsTool(BaseTool):
+    """永续异常信号工具"""
+    name: str = "get_perp_signals"
+    description: str = """获取永续合约异常信号，支持按交易对、交易所、信号类型和等级筛选。
+    常见问题：
+    - 查看最近的高危信号
+    - 过滤指定交易所的拥挤或执行面异常
+    - 生成自动化告警或建议"""
+    args_schema: type = PerpSignalsInput
+
+    def _run(
+            self,
+            symbols: Optional[List[str]] = None,
+            exchanges: Optional[List[str]] = None,
+            types: Optional[List[str]] = None,
+            levels: Optional[List[str]] = None,
+            algo: Optional[str] = None,
+            start_time: Optional[str] = None,
+            end_time: Optional[str] = None,
+            limit: int = 200) -> str:
+        result = get_perp_signals(symbols, exchanges, types, levels, algo, start_time, end_time, limit)
+        return json.dumps(result, ensure_ascii=False)
+
 # 工具列表
 AVAILABLE_TOOLS = [
     HealthCheckTool(),
@@ -276,5 +784,13 @@ AVAILABLE_TOOLS = [
     TokenOverviewTool(), 
     TokenDistributionTool(),
     AccountDetailTool(),
-    TokenPnLTool()
+    TokenPnLTool(),
+    KlineMarketTool(),
+    KlineSeriesTool(),
+    KlineIndicatorTool(),
+    PerpMarketTool(),
+    PerpExecutionTool(),
+    PerpContextTool(),
+    PerpPanelTool(),
+    PerpSignalsTool()
 ]

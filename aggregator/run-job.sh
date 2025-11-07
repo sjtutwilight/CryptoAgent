@@ -2,7 +2,7 @@
 
 # DeFi聚合器Job运行脚本
 # 使用方法: ./run-job.sh [job_name]
-# 可选的job_name: pnl, token, pair, balance, trade, kline, sequence, all
+# 可选的job_name: pnl, token, pair, balance, trade, kline, multi, sequence, perp-exec, perp-context, all
 
 set -e  # 遇到错误立即退出
 
@@ -54,8 +54,20 @@ get_job_class() {
         "kline")
             echo "com.twilight.aggregator.KlineSignalJob"
             ;;
+        "multi")
+            echo "com.twilight.aggregator.MultiIndicatorJob"
+            ;;
         "sequence")
             echo "com.twilight.aggregator.utils.SequenceExtractJob"
+            ;;
+        "perp-exec")
+            echo "com.twilight.aggregator.PerpExecutionMetricsJob"
+            ;;
+        "perp-context")
+            echo "com.twilight.aggregator.PerpContextMetricsJob"
+            ;;
+        "perp-panel")
+            echo "com.twilight.aggregator.PerpPanelAggregatorJob"
             ;;
         *)
             echo ""
@@ -78,14 +90,19 @@ show_help() {
     echo "  pair     - Pair指标聚合器 (交易对分析)"
     echo "  balance  - 账户余额聚合器 (余额跟踪)"
     echo "  trade    - 交易事实聚合器 (交易事实数据)"
-    echo "  kline    - K线信号生成器 (交易信号生成)"
-    echo "  sequence - 区块序列提取器 (数据缺失检测)"
-    echo "  all      - 运行所有Job (并行)"
+    echo "  kline       - K线信号生成器 (交易信号生成)"
+    echo "  multi       - 多指标聚合器 (多指标分析)"
+    echo "  sequence    - 区块序列提取器 (数据缺失检测)"
+    echo "  perp-exec   - 永续合约执行面指标 (快流-秒级)"
+    echo "  perp-context- 永续合约语境面指标 (慢流-分钟级)"
+    echo "  perp-panel  - 永续合约面板汇合 (Job3-分钟级)"
+    echo "  all         - 运行所有Job (并行)"
     echo ""
     echo "示例:"
     echo "  ./run-job.sh pnl        # 运行PnL聚合器"
     echo "  ./run-job.sh token      # 运行Token聚合器"
     echo "  ./run-job.sh kline      # 运行K线信号生成器"
+    echo "  ./run-job.sh multi      # 运行多指标聚合器"
     echo "  ./run-job.sh all        # 运行所有Job"
     echo "  ./run-job.sh trade      # 运行交易事实聚合器"
     echo "  ./run-job.sh sequence   # 运行区块序列提取器"
@@ -199,7 +216,7 @@ run_all_jobs() {
 is_valid_job() {
     local job_name=$1
     case $job_name in
-        "pnl"|"token"|"pair"|"balance"|"trade"|"kline"|"sequence")
+        "pnl"|"token"|"pair"|"balance"|"trade"|"kline"|"multi"|"sequence"|"perp-exec"|"perp-context"|"perp-panel")
             return 0
             ;;
         *)

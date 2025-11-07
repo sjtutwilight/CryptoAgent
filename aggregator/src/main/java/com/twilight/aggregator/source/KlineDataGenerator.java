@@ -260,3 +260,7 @@ public class KlineDataGenerator implements SourceFunction<KlineData> {
     }
 }
 
+
+
+
+

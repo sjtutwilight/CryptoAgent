@@ -10,32 +10,32 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/gorilla/websocket"
+
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/protocol"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/types"
+	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/util"
 )
 
 type WebSocketCall struct {
-	chainID               string
-	subscribeTopic        string
-	subscribePayload      interface{}
-	subscribeReq          protocol.JSONRPCRequest
-	subscribeMethod       string
-	subscribeJSONRPC      string
-	subscribeID           string
-	wsClient              *protocol.WebSocketClient
-	mu                    sync.Mutex
-	subscribed            bool
-	msgBuffer             []*types.Message
-	reqCounter            int64
-	wsPendingMu           sync.Mutex
-	wsPending             map[string]chan wsRPCResponse
-	defaultBackfillMethod string
-	defaultIncludeFullTx  bool
-	fallbacks             []BlockFetcher
-
+	chainID              string
+	subscribeTopic       string
+	subscribePayload     interface{}
+	subscribeReq         protocol.JSONRPCRequest
+	subscribeMethod      string
+	subscribeJSONRPC     string
+	subscribeID          string
+	wsClient             *protocol.WebSocketClient
+	mu                   sync.Mutex
+	subscribed           bool
+	msgBuffer            []*types.Message
+	reqCounter           int64
+	wsPendingMu          sync.Mutex
+	wsPending            map[string]chan wsRPCResponse
 	messageFormat        string
 	useRawSubscribe      bool
-	subscribeRaw         []byte
+	subscribePayloads    [][]byte
+	skipSubscribe        bool
 	skipAckResults       bool
 	defaultStreams       []string
 	staticMetadata       map[string]any
@@ -51,15 +51,14 @@ func NewWebSocketCall(callerConfig map[string]any, params map[string]any) (*WebS
 	}
 
 	call := &WebSocketCall{
-		msgBuffer:             make([]*types.Message, 0),
-		wsPending:             make(map[string]chan wsRPCResponse),
-		defaultBackfillMethod: "eth_getBlockByNumber",
-		subscribeMethod:       "eth_subscribe",
-		subscribeJSONRPC:      "2.0",
-		messageFormat:         "jsonrpc",
-		notifyMethod:          "eth_subscription",
-		extractBlockMetadata:  true,
-		resultMetadata:        make(map[string]string),
+		msgBuffer:            make([]*types.Message, 0),
+		wsPending:            make(map[string]chan wsRPCResponse),
+		subscribeMethod:      "eth_subscribe",
+		subscribeJSONRPC:     "2.0",
+		messageFormat:        "jsonrpc",
+		notifyMethod:         "eth_subscription",
+		extractBlockMetadata: true,
+		resultMetadata:       make(map[string]string),
 	}
 
 	callerParams, _ := params["caller_params"].(map[string]any)
@@ -142,35 +141,21 @@ func NewWebSocketCall(callerConfig map[string]any, params map[string]any) (*WebS
 		call.skipAckResults = getBoolValue(callerParams, "skip_ack_results", call.skipAckResults)
 	}
 
-	if bfCfg, ok := callerConfig["backfill"].(map[string]any); ok {
-		if wsCfg, ok := bfCfg["ws"].(map[string]any); ok {
-			call.defaultBackfillMethod = getStringValue(wsCfg, "rpc_method", call.defaultBackfillMethod)
-			call.defaultIncludeFullTx = getBoolValue(wsCfg, "include_full_tx", false)
+	heartbeatMs := getIntValue(callerParams, "heartbeat_ms", 30000)
+	heartbeatPayload := parseHeartbeatPayload(callerConfig, callerParams)
+	heartbeatOpcode := websocket.PingMessage
+	if hp, ok := callerConfig["heartbeat_opcode"].(string); ok {
+		if op := parseHeartbeatOpcode(hp); op != 0 {
+			heartbeatOpcode = op
 		}
 	}
 	if callerParams != nil {
-		if bfCfg, ok := callerParams["backfill"].(map[string]any); ok {
-			if wsCfg, ok := bfCfg["ws"].(map[string]any); ok {
-				call.defaultBackfillMethod = getStringValue(wsCfg, "rpc_method", call.defaultBackfillMethod)
-				call.defaultIncludeFullTx = getBoolValue(wsCfg, "include_full_tx", call.defaultIncludeFullTx)
-			}
-			if httpCfg, ok := bfCfg["http"].(map[string]any); ok {
-				if fallback := buildHTTPFallback(httpCfg, call.chainID); fallback != nil {
-					call.fallbacks = append(call.fallbacks, fallback)
-				}
+		if hp, ok := callerParams["heartbeat_opcode"].(string); ok {
+			if op := parseHeartbeatOpcode(hp); op != 0 {
+				heartbeatOpcode = op
 			}
 		}
 	}
-
-	if bfCfg, ok := callerConfig["backfill"].(map[string]any); ok {
-		if httpCfg, ok := bfCfg["http"].(map[string]any); ok {
-			if fallback := buildHTTPFallback(httpCfg, call.chainID); fallback != nil {
-				call.fallbacks = append(call.fallbacks, fallback)
-			}
-		}
-	}
-
-	heartbeatMs := getIntValue(callerParams, "heartbeat_ms", 30000)
 	reconnectBase := 2
 	reconnectMax := 60
 	if rcMap, ok := callerParams["reconnect"].(map[string]any); ok {
@@ -198,11 +183,13 @@ func NewWebSocketCall(callerConfig map[string]any, params map[string]any) (*WebS
 		HeartbeatMs:        heartbeatMs,
 		BackoffBaseSeconds: reconnectBase,
 		BackoffMaxSeconds:  reconnectMax,
+		HeartbeatPayload:   heartbeatPayload,
+		HeartbeatOpcode:    heartbeatOpcode,
 	}
 
 	call.wsClient = protocol.NewWebSocketClient(cfg)
 	if err := call.wsClient.Connect(); err != nil {
-		return nil, fmt.Errorf("websocket 连接失败: %w", err)
+		log.Printf("[WebSocketCall] 初次连接失败，将在轮询时重试: %v", err)
 	}
 
 	call.refreshSubscribeRequest(callerParams)
@@ -216,11 +203,15 @@ func (w *WebSocketCall) sendSubscribe() error {
 	if w.wsClient == nil {
 		return fmt.Errorf("websocket client 未初始化")
 	}
+	if w.skipSubscribe {
+		w.subscribed = true
+		return nil
+	}
 	if w.useRawSubscribe {
-		if len(w.subscribeRaw) == 0 {
+		if len(w.subscribePayloads) == 0 {
 			return fmt.Errorf("subscribe payload 为空")
 		}
-		return w.wsClient.SendRawSubscribe(w.subscribeRaw)
+		return w.wsClient.SendRawSubscribes(w.subscribePayloads)
 	}
 	req := w.buildSubscribeRequest(w.subscribeTopic, w.subscribePayload)
 	w.subscribeReq = req
@@ -228,6 +219,15 @@ func (w *WebSocketCall) sendSubscribe() error {
 }
 
 func (w *WebSocketCall) CallOnce(ctx context.Context, args map[string]any) ([]*types.Message, error) {
+	if isRPCRequest(args) {
+		return w.executeRPC(ctx, args)
+	}
+
+	if err := w.ensureConnected(); err != nil {
+		log.Printf("[WebSocketCall] websocket 连接中，等待重试: %v", err)
+		return nil, nil
+	}
+
 	w.updateSubscribeFromArgs(args)
 
 	w.mu.Lock()
@@ -237,7 +237,9 @@ func (w *WebSocketCall) CallOnce(ctx context.Context, args map[string]any) ([]*t
 			return nil, fmt.Errorf("websocket 订阅失败: %w", err)
 		}
 		w.subscribed = true
-		log.Printf("[WebSocketCall] WebSocket 已发起订阅: %s", w.subscribeTopic)
+		if !w.skipSubscribe {
+			log.Printf("[WebSocketCall] WebSocket 已发起订阅: %s", w.subscribeTopic)
+		}
 	}
 
 	msgs := w.msgBuffer
@@ -254,123 +256,85 @@ func (w *WebSocketCall) Close() error {
 	return nil
 }
 
-func (w *WebSocketCall) FetchBlocks(ctx context.Context, start, end int64, rpcMethod string, options map[string]any) ([]*types.Message, error) {
-	if start > end {
-		return nil, fmt.Errorf("invalid backfill range [%d, %d]", start, end)
+func isRPCRequest(args map[string]any) bool {
+	if len(args) == 0 {
+		return false
 	}
-	method := rpcMethod
+	if v, ok := args["rpc"]; ok {
+		return toBool(v, false)
+	}
+	if method := util.ToString(args["rpc_method"]); method != "" {
+		return true
+	}
+	if method := util.ToString(args["method"]); method != "" {
+		if _, hasParams := args["params"]; hasParams {
+			if _, hasSubscribe := args["subscribe"]; hasSubscribe {
+				return false
+			}
+			if _, hasStreams := args["streams"]; hasStreams {
+				return false
+			}
+			return true
+		}
+	}
+	return false
+}
+
+func (w *WebSocketCall) executeRPC(ctx context.Context, args map[string]any) ([]*types.Message, error) {
+	method := util.ToString(args["rpc_method"])
 	if method == "" {
-		method = w.defaultBackfillMethod
+		method = getStringValue(args, "method", "")
 	}
-	includeFullTx := w.defaultIncludeFullTx
-	if options != nil {
-		if v, ok := options["include_full_tx"]; ok {
-			includeFullTx = toBool(v, includeFullTx)
-		}
+	if method == "" {
+		return nil, fmt.Errorf("websocket rpc method required")
 	}
-
-	all := make([]*types.Message, 0, int(end-start+1))
-	for blk := start; blk <= end; blk++ {
-		params := []interface{}{fmt.Sprintf("0x%x", blk), false} // 始终传 false（不包含完整交易）
-		if includeFullTx {
-			params[1] = true
-		}
-		result, err := w.callWebSocket(ctx, method, params)
-		if err != nil {
-			log.Printf("[WebSocketCall] FetchBlocks: block=%d RPC call failed: %v", blk, err)
-			return nil, err
-		}
-		if len(result) == 0 || string(result) == "null" {
-			log.Printf("[WebSocketCall] FetchBlocks: block=%d returned null/empty result", blk)
-			continue // 跳过 null 结果
-		}
-
-		meta := map[string]any{
-			"protocol":    "websocket",
-			"ws_method":   method,
-			"source":      "ws_backfill",
-			"block_query": blk,
-			"is_backfill": true,
-		}
-		if includeFullTx {
-			meta["include_full_tx"] = true
-		}
-		if w.chainID != "" {
-			meta["chain_id"] = w.chainID
-		}
-
-		msgs, err := buildMessagesFromResult(method, result, meta)
-		if err != nil {
-			log.Printf("[WebSocketCall] FetchBlocks: block=%d buildMessages failed: %v, result=%s", blk, err, string(result))
-			return nil, err
-		}
-
-		all = append(all, msgs...)
-	}
-	return all, nil
-}
-
-func (w *WebSocketCall) TransportName() string {
-	return types.BackfillTransportWebSocket
-}
-
-func (w *WebSocketCall) BackfillExecutors() []BlockFetcher {
-	if len(w.fallbacks) == 0 {
-		return nil
-	}
-	out := make([]BlockFetcher, len(w.fallbacks))
-	copy(out, w.fallbacks)
-	return out
-}
-
-func buildHTTPFallback(cfg map[string]any, defaultChainID string) BlockFetcher {
-	if !getBoolValue(cfg, "enabled", false) {
-		return nil
-	}
-	endpoint := getStringValue(cfg, "endpoint", "")
-	if endpoint == "" {
-		return nil
+	params := args["params"]
+	if params == nil {
+		params = args["rpc_params"]
 	}
 
-	httpCallerCfg := map[string]any{
-		"endpoint":             endpoint,
-		"datasource_id":        getStringValue(cfg, "datasource_id", ""),
-		"chain_id":             getStringValue(cfg, "chain_id", defaultChainID),
-		"timeout_ms":           getIntValue(cfg, "timeout_ms", 5000),
-		"max_idle_conns":       getIntValue(cfg, "max_idle_conns", 0),
-		"max_idle_per_host":    getIntValue(cfg, "max_idle_per_host", 0),
-		"idle_conn_timeout_ms": getIntValue(cfg, "idle_conn_timeout_ms", 0),
-	}
-
-	callerParams := map[string]any{
-		"caller_params": map[string]any{
-			"chain_id":   httpCallerCfg["chain_id"],
-			"timeout_ms": httpCallerCfg["timeout_ms"],
-		},
-	}
-
-	httpCall, err := NewHTTPCall(httpCallerCfg, callerParams)
+	result, err := w.callWebSocket(ctx, method, params)
 	if err != nil {
-		log.Printf("[WebSocketCall] 创建 HTTP 回补失败: %v", err)
-		return nil
+		return nil, err
 	}
-	return httpCall
+
+	meta := w.baseMetadata()
+	if extra, ok := args["metadata"].(map[string]any); ok {
+		for k, v := range extra {
+			meta[k] = v
+		}
+	}
+	if chainID := getStringValue(args, "chain_id", ""); chainID != "" {
+		meta["chain_id"] = chainID
+	}
+	if source := getStringValue(args, "source", ""); source != "" {
+		meta["source"] = source
+	}
+	if taskID := util.ToString(args["task_id"]); taskID != "" {
+		meta["task_id"] = taskID
+	}
+	meta["protocol"] = "websocket"
+	meta["ws_method"] = method
+
+	return buildMessagesFromResult(method, result, meta)
 }
 
 func (w *WebSocketCall) refreshSubscribeRequest(callerParams map[string]any) {
 	w.useRawSubscribe = false
-	w.subscribeRaw = nil
+	w.subscribePayloads = nil
+	w.skipSubscribe = false
 
 	if callerParams == nil {
 		callerParams = map[string]any{}
 	}
 
 	if rawPayload, ok := callerParams["subscribe_raw"]; ok && rawPayload != nil {
-		if payloadBytes, err := normalizeRawJSON(rawPayload); err != nil {
+		payloads, err := normalizeRawPayloads(rawPayload)
+		if err != nil {
 			log.Printf("[WebSocketCall] subscribe_raw 解析失败: %v", err)
-		} else {
+		} else if len(payloads) > 0 {
 			w.useRawSubscribe = true
-			w.subscribeRaw = payloadBytes
+			w.subscribePayloads = payloads
 			if topic := getStringValue(callerParams, "subscribe", ""); topic != "" {
 				w.subscribeTopic = topic
 			}
@@ -419,12 +383,13 @@ func (w *WebSocketCall) refreshSubscribeRequest(callerParams map[string]any) {
 				log.Printf("[WebSocketCall] 构造 Binance 订阅请求失败: %v", err)
 			} else {
 				w.useRawSubscribe = true
-				w.subscribeRaw = bytes
+				w.subscribePayloads = [][]byte{bytes}
 				w.subscribeTopic = strings.Join(streams, ",")
 				return
 			}
 		} else {
-			log.Printf("[WebSocketCall] Binance 订阅缺少 streams 配置，将跳过订阅")
+			w.skipSubscribe = true
+			return
 		}
 	}
 
@@ -476,6 +441,8 @@ func (w *WebSocketCall) handleIncomingMessage(data []byte) error {
 	switch w.messageFormat {
 	case "binance":
 		return w.handleBinanceMessage(data)
+	case "hyperliquid":
+		return w.handleHyperliquidMessage(data)
 	default:
 		return w.handleJSONRPCMessage(data)
 	}
@@ -573,6 +540,54 @@ func (w *WebSocketCall) handleBinanceMessage(data []byte) error {
 	if obj, ok := payload.(map[string]any); ok {
 		if dataField, ok := obj["data"]; ok {
 			w.applyResultMetadata(meta, dataField)
+		}
+	}
+
+	w.bufferMessage(meta, data)
+	return nil
+}
+
+func (w *WebSocketCall) handleHyperliquidMessage(data []byte) error {
+	var payload interface{}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return fmt.Errorf("解析 websocket 数据失败: %w", err)
+	}
+
+	if obj, ok := payload.(map[string]any); ok {
+		if channel, ok := obj["channel"].(string); ok {
+			lower := strings.ToLower(channel)
+			if lower == "pong" {
+				return nil
+			}
+		}
+	}
+
+	meta := w.baseMetadata()
+	if obj, ok := payload.(map[string]any); ok {
+		if channel, ok := obj["channel"].(string); ok && channel != "" {
+			meta["channel"] = channel
+			meta["hyperliquid_channel"] = channel
+			if _, exists := meta["subscription"]; !exists {
+				meta["subscription"] = channel
+			}
+		}
+		if typ, ok := obj["type"].(string); ok && typ != "" {
+			meta["hyperliquid_type"] = typ
+			if _, exists := meta["channel"]; !exists {
+				meta["channel"] = typ
+			}
+		}
+	}
+
+	w.applyResultMetadata(meta, payload)
+	if obj, ok := payload.(map[string]any); ok {
+		if nested, ok := obj["data"]; ok {
+			w.applyResultMetadata(meta, nested)
+			if dataMap, ok := nested.(map[string]any); ok {
+				if coin, ok := dataMap["coin"]; ok {
+					meta["coin"] = util.ToString(coin)
+				}
+			}
 		}
 	}
 
@@ -726,6 +741,25 @@ func normalizeMetadataValue(value interface{}) interface{} {
 	}
 }
 
+func (w *WebSocketCall) ensureConnected() error {
+	if w.wsClient == nil {
+		return fmt.Errorf("websocket client 未初始化")
+	}
+	if w.wsClient.IsConnected() {
+		return nil
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.wsClient.IsConnected() {
+		return nil
+	}
+	if err := w.wsClient.Connect(); err != nil {
+		return err
+	}
+	w.subscribed = false
+	return nil
+}
+
 func (w *WebSocketCall) updateSubscribeFromArgs(args map[string]any) {
 	if args == nil {
 		return
@@ -856,4 +890,90 @@ func toBool(v interface{}, def bool) bool {
 	default:
 	}
 	return def
+}
+
+func parseHeartbeatPayload(config map[string]any, params map[string]any) []byte {
+	if payload, ok := extractHeartbeatPayload(params); ok {
+		return payload
+	}
+	if payload, ok := extractHeartbeatPayload(config); ok {
+		return payload
+	}
+	return nil
+}
+
+func extractHeartbeatPayload(source map[string]any) ([]byte, bool) {
+	if source == nil {
+		return nil, false
+	}
+	if payload, ok := source["heartbeat_payload"]; ok && payload != nil {
+		if bytes, err := normalizeRawJSON(payload); err == nil {
+			return append([]byte(nil), bytes...), true
+		} else {
+			log.Printf("[WebSocketCall] heartbeat_payload 解析失败: %v", err)
+		}
+	}
+	return nil, false
+}
+
+func parseHeartbeatOpcode(value string) int {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "text", "txt":
+		return websocket.TextMessage
+	case "binary", "bin":
+		return websocket.BinaryMessage
+	case "ping":
+		return websocket.PingMessage
+	case "pong":
+		return websocket.PongMessage
+	default:
+		return 0
+	}
+}
+
+func normalizeRawPayloads(value interface{}) ([][]byte, error) {
+	switch v := value.(type) {
+	case nil:
+		return nil, nil
+	case []byte, json.RawMessage, string, map[string]any:
+		bytes, err := normalizeRawJSON(v)
+		if err != nil {
+			return nil, err
+		}
+		if len(bytes) == 0 {
+			return nil, nil
+		}
+		return [][]byte{append([]byte(nil), bytes...)}, nil
+	case []interface{}:
+		var out [][]byte
+		for _, item := range v {
+			bytes, err := normalizeRawJSON(item)
+			if err != nil {
+				return nil, err
+			}
+			if len(bytes) == 0 {
+				continue
+			}
+			out = append(out, append([]byte(nil), bytes...))
+		}
+		return out, nil
+	case []string:
+		var out [][]byte
+		for _, item := range v {
+			if strings.TrimSpace(item) == "" {
+				continue
+			}
+			out = append(out, []byte(item))
+		}
+		return out, nil
+	default:
+		bytes, err := normalizeRawJSON(v)
+		if err != nil {
+			return nil, fmt.Errorf("unsupported subscribe_raw type %T", value)
+		}
+		if len(bytes) == 0 {
+			return nil, nil
+		}
+		return [][]byte{append([]byte(nil), bytes...)}, nil
+	}
 }

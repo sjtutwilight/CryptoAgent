@@ -7,6 +7,8 @@ import (
 	"io"
 	"log"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/caller"
@@ -14,7 +16,6 @@ import (
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/emitter"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/handler"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/queue"
-	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/resource"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/sink"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/status"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/types"
@@ -27,33 +28,19 @@ type Role struct {
 	singleEmitter  *emitter.Single
 	kafkaEmitter   *emitter.KafkaCommand
 	caller         caller.Caller
+	httpCaller     *caller.HTTPCall
 	q              *queue.BoundedQueue[*types.Message]
 	handlers       []handler.Handler
 	sink           sink.Sink
 	closers        []io.Closer
 	backfillCh     chan types.BackfillCmd
-	backfillers    map[string]caller.BlockFetcher
-	rateLimiter    *resource.RateLimiter // 限流器（可选）
 	statusReporter status.Reporter
+	lastSnapshotAt time.Time
+	backfillMu     sync.Mutex
 }
 
 func Build(rc config.RoleConfig) (*Role, error) {
-	// 1. 初始化限流器（如果配置了）
-	var rateLimiter *resource.RateLimiter
-	if rc.CallerConfig != nil {
-		if rateLimitCfg, ok := rc.CallerConfig["rate_limit"].(map[string]any); ok {
-			datasourceID := getStringValue(rc.CallerConfig, "datasource_id", rc.RoleID)
-			rlConfig, err := resource.ParseRateLimitConfig(rateLimitCfg)
-			if err != nil {
-				log.Printf("role %s: failed to parse rate_limit config: %v, skipping rate limiter", rc.RoleID, err)
-			} else {
-				rateLimiter = resource.GetManager().GetOrCreateRateLimiter(datasourceID, rlConfig)
-				log.Printf("role %s: enabled rate limiter for datasource '%s'", rc.RoleID, datasourceID)
-			}
-		}
-	}
-
-	// 2. 构造传入 caller 的参数：native_call 需要区分 caller_config / caller_params，其他 caller 直接使用 CallerParams
+	// 构造传入 caller 的参数：native_call 需要区分 caller_config / caller_params，其他 caller 直接使用 CallerParams
 	var paramsForCaller map[string]any
 	switch rc.Caller {
 	case "native_call":
@@ -78,7 +65,6 @@ func Build(rc config.RoleConfig) (*Role, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	handlers := make([]handler.Handler, 0, len(rc.Handlers))
 	backfillAware := make([]handler.BackfillCommandAware, 0)
 	var closers []io.Closer
@@ -104,6 +90,18 @@ func Build(rc config.RoleConfig) (*Role, error) {
 		}
 	}
 
+	var snapshotListeners []handler.SnapshotListener
+	for _, h := range handlers {
+		if listener, ok := h.(handler.SnapshotListener); ok {
+			snapshotListeners = append(snapshotListeners, listener)
+		}
+		if aware, ok := h.(handler.SnapshotListenerAware); ok {
+			for _, listener := range snapshotListeners {
+				aware.SetSnapshotListener(listener)
+			}
+		}
+	}
+
 	sk, err := sink.New(rc.Sink.Type, rc.Sink.With)
 	if err != nil {
 		return nil, err
@@ -117,21 +115,7 @@ func Build(rc config.RoleConfig) (*Role, error) {
 		handlers:       handlers,
 		sink:           sk,
 		closers:        closers,
-		backfillers:    make(map[string]caller.BlockFetcher),
-		rateLimiter:    rateLimiter,
 		statusReporter: status.Get(),
-	}
-
-	if exec, ok := cl.(caller.BlockFetcher); ok {
-		r.backfillers[exec.TransportName()] = exec
-	}
-	if provider, ok := cl.(caller.BackfillProvider); ok {
-		for _, extra := range provider.BackfillExecutors() {
-			if extra == nil {
-				continue
-			}
-			r.backfillers[extra.TransportName()] = extra
-		}
 	}
 
 	if len(backfillAware) > 0 {
@@ -139,9 +123,6 @@ func Build(rc config.RoleConfig) (*Role, error) {
 		r.backfillCh = ch
 		for _, aware := range backfillAware {
 			aware.SetBackfillChannel(ch)
-		}
-		if len(r.backfillers) == 0 {
-			log.Printf("role %s: backfill channel enabled but no executors registered", rc.RoleID)
 		}
 	}
 
@@ -356,15 +337,6 @@ func (r *Role) Start(ctx context.Context) error {
 		taskID := extractTaskID(args)
 		start := time.Now()
 
-		// 限流检查（如果配置了限流器）
-		if r.rateLimiter != nil {
-			if err := r.rateLimiter.Wait(ctx); err != nil {
-				log.Printf("role %s: rate limit wait error: %v", r.ID, err)
-				r.reportFailure(ctx, taskID, err, time.Since(start), true, 0, "rate limit wait error")
-				return
-			}
-		}
-
 		// 调用 caller
 		msgs, err := r.caller.CallOnce(ctx, args)
 		if err != nil {
@@ -378,7 +350,6 @@ func (r *Role) Start(ctx context.Context) error {
 			log.Printf("role %s: caller error: %v", r.ID, err)
 			return
 		}
-
 		// 消息入队
 		for _, m := range msgs {
 			if m == nil {
@@ -408,8 +379,7 @@ func (r *Role) Start(ctx context.Context) error {
 }
 
 func (r *Role) runBackfill(ctx context.Context) {
-	// 启动多个并发 worker 处理补数任务
-	const numWorkers = 3
+	const numWorkers = 1
 	for i := 0; i < numWorkers; i++ {
 		go func(workerID int) {
 			for {
@@ -417,44 +387,258 @@ func (r *Role) runBackfill(ctx context.Context) {
 				case <-ctx.Done():
 					return
 				case cmd := <-r.backfillCh:
-					if cmd.End < cmd.Start {
-						log.Printf("role %s worker-%d: invalid backfill range [%d, %d]", r.ID, workerID, cmd.Start, cmd.End)
-						continue
-					}
-					succeeded := false
-					for _, opt := range cmd.Options {
-						exec := r.backfillers[opt.Transport]
-						if exec == nil {
-							log.Printf("role %s worker-%d: backfill transport %s not available", r.ID, workerID, opt.Transport)
-							continue
-						}
-						msgs, err := exec.FetchBlocks(ctx, cmd.Start, cmd.End, opt.RPCMethod, opt.Params)
-						if err != nil {
-							log.Printf("role %s worker-%d: backfill %s [%d, %d] failed: %v", r.ID, workerID, opt.Transport, cmd.Start, cmd.End, err)
-							continue
-						}
-						for _, m := range msgs {
-							if m == nil {
-								continue
-							}
-							if err := r.q.Enqueue(ctx, m); err != nil {
-								log.Printf("role %s worker-%d: enqueue backfill message failed: %v", r.ID, workerID, err)
-								break
-							}
-						}
-						succeeded = true
-						log.Printf("role %s worker-%d: backfill [%d, %d] succeeded via %s", r.ID, workerID, cmd.Start, cmd.End, opt.Transport)
-						break
-					}
-					if !succeeded {
-						log.Printf("role %s worker-%d: backfill [%d, %d] all transports failed", r.ID, workerID, cmd.Start, cmd.End)
-					}
+					r.handleBackfillCmd(ctx, workerID, cmd)
 				}
 			}
 		}(i)
 	}
-	// 主协程保持存活直到 context 取消
 	<-ctx.Done()
+}
+
+func (r *Role) handleBackfillCmd(ctx context.Context, workerID int, cmd types.BackfillCmd) {
+	if len(cmd.Attempts) == 0 {
+		log.Printf("role %s worker-%d: backfill %s skipped (no attempts)", r.ID, workerID, cmd.Type)
+		return
+	}
+	for _, attempt := range cmd.Attempts {
+		if r.executeBackfillAttempt(ctx, workerID, cmd, attempt) {
+			switch cmd.Type {
+			case types.BackfillTypeSnapshot:
+				log.Printf("role %s worker-%d: snapshot backfill succeeded via %s", r.ID, workerID, attempt.Name)
+			case types.BackfillTypeRange:
+				log.Printf("role %s worker-%d: range backfill [%d, %d] succeeded via %s", r.ID, workerID, cmd.Start, cmd.End, attempt.Name)
+			default:
+				log.Printf("role %s worker-%d: backfill %s succeeded via %s", r.ID, workerID, cmd.Type, attempt.Name)
+			}
+			return
+		}
+		log.Printf("role %s worker-%d: backfill attempt %s failed for %s", r.ID, workerID, attempt.Name, cmd.Type)
+	}
+	log.Printf("role %s worker-%d: backfill %s exhausted (start=%d end=%d)", r.ID, workerID, cmd.Type, cmd.Start, cmd.End)
+}
+
+func (r *Role) executeBackfillAttempt(ctx context.Context, workerID int, cmd types.BackfillCmd, attempt types.BackfillAttempt) bool {
+	if len(attempt.Requests) == 0 {
+		return false
+	}
+	var cooldown time.Duration
+	if meta := extractMetadata(attempt.Requests[0].Args); meta != nil {
+		if v, ok := meta["backfill_cooldown_ms"]; ok {
+			switch vv := v.(type) {
+			case int64:
+				cooldown = time.Duration(vv) * time.Millisecond
+			case int:
+				cooldown = time.Duration(vv) * time.Millisecond
+			case float64:
+				cooldown = time.Duration(int64(vv)) * time.Millisecond
+			case string:
+				if n, err := strconv.ParseInt(vv, 10, 64); err == nil {
+					cooldown = time.Duration(n) * time.Millisecond
+				}
+			}
+		}
+	}
+	if cmd.Type == types.BackfillTypeSnapshot && cooldown > 0 {
+		for {
+			select {
+			case <-ctx.Done():
+				return false
+			default:
+			}
+			r.backfillMu.Lock()
+			wait := time.Until(r.lastSnapshotAt.Add(cooldown))
+			if wait <= 0 {
+				r.lastSnapshotAt = time.Now()
+				r.backfillMu.Unlock()
+				break
+			}
+			r.backfillMu.Unlock()
+			timer := time.NewTimer(wait)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return false
+			case <-timer.C:
+			}
+		}
+	}
+	for idx, req := range attempt.Requests {
+		select {
+		case <-ctx.Done():
+			return false
+		default:
+		}
+
+		args := cloneArgs(req.Args)
+		if args == nil {
+			args = map[string]any{}
+		}
+		if _, ok := args["transport"]; !ok && req.Transport != "" {
+			args["transport"] = req.Transport
+		}
+
+		meta := ensureMetadata(args)
+		if _, ok := meta["is_backfill"]; !ok {
+			meta["is_backfill"] = true
+		}
+		if _, ok := meta["backfill_type"]; !ok {
+			meta["backfill_type"] = cmd.Type
+		}
+		if attempt.Name != "" {
+			meta["backfill_attempt"] = attempt.Name
+		}
+		meta["backfill_step"] = idx + 1
+		meta["backfill_steps"] = len(attempt.Requests)
+		if cmd.Type == types.BackfillTypeSnapshot {
+			meta["snapshot"] = true
+		}
+		args["metadata"] = meta
+
+		msgs, err := r.executeBackfillRequest(ctx, strings.ToLower(req.Transport), args)
+		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return false
+			}
+			var callErr *caller.CallError
+			if errors.As(err, &callErr) {
+				log.Printf("role %s worker-%d: attempt %s request %d failed (status=%d retryable=%v): %v", r.ID, workerID, attempt.Name, idx+1, callErr.StatusCode, callErr.Retryable, callErr.Err)
+			} else {
+				log.Printf("role %s worker-%d: attempt %s request %d failed: %v", r.ID, workerID, attempt.Name, idx+1, err)
+			}
+			return false
+		}
+
+		for _, msg := range msgs {
+			if msg == nil {
+				continue
+			}
+			if msg.Metadata == nil {
+				msg.Metadata = map[string]any{}
+			}
+			if attempt.Name != "" {
+				msg.Metadata["backfill_attempt"] = attempt.Name
+			}
+			if _, ok := msg.Metadata["backfill_type"]; !ok {
+				msg.Metadata["backfill_type"] = cmd.Type
+			}
+			if cmd.Type == types.BackfillTypeSnapshot {
+				msg.Metadata["snapshot"] = true
+			}
+			if err := r.q.Enqueue(ctx, msg); err != nil {
+				log.Printf("role %s worker-%d: enqueue backfill message failed: %v", r.ID, workerID, err)
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func cloneArgs(src map[string]any) map[string]any {
+	if len(src) == 0 {
+		return map[string]any{}
+	}
+	dst := make(map[string]any, len(src))
+	for k, v := range src {
+		dst[k] = cloneValue(v)
+	}
+	return dst
+}
+
+func cloneValue(v interface{}) interface{} {
+	switch vv := v.(type) {
+	case map[string]any:
+		return cloneArgs(vv)
+	case map[interface{}]interface{}:
+		converted := make(map[string]any, len(vv))
+		for k, val := range vv {
+			converted[fmt.Sprint(k)] = cloneValue(val)
+		}
+		return converted
+	case []interface{}:
+		out := make([]interface{}, len(vv))
+		for i := range vv {
+			out[i] = cloneValue(vv[i])
+		}
+		return out
+	default:
+		return vv
+	}
+}
+
+func extractMetadata(args map[string]any) map[string]any {
+	if args == nil {
+		return nil
+	}
+	if meta, ok := args["metadata"].(map[string]any); ok {
+		return meta
+	}
+	return nil
+}
+
+func ensureMetadata(args map[string]any) map[string]any {
+	if args == nil {
+		args = map[string]any{}
+	}
+	if meta, ok := args["metadata"].(map[string]any); ok && meta != nil {
+		return meta
+	}
+	meta := map[string]any{}
+	args["metadata"] = meta
+	return meta
+}
+
+func (r *Role) executeBackfillRequest(ctx context.Context, transport string, args map[string]any) ([]*types.Message, error) {
+	mode := strings.ToLower(transport)
+	if mode == "" || mode == "default" {
+		if raw, ok := args["transport"].(string); ok {
+			mode = strings.ToLower(raw)
+		}
+	}
+	switch mode {
+	case "rest", "http", "https":
+		if err := r.ensureHTTPCaller(); err != nil {
+			return nil, err
+		}
+		if mode == types.BackfillTransportHTTP || mode == "http" || mode == "https" {
+			// default to REST when not explicitly specified
+			if _, ok := args["transport"].(string); !ok {
+				args["transport"] = "rest"
+			}
+		}
+		return r.httpCaller.CallOnce(ctx, args)
+	case "websocket", "rpc":
+		if args == nil {
+			args = map[string]any{}
+		}
+		if _, ok := args["rpc"]; !ok {
+			args["rpc"] = true
+		}
+		if _, ok := args["transport"].(string); !ok {
+			args["transport"] = "rpc"
+		}
+		return r.caller.CallOnce(ctx, args)
+	default:
+		return r.caller.CallOnce(ctx, args)
+	}
+}
+
+func (r *Role) ensureHTTPCaller() error {
+	if r.httpCaller != nil {
+		return nil
+	}
+	cfg := map[string]any{
+		"timeout_ms": 5000,
+		"rate_limit": map[string]any{
+			"capacity":    1,
+			"refill_rate": 0.066, // roughly one snapshot every 15s
+		},
+	}
+	call, err := caller.NewHTTPCall(cfg, map[string]any{})
+	if err != nil {
+		return fmt.Errorf("create http backfill caller: %w", err)
+	}
+	r.httpCaller = call
+	return nil
 }
 
 func (r *Role) consume(ctx context.Context) {
@@ -466,6 +650,7 @@ func (r *Role) consume(ctx context.Context) {
 		}
 		curMsgs := []*types.Message{msg}
 		handlerErr := error(nil)
+
 		for _, h := range r.handlers {
 			next := make([]*types.Message, 0, len(curMsgs))
 			for _, m := range curMsgs {

@@ -72,53 +72,160 @@ public class KlineData implements Serializable {
         private Boolean closed;
     }
     
-    /**
-     * 获取K线收盘价
-     */
-    public BigDecimal getClosePrice() {
-        return kline != null ? kline.getClosePrice() : null;
-    }
+    // ========== 便捷访问方法 ==========
     
     /**
-     * 获取K线开盘价
+     * 获取开盘价
      */
     public BigDecimal getOpenPrice() {
-        return kline != null ? kline.getOpenPrice() : null;
+        return kline != null ? kline.openPrice : null;
     }
     
     /**
-     * 获取K线最高价
+     * 获取收盘价
+     */
+    public BigDecimal getClosePrice() {
+        return kline != null ? kline.closePrice : null;
+    }
+    
+    /**
+     * 获取最高价
      */
     public BigDecimal getHighPrice() {
-        return kline != null ? kline.getHighPrice() : null;
+        return kline != null ? kline.highPrice : null;
     }
     
     /**
-     * 获取K线最低价
+     * 获取最低价
      */
     public BigDecimal getLowPrice() {
-        return kline != null ? kline.getLowPrice() : null;
+        return kline != null ? kline.lowPrice : null;
+    }
+    
+    /**
+     * 获取成交量
+     */
+    public BigDecimal getBaseVolume() {
+        return kline != null ? kline.baseVolume : null;
+    }
+    
+    /**
+     * 获取成交额
+     */
+    public BigDecimal getQuoteVolume() {
+        return kline != null ? kline.quoteVolume : null;
     }
     
     /**
      * 获取K线开始时间
      */
     public Long getStartTime() {
-        return kline != null ? kline.getStartTime() : null;
+        return kline != null ? kline.startTime : null;
     }
     
     /**
      * 获取K线结束时间
      */
     public Long getCloseTime() {
-        return kline != null ? kline.getCloseTime() : null;
+        return kline != null ? kline.closeTime : null;
     }
     
     /**
      * K线是否已完成
      */
     public Boolean isClosed() {
-        return kline != null && kline.getClosed() != null && kline.getClosed();
+        return kline != null ? kline.closed : null;
+    }
+    
+    /**
+     * 计算K线振幅（百分比）
+     * 振幅 = (最高价 - 最低价) / 最低价 * 100
+     */
+    public BigDecimal getAmplitude() {
+        if (kline == null || kline.highPrice == null || kline.lowPrice == null) {
+            return null;
+        }
+        
+        BigDecimal low = kline.lowPrice;
+        if (low.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO;
+        }
+        
+        return kline.highPrice.subtract(low)
+            .divide(low, 6, java.math.RoundingMode.HALF_UP)
+            .multiply(BigDecimal.valueOf(100));
+    }
+    
+    /**
+     * 计算涨跌幅（百分比）
+     * 涨跌幅 = (收盘价 - 开盘价) / 开盘价 * 100
+     */
+    public BigDecimal getChangePercent() {
+        if (kline == null || kline.openPrice == null || kline.closePrice == null) {
+            return null;
+        }
+        
+        BigDecimal open = kline.openPrice;
+        if (open.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO;
+        }
+        
+        return kline.closePrice.subtract(open)
+            .divide(open, 6, java.math.RoundingMode.HALF_UP)
+            .multiply(BigDecimal.valueOf(100));
+    }
+    
+    /**
+     * 判断是否为阳线
+     */
+    public boolean isBullish() {
+        if (kline == null || kline.openPrice == null || kline.closePrice == null) {
+            return false;
+        }
+        return kline.closePrice.compareTo(kline.openPrice) > 0;
+    }
+    
+    /**
+     * 判断是否为阴线
+     */
+    public boolean isBearish() {
+        if (kline == null || kline.openPrice == null || kline.closePrice == null) {
+            return false;
+        }
+        return kline.closePrice.compareTo(kline.openPrice) < 0;
+    }
+    
+    /**
+     * 计算K线实体大小（收盘价 - 开盘价的绝对值）
+     */
+    public BigDecimal getBodySize() {
+        if (kline == null || kline.openPrice == null || kline.closePrice == null) {
+            return null;
+        }
+        return kline.closePrice.subtract(kline.openPrice).abs();
+    }
+    
+    /**
+     * 计算上影线长度
+     */
+    public BigDecimal getUpperShadow() {
+        if (kline == null || kline.highPrice == null || 
+            kline.openPrice == null || kline.closePrice == null) {
+            return null;
+        }
+        BigDecimal bodyTop = kline.openPrice.max(kline.closePrice);
+        return kline.highPrice.subtract(bodyTop);
+    }
+    
+    /**
+     * 计算下影线长度
+     */
+    public BigDecimal getLowerShadow() {
+        if (kline == null || kline.lowPrice == null || 
+            kline.openPrice == null || kline.closePrice == null) {
+            return null;
+        }
+        BigDecimal bodyBottom = kline.openPrice.min(kline.closePrice);
+        return bodyBottom.subtract(kline.lowPrice);
     }
 }
-

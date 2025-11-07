@@ -37,15 +37,21 @@ func main() {
 	// 创建组件
 	dataGen := generator.NewDataGenerator(cfg)
 	faultInj := fault.NewFaultInjector(cfg)
+	binanceSim := generator.NewBinanceOrderBookSimulator(&cfg.Data.Binance)
 
 	// 创建控制器
 	wsController := controller.NewWebSocketController(cfg, dataGen, faultInj)
 	httpController := controller.NewHTTPController(cfg, dataGen, faultInj)
+	binanceController := controller.NewBinanceOrderBookController(cfg, binanceSim, faultInj)
 
 	// 启动WebSocket控制器
 	wsController.Start()
 	defer wsController.Stop()
 	defer dataGen.Stop() // 确保数据生成器优雅关闭
+	if binanceSim != nil {
+		binanceSim.Start()
+		defer binanceSim.Stop()
+	}
 
 	// 设置Gin模式
 	gin.SetMode(gin.ReleaseMode)
@@ -55,6 +61,9 @@ func main() {
 
 	// 设置路由
 	httpController.SetupRoutes(r)
+	if binanceController != nil {
+		binanceController.RegisterRoutes(r)
+	}
 
 	// WebSocket端点
 	r.GET("/ws", gin.WrapH(http.HandlerFunc(wsController.HandleWebSocket)))
