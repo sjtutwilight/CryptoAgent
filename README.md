@@ -1,16 +1,14 @@
-## 部分图表展示
-### kline及永续
-<img width="1080" height="509" alt="截屏2025-11-24 12 35 30" src="https://github.com/user-attachments/assets/a19d62e0-f443-4512-9d2f-a752e5516bc9" />
-### 链上看板（数据来自本地交易模拟器）
-<img width="1116" height="470" alt="截屏2025-11-24 12 35 40" src="https://github.com/user-attachments/assets/1bf06aca-c0a5-4b21-a634-2b6725c34a5b" />
-### ai投资助理
-
-<img width="389" height="554" alt="截屏2025-11-24 12 37 00" src="https://github.com/user-attachments/assets/842f8544-3f92-401b-a448-6f906018e403" />
-
 
 ## **项目介绍**
 
 本项目是一个**加密货币实时数据平台**。系统覆盖链上交易（DEX）、中心化交易所（Binance、Hyperliquid）、市场数据（CMC、QuickNode）等多源异构数据，提供从数据采集、实时处理到智能应用的端到端解决方案。
+## 部分图表展示
+kline及永续（数据来自binance stream及hyperliquid）、链上看板（数据来自本地交易模拟器）、ai投资助理
+<img width="1080" height="509" alt="截屏2025-11-24 12 35 30" src="https://github.com/user-attachments/assets/a19d62e0-f443-4512-9d2f-a752e5516bc9" />
+<img width="1116" height="470" alt="截屏2025-11-24 12 35 40" src="https://github.com/user-attachments/assets/1bf06aca-c0a5-4b21-a634-2b6725c34a5b" />
+
+<img width="389" height="554" alt="截屏2025-11-24 12 37 00" src="https://github.com/user-attachments/assets/842f8544-3f92-401b-a448-6f906018e403" />
+
 
 ## **系统架构**
 
