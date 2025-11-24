@@ -4,6 +4,7 @@
 ### 链上看板（数据来自本地交易模拟器）
 <img width="1116" height="470" alt="截屏2025-11-24 12 35 40" src="https://github.com/user-attachments/assets/1bf06aca-c0a5-4b21-a634-2b6725c34a5b" />
 ### ai投资助理
+
 <img width="389" height="554" alt="截屏2025-11-24 12 37 00" src="https://github.com/user-attachments/assets/842f8544-3f92-401b-a448-6f906018e403" />
 
 
