@@ -185,13 +185,13 @@ public class KlineRepositoryImpl implements KlineRepository {
         }
 
         if (startTime != null) {
-            where.append(" AND start_time >= ? ");
-            params.add(toTimestamp(startTime));
+            where.append(" AND start_time >= toDateTime(?) ");
+            params.add(startTime.toString());
         }
 
         if (endTime != null) {
-            where.append(" AND start_time <= ? ");
-            params.add(toTimestamp(endTime));
+            where.append(" AND start_time <= toDateTime(?) ");
+            params.add(endTime.toString());
         }
 
         String inner = """
@@ -279,13 +279,13 @@ public class KlineRepositoryImpl implements KlineRepository {
         appendOptionalInFilter(where, params, "indicator", indicators);
 
         if (startTime != null) {
-            where.append(" AND start_time >= ? ");
-            params.add(toTimestamp(startTime));
+            where.append(" AND start_time >= toDateTime(?) ");
+            params.add(startTime.toString());
         }
 
         if (endTime != null) {
-            where.append(" AND start_time <= ? ");
-            params.add(toTimestamp(endTime));
+            where.append(" AND start_time <= toDateTime(?) ");
+            params.add(endTime.toString());
         }
 
         String inner = """
@@ -346,10 +346,6 @@ public class KlineRepositoryImpl implements KlineRepository {
             return DEFAULT_SERIES_LIMIT;
         }
         return Math.min(limit, MAX_SERIES_LIMIT);
-    }
-
-    private Timestamp toTimestamp(LocalDateTime time) {
-        return time == null ? null : Timestamp.valueOf(time);
     }
 
     private String buildPlaceholders(int size) {

@@ -128,6 +128,7 @@ com/twilight/aggregator/model/perp/TradesSummary.class
 com/twilight/aggregator/process/kline/MultipleMAProcessor$MAValues.class
 com/twilight/aggregator/PerpContextMetricsJob.class
 com/twilight/aggregator/process/kline/indicators/volatility/ATRProcessor$ATRState.class
+com/twilight/aggregator/process/kline/MultipleMAProcessor$EMAValues.class
 com/twilight/aggregator/deserializer/AccountBalanceDeserializer.class
 com/twilight/aggregator/config/DatabaseConfig$SingletonHelper.class
 com/twilight/aggregator/process/common/RedisTokenMetricsBroadcaster.class

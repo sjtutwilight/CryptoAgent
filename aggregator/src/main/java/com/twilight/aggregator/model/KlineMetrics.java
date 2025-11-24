@@ -50,6 +50,9 @@ public class KlineMetrics implements Serializable {
     private BigDecimal mediumMa;
     private BigDecimal longMa;
 
+    private BigDecimal emaShortValue;
+    private BigDecimal emaLongValue;
+
     private KlineSignal.SignalType signalType;
     private BigDecimal signalStrength;
     private String signalDetail;

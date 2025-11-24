@@ -22,6 +22,7 @@
 /Users/yangguang/DataPlatform/backend/src/main/java/com/twilight/backend/model/TokenPnL.java
 /Users/yangguang/DataPlatform/backend/src/main/java/com/twilight/backend/config/WebConfig.java
 /Users/yangguang/DataPlatform/backend/src/main/java/com/twilight/backend/model/ApiResponse.java
+/Users/yangguang/DataPlatform/backend/src/main/java/com/twilight/backend/aspect/ControllerLoggingAspect.java
 /Users/yangguang/DataPlatform/backend/src/main/java/com/twilight/backend/util/TimeZoneUtil.java
 /Users/yangguang/DataPlatform/backend/src/main/java/com/twilight/backend/config/WebSocketConfig.java
 /Users/yangguang/DataPlatform/backend/src/main/java/com/twilight/backend/model/PerpContextMetric.java

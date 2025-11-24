@@ -297,3 +297,5 @@ public class EMAProcessor extends BaseIndicatorProcessor<EMAProcessor.EMAValue> 
 
 
 
+
+

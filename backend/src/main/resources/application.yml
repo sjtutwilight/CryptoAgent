@@ -68,7 +68,8 @@ server:
 logging:
   level:
     com.twilight.backend: INFO
-    org.springframework.jdbc.core: DEBUG
+    com.twilight.backend.aspect: INFO
+    org.springframework.jdbc.core: WARN
     org.springframework.web: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

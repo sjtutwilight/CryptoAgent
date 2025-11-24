@@ -68,8 +68,8 @@ public class KlineAnalyticsController {
             @PathVariable String symbol,
             @RequestParam(required = false) String exchange,
             @RequestParam(required = false, defaultValue = "1m") String interval,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime startTime,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime endTime,
             @RequestParam(required = false, defaultValue = "1000") Integer limit) {
 
         try {
@@ -94,8 +94,8 @@ public class KlineAnalyticsController {
             @RequestParam(required = false) String exchange,
             @RequestParam(required = false, defaultValue = "1m") String interval,
             @RequestParam(required = false) List<String> indicators,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime startTime,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime endTime,
             @RequestParam(required = false, defaultValue = "1000") Integer limit) {
 
         List<String> normalizedIndicators = normalizeQueryList(indicators);

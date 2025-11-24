@@ -324,9 +324,9 @@ public class ClickHouseSink<T> extends RichSinkFunction<T> {
         stmt.setString(2, metrics.getSymbol());
         stmt.setString(3, metrics.getInterval());
 
-        stmt.setTimestamp(4, metrics.getEventTime() != null ? new Timestamp(metrics.getEventTime()) : null);
-        stmt.setTimestamp(5, metrics.getStartTime() != null ? new Timestamp(metrics.getStartTime()) : null);
-        stmt.setTimestamp(6, metrics.getCloseTime() != null ? new Timestamp(metrics.getCloseTime()) : null);
+        stmt.setTimestamp(4, metrics.getStartTime() != null ? new Timestamp(metrics.getStartTime()) : null);
+        stmt.setTimestamp(5, metrics.getCloseTime() != null ? new Timestamp(metrics.getCloseTime()) : null);
+        stmt.setTimestamp(6, metrics.getEventTime() != null ? new Timestamp(metrics.getEventTime()) : null);
         stmt.setObject(7, metrics.getClosed(), java.sql.Types.BOOLEAN);
         stmt.setTimestamp(8, metrics.getIngestTime() != null ? new Timestamp(metrics.getIngestTime()) : null);
 
@@ -343,22 +343,24 @@ public class ClickHouseSink<T> extends RichSinkFunction<T> {
         stmt.setBigDecimal(17, metrics.getChangePercent());
 
         stmt.setObject(18, metrics.getShortPeriod(), java.sql.Types.INTEGER);
-        stmt.setObject(19, metrics.getMediumPeriod(), java.sql.Types.INTEGER);
-        stmt.setObject(20, metrics.getLongPeriod(), java.sql.Types.INTEGER);
-
-        stmt.setBigDecimal(21, metrics.getShortMa());
-        stmt.setBigDecimal(22, metrics.getMediumMa());
+        stmt.setBigDecimal(19, metrics.getShortMa());
+        stmt.setObject(20, metrics.getMediumPeriod(), java.sql.Types.INTEGER);
+        stmt.setBigDecimal(21, metrics.getMediumMa());
+        stmt.setObject(22, metrics.getLongPeriod(), java.sql.Types.INTEGER);
         stmt.setBigDecimal(23, metrics.getLongMa());
+        
+        stmt.setBigDecimal(24, metrics.getEmaShortValue());
+        stmt.setBigDecimal(25, metrics.getEmaLongValue());
 
-        stmt.setString(24, metrics.getSignalType() != null ? metrics.getSignalType().name() : KlineSignal.SignalType.HOLD.name());
-        stmt.setBigDecimal(25, metrics.getSignalStrength() != null ? metrics.getSignalStrength() : BigDecimal.ZERO);
-        stmt.setString(26, metrics.getSignalDetail() != null ? metrics.getSignalDetail() : "");
+        stmt.setString(26, metrics.getSignalType() != null ? metrics.getSignalType().name() : KlineSignal.SignalType.HOLD.name());
+        stmt.setBigDecimal(27, metrics.getSignalStrength() != null ? metrics.getSignalStrength() : BigDecimal.ZERO);
+        stmt.setString(28, metrics.getSignalDetail() != null ? metrics.getSignalDetail() : "");
         long signalTs = metrics.getSignalTimestamp() != null ? metrics.getSignalTimestamp() : System.currentTimeMillis();
-        stmt.setTimestamp(27, new Timestamp(signalTs));
+        stmt.setTimestamp(29, new Timestamp(signalTs));
 
         Timestamp now = new Timestamp(System.currentTimeMillis());
-        stmt.setTimestamp(28, now); // process_time
-        stmt.setTimestamp(29, now); // create_time
+        stmt.setTimestamp(30, now); // process_time
+        stmt.setTimestamp(31, now); // create_time
     }
 
     private void setIndicatorMetricParameters(PreparedStatement stmt, IndicatorMetric metric) throws SQLException {
@@ -409,12 +411,12 @@ public class ClickHouseSink<T> extends RichSinkFunction<T> {
 
     public static ClickHouseSink<KlineMetrics> createKlineMetricsSink() {
         String insertSql = "INSERT INTO kline_metrics " +
-                "(exchange, symbol, interval, event_time, start_time, close_time, is_closed, ingest_time, " +
+                "(exchange, symbol, interval, start_time, close_time, event_time, is_closed, ingest_time, " +
                 "open_price, high_price, low_price, close_price, base_volume, quote_volume, trade_count, " +
-                "amplitude_pct, change_pct, ma_short_period, ma_medium_period, ma_long_period, " +
-                "ma_short_value, ma_medium_value, ma_long_value, signal_type, signal_strength, signal_detail, " +
-                "signal_timestamp, process_time, create_time) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "amplitude_pct, change_pct, ma_short_period, ma_short_value, ma_medium_period, ma_medium_value, " +
+                "ma_long_period, ma_long_value, ema_short_value, ema_long_value, " +
+                "signal_type, signal_strength, signal_detail, signal_timestamp, process_time, create_time) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         return new ClickHouseSink<>("kline_metrics", insertSql, 500, 5000);
     }

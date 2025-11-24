@@ -100,3 +100,16 @@ BACKEND_API_CONFIG = {
     "base_url": os.getenv("BACKEND_API_URL", "http://localhost:8088/api/v1"),
     "timeout": int(os.getenv("API_TIMEOUT", "30"))
 }
+
+# Agent运行时配置
+AGENT_RUNTIME_CONFIG = {
+    "debug_enabled": os.getenv("AGENT_DEBUG", "false").lower() == "true",
+    # 每个会话保留的最近轮次（user+assistant 一组算一轮）
+    "max_history_turns": int(os.getenv("AGENT_MAX_HISTORY_TURNS", "6")),
+    # 当历史内容超过该字符数时触发压缩
+    "history_compact_threshold": int(os.getenv("AGENT_HISTORY_COMPACT_THRESHOLD", "2000")),
+    # 被压缩后保留的最近原文轮次
+    "preserve_recent_turns": int(os.getenv("AGENT_PRESERVE_RECENT_TURNS", "2")),
+    # 概要文本的最大字符数（超过后自动截断，仅保留末尾）
+    "history_summary_max_chars": int(os.getenv("AGENT_HISTORY_SUMMARY_MAX_CHARS", "4000"))
+}

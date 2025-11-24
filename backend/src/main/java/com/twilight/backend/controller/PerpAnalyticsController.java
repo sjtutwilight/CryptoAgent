@@ -72,8 +72,8 @@ public class PerpAnalyticsController {
             @PathVariable String symbol,
             @RequestParam(required = false) String exchange,
             @RequestParam(required = false, name = "algo") String algoVersion,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime startTime,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime endTime,
             @RequestParam(required = false, defaultValue = "1800") Integer limit) {
 
         try {
@@ -99,8 +99,8 @@ public class PerpAnalyticsController {
             @PathVariable String symbol,
             @RequestParam(required = false) String exchange,
             @RequestParam(required = false, name = "algo") String algoVersion,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime startTime,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime endTime,
             @RequestParam(required = false, defaultValue = "1440") Integer limit) {
 
         try {
@@ -126,8 +126,8 @@ public class PerpAnalyticsController {
             @PathVariable String symbol,
             @RequestParam(required = false) String exchange,
             @RequestParam(required = false, name = "algo") String algoVersion,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime startTime,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime endTime,
             @RequestParam(required = false, defaultValue = "1440") Integer limit) {
 
         try {
@@ -155,8 +155,8 @@ public class PerpAnalyticsController {
             @RequestParam(required = false) List<String> types,
             @RequestParam(required = false) List<String> levels,
             @RequestParam(required = false, name = "algo") String algoVersion,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime startTime,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss") LocalDateTime endTime,
             @RequestParam(required = false, defaultValue = "200") Integer limit) {
 
         List<String> normalizedSymbols = normalizeQueryList(symbols);

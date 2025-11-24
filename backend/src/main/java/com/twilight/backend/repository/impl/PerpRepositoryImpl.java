@@ -336,13 +336,13 @@ public class PerpRepositoryImpl implements PerpRepository {
         }
 
         if (startTime != null) {
-            where.append(" AND signal_time >= ? ");
-            params.add(toTimestamp(startTime));
+            where.append(" AND signal_time >= toDateTime(?) ");
+            params.add(startTime.toString());
         }
 
         if (endTime != null) {
-            where.append(" AND signal_time <= ? ");
-            params.add(toTimestamp(endTime));
+            where.append(" AND signal_time <= toDateTime(?) ");
+            params.add(endTime.toString());
         }
 
         String sql = """
@@ -395,13 +395,13 @@ public class PerpRepositoryImpl implements PerpRepository {
         }
 
         if (startTime != null) {
-            where.append(" AND end_time >= ? ");
-            params.add(toTimestamp(startTime));
+            where.append(" AND end_time >= toDateTime(?) ");
+            params.add(startTime.toString());
         }
 
         if (endTime != null) {
-            where.append(" AND end_time <= ? ");
-            params.add(toTimestamp(endTime));
+            where.append(" AND end_time <= toDateTime(?) ");
+            params.add(endTime.toString());
         }
     }
 
@@ -420,10 +420,6 @@ public class PerpRepositoryImpl implements PerpRepository {
             return DEFAULT_SERIES_LIMIT;
         }
         return Math.min(limit, MAX_SERIES_LIMIT);
-    }
-
-    private Timestamp toTimestamp(LocalDateTime time) {
-        return time == null ? null : Timestamp.valueOf(time);
     }
 
     private String buildPlaceholders(int size) {

@@ -11,6 +11,7 @@ import json
 
 from simple_agent import simple_agent as api_agent
 from api_tools import api_client
+from conversation_manager import conversation_manager
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -42,13 +43,30 @@ def chat():
                 "status": "error",
                 "error": "缺少查询参数"
             }), 400
-        
         user_query = data['query']
-        logger.info(f"收到对话请求: {user_query}")
-        
+        session_id = data.get("sessionId") or request.headers.get("X-Session-Id") or request.remote_addr or "default"
+        reset_flag = data.get("reset") is True
+
+        if reset_flag:
+            conversation_manager.reset(session_id)
+
+        logger.info(f"收到对话请求 session={session_id}: {user_query}")
+
+        history_ctx = conversation_manager.get_history(session_id)
+
         # 调用API代理处理查询
-        result = api_agent.process_query(user_query)
-        
+        result = api_agent.process_query(
+            user_query,
+            history=history_ctx.get("turns"),
+            summary=history_ctx.get("summary", "")
+        )
+
+        if result.get("status") == "success":
+            conversation_manager.append_turn(session_id, "user", user_query)
+            conversation_manager.append_turn(session_id, "assistant", result.get("answer", ""))
+
+        result["sessionId"] = session_id
+
         return jsonify(result)
         
     except Exception as e:
@@ -129,6 +147,22 @@ def get_examples():
             ]
         },
         {
+            "category": "K线决策",
+            "examples": [
+                "比较 OKX 与 Binance 上 BTCUSDT 近30分钟(1m)的涨跌与成交量差异",
+                "分析 ETHUSDT 在 5m 级别的 MACD/RSI 信号是否共振",
+                "筛选 5m 周期内涨幅最大的前5个交易对并给出关键指标"
+            ]
+        },
+        {
+            "category": "永续监控",
+            "examples": [
+                "查看 Hyperliquid 平台永续面板中点差最低的交易对",
+                "分析 BTCUSDT 永续近30分钟的执行面指标是否出现流动性恶化",
+                "列出最近的永续异常信号并按严重等级排序"
+            ]
+        },
+        {
             "category": "系统查询",
             "examples": [
                 "检查系统状态",
@@ -147,6 +181,7 @@ def run_cli():
     print("🤖 AI 区块链数据分析助手启动")
     print("我可以帮您查询代币信息、账户详情、市场分析等数据")
     print("输入 'help' 查看示例，输入 'quit' 或 'exit' 退出\n")
+    session_id = "cli"
     
     while True:
         try:
@@ -165,14 +200,27 @@ def run_cli():
                 print("• 检查系统状态")
                 print("-" * 50)
                 continue
+
+            if user_input.lower() == 'reset':
+                conversation_manager.reset(session_id)
+                print("🧹 会话记忆已清空")
+                print("-" * 50)
+                continue
             
             if not user_input:
                 continue
             
             print("🔍 正在分析查询...")
-            result = api_agent.process_query(user_input)
+            history_ctx = conversation_manager.get_history(session_id)
+            result = api_agent.process_query(
+                user_input,
+                history=history_ctx.get("turns"),
+                summary=history_ctx.get("summary", "")
+            )
             
             if result.get("status") == "success":
+                conversation_manager.append_turn(session_id, "user", user_input)
+                conversation_manager.append_turn(session_id, "assistant", result.get("answer", ""))
                 print("🎯 分析结果:")
                 print(result["answer"])
             else:

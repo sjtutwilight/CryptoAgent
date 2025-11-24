@@ -50,11 +50,18 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
     private final int mediumPeriod;  // 中期MA周期
     private final int longPeriod;    // 长期MA周期
     
+    // EMA周期配置（用于kline_metrics表）
+    private static final int EMA_SHORT_PERIOD = 12;  // 短期EMA周期
+    private static final int EMA_LONG_PERIOD = 26;   // 长期EMA周期
+    
     // 状态：价格队列（用于计算MA）
     private transient ValueState<Deque<BigDecimal>> priceQueueState;
     
     // 状态：上一次的MA值（用于判断交叉）
     private transient ValueState<MAValues> lastMAState;
+    
+    // 状态：EMA值（用于计算指数移动平均）
+    private transient ValueState<EMAValues> lastEMAState;
     
     /**
      * 构造函数（使用默认MA周期）
@@ -108,8 +115,16 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
             );
         lastMAState = getRuntimeContext().getState(lastMADescriptor);
         
-        log.info("MultipleMAProcessor initialized with periods: short={}, medium={}, long={}", 
-                 shortPeriod, mediumPeriod, longPeriod);
+        // 初始化EMA值状态
+        ValueStateDescriptor<EMAValues> lastEMADescriptor = 
+            new ValueStateDescriptor<>(
+                "last-ema-values",
+                TypeInformation.of(EMAValues.class)
+            );
+        lastEMAState = getRuntimeContext().getState(lastEMADescriptor);
+        
+        log.info("MultipleMAProcessor initialized with periods: short={}, medium={}, long={}, emaShort={}, emaLong={}", 
+                 shortPeriod, mediumPeriod, longPeriod, EMA_SHORT_PERIOD, EMA_LONG_PERIOD);
     }
     
     @Override
@@ -159,6 +174,15 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
         BigDecimal mediumMA = calculateMA(priceQueue, mediumPeriod);
         BigDecimal longMA = calculateMA(priceQueue, longPeriod);
         
+        // 计算EMA（短期和长期）
+        EMAValues lastEMA = lastEMAState.value();
+        BigDecimal emaShort = calculateEMA(closePrice, lastEMA != null ? lastEMA.emaShort : null, EMA_SHORT_PERIOD);
+        BigDecimal emaLong = calculateEMA(closePrice, lastEMA != null ? lastEMA.emaLong : null, EMA_LONG_PERIOD);
+        
+        // 更新EMA状态
+        EMAValues currentEMA = new EMAValues(emaShort, emaLong);
+        lastEMAState.update(currentEMA);
+        
         // 获取上一次的MA值
         MAValues lastMA = lastMAState.value();
         
@@ -199,6 +223,8 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
                     .shortMa(shortMA)
                     .mediumMa(mediumMA)
                     .longMa(longMA)
+                    .emaShortValue(emaShort)
+                    .emaLongValue(emaLong)
                     .signalType(signalResult.getSignalType())
                     .signalStrength(signalResult.getSignalStrength())
                     .signalDetail(signalResult.getSignalDetail())
@@ -273,6 +299,27 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
         }
         
         return sum.divide(BigDecimal.valueOf(period), 8, RoundingMode.HALF_UP);
+    }
+    
+    /**
+     * 计算指数移动平均（EMA）
+     * EMA = Price * k + EMA(previous) * (1 - k)
+     * 其中 k = 2 / (period + 1)
+     */
+    private BigDecimal calculateEMA(BigDecimal currentPrice, BigDecimal previousEMA, int period) {
+        if (previousEMA == null) {
+            // 第一次计算，使用当前价格作为初始EMA
+            return currentPrice;
+        }
+        
+        // k = 2 / (period + 1)
+        BigDecimal k = BigDecimal.valueOf(2)
+            .divide(BigDecimal.valueOf(period + 1), 8, RoundingMode.HALF_UP);
+        
+        // EMA = Price * k + EMA(previous) * (1 - k)
+        return currentPrice.multiply(k)
+            .add(previousEMA.multiply(BigDecimal.ONE.subtract(k)))
+            .setScale(8, RoundingMode.HALF_UP);
     }
     
     /**
@@ -492,6 +539,23 @@ public class MultipleMAProcessor extends KeyedProcessFunction<String, KlineData,
             this.shortMA = shortMA;
             this.mediumMA = mediumMA;
             this.longMA = longMA;
+        }
+    }
+    
+    /**
+     * EMA值的数据结构
+     */
+    public static class EMAValues implements java.io.Serializable {
+        private static final long serialVersionUID = 1L;
+        
+        public BigDecimal emaShort;
+        public BigDecimal emaLong;
+        
+        public EMAValues() {}
+        
+        public EMAValues(BigDecimal emaShort, BigDecimal emaLong) {
+            this.emaShort = emaShort;
+            this.emaLong = emaLong;
         }
     }
 }
