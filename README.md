@@ -1,29 +1,11 @@
 ## 部分图表展示
-### kline
-<img width="899" height="398" alt="截屏2025-11-24 12 32 15" src="https://github.com/user-attachments/assets/a9ad91aa-0377-4895-8cf5-a8eeded8aab6" />
-
-![截屏2025-11-07 14.21.00.png](attachment:5077ec31-a600-43b3-a4c1-1efc16abbe07:截屏2025-11-07_14.21.00.png)
-### 永续
-![截屏2025-11-08 13.23.10.png](attachment:c7462d31-c6a0-4d90-93b5-320ff24a7cc2:截屏2025-11-08_13.23.10.png)
-
-![截屏2025-11-08 13.23.37.png](attachment:bdfcc9ca-07af-4713-a5b2-d48d0250e84d:截屏2025-11-08_13.23.37.png)
-
+### kline及永续
+<img width="1080" height="509" alt="截屏2025-11-24 12 35 30" src="https://github.com/user-attachments/assets/a19d62e0-f443-4512-9d2f-a752e5516bc9" />
+### 链上看板（数据来自本地交易模拟器）
+<img width="1116" height="470" alt="截屏2025-11-24 12 35 40" src="https://github.com/user-attachments/assets/1bf06aca-c0a5-4b21-a634-2b6725c34a5b" />
 ### ai投资助理
+<img width="389" height="554" alt="截屏2025-11-24 12 37 00" src="https://github.com/user-attachments/assets/842f8544-3f92-401b-a448-6f906018e403" />
 
-![截屏2025-11-10 13.26.50.png](attachment:9c2ae716-ea39-4f5b-9a7c-9bb4f9f7d306:截屏2025-11-10_13.26.50.png)
-
-## 链上看板（数据来自本地交易模拟器）
-
-### 代币大盘&交易流
-
-![截屏2025-10-19 09.52.27.png](attachment:219de428-69e4-456a-9624-63b8d3d42d98:截屏2025-10-19_09.52.27.png)
-
-![截屏2025-10-19 09.52.46.png](attachment:23986d87-9fc5-47fc-85f3-1a0d6f17e05c:截屏2025-10-19_09.52.46.png)
-
-![截屏2025-10-19 09.53.51.png](attachment:1960e5ed-b0ba-4265-bc54-31a2e3eb0e9e:截屏2025-10-19_09.53.51.png)
-
-![截屏2025-10-19 09.53.26.png](attachment:3fd7f8d4-ca04-46dd-b2a5-09d086a6b643:截屏2025-10-19_09.53.26.png)
-# **系统总览**
 
 ## **项目介绍**
 
