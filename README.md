@@ -1,22 +1,10 @@
-# 系统总览
+# **系统总览**
 
-## 项目介绍
+## **项目介绍**
 
-本项目是一个**实时金融数据平台**，专注于加密货币市场的全链路数据处理。系统覆盖链上交易（DEX）、中心化交易所（Binance、Hyperliquid）、市场数据（CMC、QuickNode）等多源异构数据，提供从数据采集、实时处理到智能应用的端到端解决方案。
+本项目是一个**加密货币实时数据平台**。系统覆盖链上交易（DEX）、中心化交易所（Binance、Hyperliquid）、市场数据（CMC、QuickNode）等多源异构数据，提供从数据采集、实时处理到智能应用的端到端解决方案。
 
-**核心能力**：
-- **高可靠数据接入**：支持WebSocket/HTTP多协议，具备完整性保障、智能补数、多级限流等机制
-- **实时流处理**：基于Flink的流式计算，支持链上盈亏分析、Token指标聚合、永续合约监控等业务场景
-- **高性能存储**：ClickHouse时序数据库，支持物化视图与Projection优化，查询性能达毫秒级
-- **智能应用层**：提供RESTful API、可视化前端、AI Agent等多种数据消费方式
-
-**技术特色**：
-- 控制面与数据面分离的分布式架构
-- 配置驱动的统一Worker框架
-- 三维完整性保障（顺序性、完整性、幂等性）
-- 标准化算子层设计，支持业务快速迭代
-
-## 系统架构
+## **系统架构**
 
 ```mermaid
 graph TB
@@ -26,34 +14,35 @@ graph TB
         DS3[市场数据<br/>CMC/QuickNode]
         DS4[仿真数据源<br/>MockProvider/LocalNode]
     end
-    
+
     subgraph "数据接入层 Injector"
         C[控制面<br/>任务调度/限流/状态管理]
         W[Worker集群<br/>配置驱动/完整性保障]
         C -.任务下发/状态上报.-> W
     end
-    
+
     subgraph "消息队列"
         K[Kafka Topics]
     end
-    
+
     subgraph "数据处理层 Aggregator"
         F1[链上数据处理<br/>PnL/Token指标/账户余额]
         F2[K线分析<br/>技术指标/信号生成]
         F3[永续合约分析<br/>执行面/语境面/拥挤度]
     end
-    
-    subgraph "数据存储层"
-        CH[(ClickHouse<br/>时序数据库)]
-        MV[物化视图<br/>查询优化]
+		subgraph 数据存储层
+        clickhouse
+        postgresql
+        redis
+        paimon
     end
-    
+
     subgraph "数据应用层"
         API[RESTful API]
         FE[可视化前端]
         AG[AI Agent<br/>LangGraph]
     end
-    
+
     DS1 --> W
     DS2 --> W
     DS3 --> W
@@ -62,22 +51,21 @@ graph TB
     K --> F1
     K --> F2
     K --> F3
-    F1 --> CH
-    F2 --> CH
-    F3 --> CH
-    CH --> MV
-    MV --> API
+    F1 --> 数据存储层
+    F2 -->  数据存储层
+    F3 -->  数据存储层
+     数据存储层--> API
     API --> FE
     API --> AG
-    
+
     style C fill:#fff4e1
     style W fill:#e1f5ff
     style K fill:#ffe0b2
     style F1 fill:#f3e5f5
     style F2 fill:#f3e5f5
     style F3 fill:#f3e5f5
-    style CH fill:#e8f5e9
     style AG fill:#fce4ec
+
 ```
 # 数据接入层
 
