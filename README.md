@@ -1,27 +1,19 @@
+中文文档见https://github.com/sjtutwilight/CryptoAgent/blob/main/README_%E4%B8%AD%E6%96%87.md
+# **real-time cryptocurrency data platform**
 # **System Overview**
-
 ## **Project Introduction**
-
-This project is a **real-time cryptocurrency data platform**.
-
 The system integrates multiple heterogeneous data sources—including on-chain transactions (DEX), centralized exchanges (Binance, Hyperliquid), and market data providers (CMC, QuickNode)—to deliver an end-to-end solution covering data ingestion, real-time processing, and intelligent applications.
-
 ### Partial chart display
-
 kline and perp (data from binance stream and hyperliquid), on-chain Kanban (data from local trading simulator), ai investment assistant
-
 <img width="1080" height="509" alt="截屏2025-11-24 12 35 30" src="https://github.com/user-attachments/assets/a19d62e0-f443-4512-9d2f-a752e5516bc9" />
 <img width="1116" height="470" alt="截屏2025-11-24 12 35 40" src="https://github.com/user-attachments/assets/1bf06aca-c0a5-4b21-a634-2b6725c34a5b" />
-
 <img width="389" height="554" alt="截屏2025-11-24 12 37 00" src="https://github.com/user-attachments/assets/842f8544-3f92-401b-a448-6f906018e403" />
-
 ## **System Architecture**
-
 ```mermaid
 graph TB
     subgraph "Data Source Layer"
-        DS1[On-chain Data<br/>DEX/ERC20]
-        DS2[Centralized Exchanges<br/>Binance/Hyperliquid]
+        DS1[On-chain Data<br/>DEX/ERC20/Hyperliquid]
+        DS2[Centralized Exchanges<br/>Binance]
         DS3[Market Data<br/>CMC/QuickNode]
         DS4[Simulated Sources<br/>MockProvider/LocalNode]
     end
@@ -42,11 +34,11 @@ graph TB
         F3[Perpetual Contracts Analysis<br/>Execution / Context / Market Congestion]
     end
 
-    subgraph "Data Storage Layer"
-        clickhouse
-        postgresql
-        redis
-        paimon
+    subgraph CH ["Data Storage Layer"]
+        Clickhouse
+        Postgresql
+        Redis
+        Paimon
     end
 
     subgraph "Data Application Layer"
@@ -63,10 +55,10 @@ graph TB
     K --> F1
     K --> F2
     K --> F3
-    F1 --> 数据存储层
-    F2 --> 数据存储层
-    F3 --> 数据存储层
-    数据存储层 --> API
+    F1 --> CH 
+    F2 --> CH 
+    F3 --> CH 
+    CH  --> API
     API --> FE
     API --> AG
 
@@ -79,11 +71,8 @@ graph TB
     style AG fill:#fce4ec
 
 ```
-
 # Data Ingestion Layer
-
 ### Highlights
-
 - **Separation of control plane and data plane:**
     - The control plane is responsible for task lifecycle management (dispatch, retry, status tracking), global rate limiting, and data quality checks.
     - The data plane pulls data from sources in a **configuration-driven** way.
@@ -91,7 +80,6 @@ graph TB
 - **High reliability — four key mechanisms:** Data integrity guard module, timestamp-based delayed scheduling, task state management with multi-level retries, and multi-level rate limiting.
 
 ## Overall Architecture
-
 ```mermaid
 graph TD
   subgraph source
@@ -120,30 +108,22 @@ graph TD
 ```
 
 ## Real Data Sources
-
 - Binance spot stream
 - Binance perp stream
 - Hyperliquid
 - CoinMarketCap
 - QuickNode
-
 ## Simulated Data Sources
 
 Besides real nodes, the project introduces simulated data sources to better reproduce rare events that occur in production.
-
 ### `localnode`
-
 - **Self-hosted DEX:**
-    
     A local DEX built on a Hardhat node, modeled after Uniswap V2 and implemented with Solidity 0.8.x.
-    
 - **Trade simulator:**
     - Simulates common patterns on real DEXes: minting tokens, adding liquidity to pools, executing trades, etc.
     - Accounts are tagged as CEX, smart money, public figure, fresh wallet, etc. Per-tag behavioral patterns are not yet differentiated.
-    
 
 ### `MockDataProvider`
-
 Used to validate **non-functional behavior** of the ingestion layer. Core modules:
 
 - **dataGenerator:** mock data generator
@@ -1050,11 +1030,7 @@ graph TB
 
 ## Query Layer
 
-*(Omitted here – this section is a placeholder for API / SQL query patterns over ClickHouse / StarRocks / Paimon.)*
-
 ## Frontend
-
-*(Omitted here – placeholder for dashboard / UI usage of the above metrics.)*
 
 ## Agent Layer
 
