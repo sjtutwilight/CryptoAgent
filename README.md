@@ -1,5 +1,7 @@
 ## 部分图表展示
 ### kline
+<img width="899" height="398" alt="截屏2025-11-24 12 32 15" src="https://github.com/user-attachments/assets/a9ad91aa-0377-4895-8cf5-a8eeded8aab6" />
+
 ![截屏2025-11-07 14.21.00.png](attachment:5077ec31-a600-43b3-a4c1-1efc16abbe07:截屏2025-11-07_14.21.00.png)
 ### 永续
 ![截屏2025-11-08 13.23.10.png](attachment:c7462d31-c6a0-4d90-93b5-320ff24a7cc2:截屏2025-11-08_13.23.10.png)
