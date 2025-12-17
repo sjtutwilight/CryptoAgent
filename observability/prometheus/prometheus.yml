@@ -1,0 +1,142 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'dataplatform-monitor'
+
+# 告警规则文件
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+# Alertmanager配置（如果启用）
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
+
+scrape_configs:
+  # ==================== Prometheus 自身监控 ====================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          component: 'prometheus'
+
+  # ==================== Kafka 监控 ====================
+  
+  # Kafka Exporter - topic/consumer lag 指标
+  - job_name: 'kafka-exporter'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['obs-kafka-exporter:9308']
+        labels:
+          instance: 'kafka:29092'
+          component: 'kafka'
+
+  # Kafka JMX Exporter（如果启用）
+  # - job_name: 'kafka-jmx'
+  #   scrape_interval: 15s
+  #   static_configs:
+  #     - targets: ['kafka:9101']
+  #       labels:
+  #         component: 'kafka'
+  #         exporter: 'jmx'
+
+  # ==================== Flink 监控 ====================
+  
+  # Flink JobManager metrics
+  - job_name: 'flink-jobmanager'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['jobmanager:9249']
+        labels:
+          component: 'flink-jobmanager'
+
+  # Flink TaskManager metrics
+  # 使用 Docker Compose 内部 DNS 名称，端口与 config.yaml 中的 metrics.reporter.prom.port 一致
+  - job_name: 'flink-taskmanager'
+    scrape_interval: 15s
+    static_configs:
+      - targets: 
+          - 'dataplatform-taskmanager-1:9250'
+          - 'dataplatform-taskmanager-2:9250'
+          - 'dataplatform-taskmanager-3:9250'
+        labels:
+          component: 'flink-taskmanager'
+
+  # ==================== ClickHouse 监控 ====================
+  
+  # ClickHouse 内置 Prometheus metrics 端点
+  - job_name: 'clickhouse'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['clickhouse:9363']
+        labels:
+          component: 'clickhouse'
+
+  # ==================== Worker 监控 ====================
+  
+  # Data Injector Worker metrics
+  # Worker默认在9100端口暴露metrics
+  - job_name: 'worker'
+    scrape_interval: 15s
+    # 如果Worker运行在容器中
+    # static_configs:
+    #   - targets: ['worker:9100']
+    #     labels:
+    #       component: 'worker'
+    # 如果Worker运行在宿主机
+    static_configs:
+      - targets: ['host.docker.internal:9100']
+        labels:
+          component: 'worker'
+          service: 'datainjector'
+
+  # ==================== Backend 监控 ====================
+  
+  # Spring Boot Backend metrics (通过Actuator暴露)
+  - job_name: 'backend'
+    scrape_interval: 15s
+    metrics_path: '/api/actuator/prometheus'
+    # 如果Backend运行在容器中
+    # static_configs:
+    #   - targets: ['backend:8088']
+    #     labels:
+    #       component: 'backend'
+    # 如果Backend运行在宿主机
+    static_configs:
+      - targets: ['host.docker.internal:8088']
+        labels:
+          component: 'backend'
+          service: 'twilight-backend'
+
+  # ==================== 基础设施监控 ====================
+  
+  # Redis 监控 (需要启用 redis-exporter)
+  # - job_name: 'redis'
+  #   scrape_interval: 15s
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
+  #       labels:
+  #         instance: 'redis:6379'
+  #         component: 'redis'
+
+  # PostgreSQL 监控 (需要启用 postgres-exporter)
+  # - job_name: 'postgres'
+  #   scrape_interval: 15s
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+  #       labels:
+  #         instance: 'postgres:5432'
+  #         component: 'postgres'
+
+  # ==================== Node Exporter（可选）====================
+  
+  # 主机资源监控
+  # - job_name: 'node'
+  #   scrape_interval: 15s
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']
+  #       labels:
+  #         component: 'host'

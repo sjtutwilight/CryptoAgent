@@ -156,4 +156,12 @@ datasources:
       rateLimitInterval: 60
       maxRetryCount: 5
       enabled: true
+    
+    # Dune Sim API (Token Holders 等离线数据)
+    DuneSim:
+      dataSourceId: "DuneSim"
+      rateLimitWeight: 100  # 每60秒100次请求
+      rateLimitInterval: 60
+      maxRetryCount: 3
+      enabled: true
  

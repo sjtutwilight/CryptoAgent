@@ -61,17 +61,30 @@ func (k *KafkaCommand) Start(ctx context.Context, fire func(args map[string]any)
 			return fmt.Errorf("kafka_command: read message failed: %w", err)
 		}
 
+		log.Printf("[KafkaCommand] 收到消息: topic=%s partition=%d offset=%d size=%d",
+			m.Topic, m.Partition, m.Offset, len(m.Value))
+
 		var payload map[string]any
 		if err := json.Unmarshal(m.Value, &payload); err != nil {
-			log.Printf("[KafkaCommand] invalid message, offset=%d error=%v", m.Offset, err)
+			log.Printf("[KafkaCommand] invalid message, offset=%d error=%v, raw=%s", m.Offset, err, string(m.Value))
 			_ = k.reader.CommitMessages(ctx, m)
 			continue
 		}
 
+		log.Printf("[KafkaCommand] 解析成功，payload keys: %v", getKeys(payload))
 		fire(payload)
+		log.Printf("[KafkaCommand] fire() 调用完成")
 
 		if err := k.reader.CommitMessages(ctx, m); err != nil {
 			log.Printf("[KafkaCommand] commit failed offset=%d err=%v", m.Offset, err)
 		}
 	}
+}
+
+func getKeys(m map[string]any) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }

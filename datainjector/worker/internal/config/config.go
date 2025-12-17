@@ -30,7 +30,15 @@ type RoleConfig struct {
 
 type Config struct {
 	StatusReporter StatusReporterConfig `yaml:"status_reporter"`
+	Metrics        MetricsConfig        `yaml:"metrics"`
 	Roles          []RoleConfig         `yaml:"roles"`
+}
+
+// MetricsConfig Prometheus metrics配置
+type MetricsConfig struct {
+	Enabled bool   `yaml:"enabled"` // 是否启用metrics暴露，默认true
+	Port    int    `yaml:"port"`    // metrics HTTP端口，默认9100
+	Path    string `yaml:"path"`    // metrics路径，默认/metrics
 }
 
 type StatusReporterConfig struct {
@@ -61,6 +69,13 @@ func Load(path string) (*Config, error) {
 	if cfg.StatusReporter.Topic == "" {
 		cfg.StatusReporter.Topic = "tasks.status"
 	}
+	// 设置metrics默认值
+	if cfg.Metrics.Port == 0 {
+		cfg.Metrics.Port = 9100
+	}
+	if cfg.Metrics.Path == "" {
+		cfg.Metrics.Path = "/metrics"
+	}
 	for i := range cfg.Roles {
 		if err := cfg.Roles[i].validate(); err != nil {
 			return nil, fmt.Errorf("role[%d] %w", i, err)
@@ -89,7 +104,7 @@ func (r *RoleConfig) validate() error {
 		return fmt.Errorf("role %s: unsupported emitter %q", r.RoleID, r.Emitter)
 	}
 
-	// 支持sdk_call、balance_snapshot、native_call
+	// 支持sdk_call、balance_snapshot、native_call、metadata_kafka
 	switch r.Caller {
 	case "sdk_call", "balance_snapshot":
 		if r.CallerClass == "" {
@@ -98,6 +113,14 @@ func (r *RoleConfig) validate() error {
 	case "native_call":
 		if r.CallerConfig == nil {
 			return fmt.Errorf("role %s: native_call requires caller_config", r.RoleID)
+		}
+	case "batch_file":
+		if r.CallerConfig == nil {
+			return fmt.Errorf("role %s: batch_file requires caller_config", r.RoleID)
+		}
+	case "metadata_kafka", "metadata_postgres", "metadata_clickhouse":
+		if r.CallerParams == nil {
+			return fmt.Errorf("role %s: %s requires caller_params", r.RoleID, r.Caller)
 		}
 	default:
 		return fmt.Errorf("role %s: unsupported caller %q", r.RoleID, r.Caller)

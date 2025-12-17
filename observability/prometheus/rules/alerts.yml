@@ -1,0 +1,344 @@
+# DataPlatform 告警规则
+# 覆盖 Kafka、Flink、ClickHouse、Worker、Backend 等关键组件
+
+groups:
+  # ==================== Kafka 告警 ====================
+  - name: kafka_alerts
+    rules:
+      # Consumer Lag 告警
+      - alert: KafkaConsumerLagHigh
+        expr: kafka_consumergroup_lag > 10000
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: "Kafka消费者延迟过高"
+          description: "消费组 {{ $labels.consumergroup }} 在topic {{ $labels.topic }} 上的lag为 {{ $value }}，超过10000条"
+
+      - alert: KafkaConsumerLagCritical
+        expr: kafka_consumergroup_lag > 100000
+        for: 2m
+        labels:
+          severity: critical
+          component: kafka
+        annotations:
+          summary: "Kafka消费者延迟严重"
+          description: "消费组 {{ $labels.consumergroup }} 在topic {{ $labels.topic }} 上的lag为 {{ $value }}，超过100000条"
+
+      # Topic 分区 Under-replicated
+      - alert: KafkaUnderReplicatedPartitions
+        expr: kafka_topic_partition_under_replicated_partition > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: "Kafka分区副本不足"
+          description: "Topic {{ $labels.topic }} 存在under-replicated分区"
+
+      # Broker 离线
+      - alert: KafkaBrokerDown
+        expr: kafka_brokers < 1
+        for: 1m
+        labels:
+          severity: critical
+          component: kafka
+        annotations:
+          summary: "Kafka Broker离线"
+          description: "可用Broker数量为 {{ $value }}"
+
+  # ==================== Flink 告警 ====================
+  - name: flink_alerts
+    rules:
+      # Checkpoint 失败
+      - alert: FlinkCheckpointFailed
+        expr: increase(flink_jobmanager_job_numberOfFailedCheckpoints[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: flink
+        annotations:
+          summary: "Flink Checkpoint失败"
+          description: "Job {{ $labels.job_name }} 在过去5分钟内有 {{ $value }} 次checkpoint失败"
+
+      # Checkpoint 持续时间过长
+      - alert: FlinkCheckpointDurationHigh
+        expr: flink_jobmanager_job_lastCheckpointDuration > 60000
+        for: 5m
+        labels:
+          severity: warning
+          component: flink
+        annotations:
+          summary: "Flink Checkpoint耗时过长"
+          description: "Job {{ $labels.job_name }} 的checkpoint耗时 {{ $value }}ms，超过60秒"
+
+      # TaskManager 内存使用过高
+      - alert: FlinkTaskManagerMemoryHigh
+        expr: flink_taskmanager_Status_JVM_Memory_Heap_Used / flink_taskmanager_Status_JVM_Memory_Heap_Max > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: flink
+        annotations:
+          summary: "Flink TaskManager内存使用过高"
+          description: "TaskManager {{ $labels.tm_id }} 堆内存使用率超过90%"
+
+      # Job 重启次数过多
+      - alert: FlinkJobRestartsTooMany
+        expr: increase(flink_jobmanager_job_numRestarts[1h]) > 5
+        for: 1m
+        labels:
+          severity: warning
+          component: flink
+        annotations:
+          summary: "Flink Job重启次数过多"
+          description: "Job {{ $labels.job_name }} 在过去1小时内重启了 {{ $value }} 次"
+
+      # 背压检测
+      - alert: FlinkBackpressureHigh
+        expr: flink_taskmanager_job_task_backPressuredTimeMsPerSecond > 500
+        for: 5m
+        labels:
+          severity: warning
+          component: flink
+        annotations:
+          summary: "Flink任务背压过高"
+          description: "Task {{ $labels.task_name }} 背压时间 {{ $value }}ms/s"
+
+  # ==================== ClickHouse 告警 ====================
+  - name: clickhouse_alerts
+    rules:
+      # 写入延迟过高
+      - alert: ClickHouseInsertLatencyHigh
+        expr: ClickHouseProfileEvents_InsertedRows / ClickHouseProfileEvents_InsertQuery > 0 and ClickHouseProfileEvents_InsertQueryTimeMicroseconds / ClickHouseProfileEvents_InsertQuery / 1000 > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: clickhouse
+        annotations:
+          summary: "ClickHouse写入延迟过高"
+          description: "ClickHouse平均写入延迟超过1秒"
+
+      # Merge队列积压
+      - alert: ClickHouseMergeBacklog
+        expr: ClickHouseMetrics_BackgroundMergesInProgress > 10
+        for: 10m
+        labels:
+          severity: warning
+          component: clickhouse
+        annotations:
+          summary: "ClickHouse Merge队列积压"
+          description: "当前有 {{ $value }} 个后台Merge任务在运行"
+
+      # 内存使用过高
+      - alert: ClickHouseMemoryHigh
+        expr: ClickHouseMetrics_MemoryTracking / 1024 / 1024 / 1024 > 8
+        for: 5m
+        labels:
+          severity: warning
+          component: clickhouse
+        annotations:
+          summary: "ClickHouse内存使用过高"
+          description: "ClickHouse内存使用 {{ $value }}GB"
+
+      # 查询数过多
+      - alert: ClickHouseQueriesHigh
+        expr: rate(ClickHouseProfileEvents_Query[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: clickhouse
+        annotations:
+          summary: "ClickHouse查询QPS过高"
+          description: "ClickHouse查询QPS为 {{ $value }}"
+
+      # 连接数过多
+      - alert: ClickHouseConnectionsHigh
+        expr: ClickHouseMetrics_TCPConnection > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: clickhouse
+        annotations:
+          summary: "ClickHouse连接数过多"
+          description: "当前TCP连接数为 {{ $value }}"
+
+  # ==================== Worker 告警 ====================
+  - name: worker_alerts
+    rules:
+      # Worker 离线
+      - alert: WorkerDown
+        expr: up{job="worker"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: worker
+        annotations:
+          summary: "Worker服务离线"
+          description: "Worker实例 {{ $labels.instance }} 无法访问"
+
+      # 消息处理错误率过高
+      - alert: WorkerErrorRateHigh
+        expr: rate(worker_messages_processed_total{status="error"}[5m]) / rate(worker_messages_processed_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: worker
+        annotations:
+          summary: "Worker消息处理错误率过高"
+          description: "Role {{ $labels.role_id }} 的错误率超过5%"
+
+      # 队列积压
+      - alert: WorkerQueueBacklog
+        expr: worker_queue_size / worker_queue_capacity > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: worker
+        annotations:
+          summary: "Worker队列积压"
+          description: "Role {{ $labels.role_id }} 的队列使用率超过80%"
+
+      # WebSocket 连接断开
+      - alert: WorkerWebSocketDisconnected
+        expr: worker_websocket_connections == 0
+        for: 2m
+        labels:
+          severity: warning
+          component: worker
+        annotations:
+          summary: "Worker WebSocket连接断开"
+          description: "Role {{ $labels.role_id }} 的WebSocket连接已断开"
+
+      # 补数失败率过高
+      - alert: WorkerBackfillFailureHigh
+        expr: rate(worker_integrity_backfills_total{status="failed"}[5m]) / rate(worker_integrity_backfills_total[5m]) > 0.3
+        for: 5m
+        labels:
+          severity: warning
+          component: worker
+        annotations:
+          summary: "Worker补数失败率过高"
+          description: "Role {{ $labels.role_id }} 的补数失败率超过30%"
+
+      # Gap检测过多
+      - alert: WorkerIntegrityGapsHigh
+        expr: rate(worker_integrity_gaps_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: worker
+        annotations:
+          summary: "Worker序列号Gap过多"
+          description: "Role {{ $labels.role_id }} 每分钟检测到 {{ $value }} 个Gap"
+
+  # ==================== Backend 告警 ====================
+  - name: backend_alerts
+    rules:
+      # Backend 离线
+      - alert: BackendDown
+        expr: up{job="backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: backend
+        annotations:
+          summary: "Backend服务离线"
+          description: "Backend实例 {{ $labels.instance }} 无法访问"
+
+      # API 响应时间过长
+      - alert: BackendLatencyHigh
+        expr: histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{job="backend"}[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: backend
+        annotations:
+          summary: "Backend API响应时间过长"
+          description: "Backend P95响应时间超过2秒"
+
+      # API 错误率过高
+      - alert: BackendErrorRateHigh
+        expr: rate(http_server_requests_seconds_count{job="backend",status=~"5.."}[5m]) / rate(http_server_requests_seconds_count{job="backend"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: backend
+        annotations:
+          summary: "Backend API错误率过高"
+          description: "Backend 5xx错误率超过5%"
+
+      # JVM 堆内存使用过高
+      - alert: BackendHeapMemoryHigh
+        expr: jvm_memory_used_bytes{job="backend",area="heap"} / jvm_memory_max_bytes{job="backend",area="heap"} > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          component: backend
+        annotations:
+          summary: "Backend JVM堆内存使用过高"
+          description: "Backend堆内存使用率超过85%"
+
+      # GC 时间过长
+      - alert: BackendGCTimeHigh
+        expr: rate(jvm_gc_pause_seconds_sum{job="backend"}[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: backend
+        annotations:
+          summary: "Backend GC时间过长"
+          description: "Backend GC暂停时间超过500ms/s"
+
+      # 数据库连接池耗尽
+      - alert: BackendDBConnectionPoolExhausted
+        expr: hikaricp_connections_active{job="backend"} / hikaricp_connections_max{job="backend"} > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: backend
+        annotations:
+          summary: "Backend数据库连接池接近耗尽"
+          description: "连接池 {{ $labels.pool }} 使用率超过90%"
+
+  # ==================== 通用基础设施告警 ====================
+  - name: infrastructure_alerts
+    rules:
+      # 磁盘空间不足
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "磁盘空间不足"
+          description: "{{ $labels.mountpoint }} 可用空间低于10%"
+
+      # CPU 使用率过高
+      - alert: CPUUsageHigh
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "CPU使用率过高"
+          description: "实例 {{ $labels.instance }} CPU使用率超过85%"
+
+      # 内存使用率过高
+      - alert: MemoryUsageHigh
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "内存使用率过高"
+          description: "实例 {{ $labels.instance }} 内存使用率超过90%"
+
+
+
+
+

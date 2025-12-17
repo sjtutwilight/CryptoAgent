@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import io.lettuce.core.RedisClient;
+import com.twilight.aggregator.config.BaseConfig;
 public class EventEnrichmentMap extends RichMapFunction<ProcessEvent, ProcessEvent> {
 
     private static final Logger log = LoggerFactory.getLogger(EventEnrichmentMap.class);
@@ -181,6 +182,7 @@ public class EventEnrichmentMap extends RichMapFunction<ProcessEvent, ProcessEve
 public static class RedisSyncConfig implements Serializable {
 
     private static final long serialVersionUID = 1L;
+    private static final Logger LOG = LoggerFactory.getLogger(RedisSyncConfig.class);
 
     private static volatile RedisSyncConfig INSTANCE;
     private static volatile RedisClient redisClient;
@@ -202,15 +204,33 @@ public static class RedisSyncConfig implements Serializable {
     }
 
     /**
+     * 构建 Redis URI，从配置文件读取 host/port/password
+     * 格式：redis://[:password@]host:port/db
+     */
+    private String buildRedisUri() {
+        String host = BaseConfig.getStaticProperty("redis.host", "localhost");
+        String port = BaseConfig.getStaticProperty("redis.port", "6379");
+        String password = BaseConfig.getStaticProperty("redis.password", "");
+        
+        String uri;
+        if (password != null && !password.isEmpty()) {
+            uri = String.format("redis://:%s@%s:%s/", password, host, port);
+        } else {
+            uri = String.format("redis://%s:%s/", host, port);
+        }
+        LOG.info("Redis Lettuce 连接地址: redis://{}:{}/", host, port);
+        return uri;
+    }
+
+    /**
      * 获取 Lettuce 连接（同步 API）
      */
     public StatefulRedisConnection<String, String> getConnection() {
         if (connection == null || !connection.isOpen()) {
             synchronized (RedisSyncConfig.class) {
                 if (connection == null || !connection.isOpen()) {
-                    // ⚠️ 这里的地址请根据你的 docker-compose 修改
-                    // 格式：redis://[:password@]host:port/db
-                    redisClient = RedisClient.create("redis://localhost:6379/");
+                    String redisUri = buildRedisUri();
+                    redisClient = RedisClient.create(redisUri);
                     connection = redisClient.connect();
                 }
             }

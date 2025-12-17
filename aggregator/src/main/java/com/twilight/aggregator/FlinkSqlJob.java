@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Flink SQL Job - 将Kafka数据导入到Paimon数据湖
- * 基于runtime/sql/dex.sql的逻辑实现
+ * 基于runtime/batch/sql/dex.sql的逻辑实现
  * 
  * 新增功能：交易事实表(account_trade_fact)数据处理
  * - 从Kafka dex_transaction主题消费Swap事件

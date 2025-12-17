@@ -32,7 +32,14 @@ func New(name, class string, params map[string]any) (Caller, error) {
 	f, ok := registry[name]
 	mu.RUnlock()
 	if !ok {
-		return nil, fmt.Errorf("caller %q not found", name)
+		// 调试：列出所有已注册的 caller
+		mu.RLock()
+		var registered []string
+		for k := range registry {
+			registered = append(registered, k)
+		}
+		mu.RUnlock()
+		return nil, fmt.Errorf("caller %q not found (registered: %v)", name, registered)
 	}
 	return f(class, params)
 }

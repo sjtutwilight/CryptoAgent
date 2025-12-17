@@ -1,0 +1,173 @@
+{
+  "mock": {
+    "chain_id": "31337",
+    "start_time_utc": "2024-01-01T00:00:00Z",
+    "hours": 24,
+    "base_events_per_hour": 600,
+    "block_interval": 12,
+    "price_noise_bps": 80,
+    "qty_range": [0.5, 800.0],
+    "seed": 1701
+  },
+  "accounts": [
+    {
+      "account_id": 10001,
+      "address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "account_type": "INSTITUTION",
+      "entity_category": "CEX_HOT",
+      "region": "SG",
+      "risk_tier": "LOW",
+      "kyc_level": "FULL",
+      "vip_level": 9,
+      "labels": ["cex", "market_maker"],
+      "status": "ACTIVE"
+    },
+    {
+      "account_id": 10002,
+      "address": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+      "account_type": "HEDGE_FUND",
+      "entity_category": "SMART_MONEY",
+      "region": "HK",
+      "risk_tier": "MEDIUM",
+      "kyc_level": "ENHANCED",
+      "vip_level": 6,
+      "labels": ["smart", "momentum"],
+      "status": "ACTIVE"
+    },
+    {
+      "account_id": 10003,
+      "address": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
+      "account_type": "WHITELISTED_OTC",
+      "entity_category": "WHALE",
+      "region": "US",
+      "risk_tier": "MEDIUM",
+      "kyc_level": "FULL",
+      "vip_level": 8,
+      "labels": ["whale", "long_only"],
+      "status": "ACTIVE"
+    },
+    {
+      "account_id": 10004,
+      "address": "0x90f79bf6eb2c4f870365e785982e1f101e93b906",
+      "account_type": "RETAIL",
+      "entity_category": "FRESH_WALLET",
+      "region": "BR",
+      "risk_tier": "HIGH",
+      "kyc_level": "BASIC",
+      "vip_level": 2,
+      "labels": ["fresh", "airdrop"],
+      "status": "ACTIVE"
+    },
+    {
+      "account_id": 10005,
+      "address": "0x15d34aaf54267db7d7c367839aaf71a00a2c6a65",
+      "account_type": "KOL",
+      "entity_category": "PUBLIC_FIGURE",
+      "region": "KR",
+      "risk_tier": "LOW",
+      "kyc_level": "FULL",
+      "vip_level": 4,
+      "labels": ["public", "trend"],
+      "status": "ACTIVE"
+    }
+  ],
+  "tokens": [
+    {
+      "token_id": 2001,
+      "symbol": "USDC",
+      "address": "0x74a6379d012ce53e3b0718c05dd72a3de87f0c6a",
+      "decimals": 6,
+      "base_price_usd": 1.0,
+      "volatility_bps": 10,
+      "liquidity_rank": 1,
+      "circulating_supply": 50000000000,
+      "weight": 0.35
+    },
+    {
+      "token_id": 2002,
+      "symbol": "WETH",
+      "address": "0xecc540e356b9e7c6e17fea13c6fe192debefb51d",
+      "decimals": 18,
+      "base_price_usd": 2200.0,
+      "volatility_bps": 350,
+      "liquidity_rank": 1,
+      "circulating_supply": 120000000,
+      "weight": 0.25
+    },
+    {
+      "token_id": 2003,
+      "symbol": "DAI",
+      "address": "0x89343b04616a13b0199e983a98e6dc26d2c10d92",
+      "decimals": 18,
+      "base_price_usd": 1.0,
+      "volatility_bps": 20,
+      "liquidity_rank": 2,
+      "circulating_supply": 6000000000,
+      "weight": 0.1
+    },
+    {
+      "token_id": 2004,
+      "symbol": "TWI",
+      "address": "0x9500df4dc53b890ba4796f4b69dac74eb8fb9cf8",
+      "decimals": 18,
+      "base_price_usd": 0.42,
+      "volatility_bps": 1800,
+      "liquidity_rank": 3,
+      "circulating_supply": 2000000000,
+      "weight": 0.2
+    },
+    {
+      "token_id": 2005,
+      "symbol": "WBTC",
+      "address": "0x90054c46cf65a3271785da0d01b02716f78215ce",
+      "decimals": 8,
+      "base_price_usd": 47000.0,
+      "volatility_bps": 250,
+      "liquidity_rank": 1,
+      "circulating_supply": 150000,
+      "weight": 0.1
+    }
+  ],
+  "pairs": [
+    {
+      "pair_id": 3001,
+      "pair_address": "0x1d7673a54e7e1d025972f611cb9a46b2e10b146c",
+      "token0_id": 2001,
+      "token1_id": 2002,
+      "fee_tier_bps": 30,
+      "base_liquidity_usd": 12000000
+    },
+    {
+      "pair_id": 3002,
+      "pair_address": "0x42dc661996ed42cd310e3939dc7013f3320634d8",
+      "token0_id": 2002,
+      "token1_id": 2003,
+      "fee_tier_bps": 30,
+      "base_liquidity_usd": 6000000
+    },
+    {
+      "pair_id": 3003,
+      "pair_address": "0xa98d7353be3eb045c229f46cbaf3b95199a187b9",
+      "token0_id": 2001,
+      "token1_id": 2003,
+      "fee_tier_bps": 5,
+      "base_liquidity_usd": 4000000
+    },
+    {
+      "pair_id": 3004,
+      "pair_address": "0x3d36a38c4b22ac87c1a5d185fd510a49f7469ce5",
+      "token0_id": 2004,
+      "token1_id": 2002,
+      "fee_tier_bps": 100,
+      "base_liquidity_usd": 1500000
+    },
+    {
+      "pair_id": 3005,
+      "pair_address": "0xb4108122d9964e7272a2a6a75a0ce1ade72f1599",
+      "token0_id": 2005,
+      "token1_id": 2002,
+      "fee_tier_bps": 25,
+      "base_liquidity_usd": 9000000
+    }
+  ]
+}

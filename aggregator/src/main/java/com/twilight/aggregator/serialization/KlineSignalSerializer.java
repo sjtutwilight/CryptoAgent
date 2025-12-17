@@ -44,3 +44,4 @@ public class KlineSignalSerializer implements SerializationSchema<KlineSignal> {
 
 
 
+

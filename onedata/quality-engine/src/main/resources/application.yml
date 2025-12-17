@@ -1,0 +1,91 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: quality-engine
+
+  # 禁用Spring Boot自动数据源配置
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+
+  # PostgreSQL 配置 (规则配置/告警记录)
+  datasource:
+    postgres:
+      url: jdbc:postgresql://localhost:5432/twilight
+      username: twilight
+      password: twilight123
+      max-pool-size: 10
+      min-idle: 2
+
+  # Kafka 配置
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: quality-engine
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        max.poll.records: 500
+        max.poll.interval.ms: 300000
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+# ClickHouse 配置 (时序指标存储)
+clickhouse:
+  url: jdbc:clickhouse://localhost:8123/default
+  username: default
+  password: ""
+  driver-class-name: com.clickhouse.jdbc.ClickHouseDriver
+
+# 质量引擎配置
+quality:
+  # 规则引擎配置
+  rule:
+    config-path: classpath:rules/default-rules.yml
+    
+  # 窗口聚合配置
+  window:
+    default-size-ms: 60000      # 默认1分钟窗口
+    flush-interval-ms: 10000    # 10秒检查一次窗口
+    
+  # 告警配置
+  alert:
+    channels:
+      kafka:
+        enabled: true
+        topic: quality.alerts
+        min-level: WARNING
+      webhook:
+        enabled: false
+        url: ${WEBHOOK_URL:}
+        min-level: CRITICAL
+    rate-limit:
+      window-seconds: 60
+      max-alerts-per-rule: 5    # 每分钟每规则最多5条告警
+
+  # 指标落库配置
+  metric:
+    batch-size: 100
+    flush-interval-ms: 5000
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.twilight.quality: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Actuator 配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always

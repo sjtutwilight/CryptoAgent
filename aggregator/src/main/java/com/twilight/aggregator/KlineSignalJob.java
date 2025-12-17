@@ -52,7 +52,7 @@ import com.twilight.aggregator.sink.ClickHouseSink;
  */
 public class KlineSignalJob {
     private static final Logger log = LoggerFactory.getLogger(KlineSignalJob.class);
-    private static final FlinkConfig config = FlinkConfig.getInstance();
+    private static FlinkConfig config;
     
     // Kafka配置
     private static final String KLINE_SOURCE_TOPIC = "binance.kline";
@@ -64,6 +64,7 @@ public class KlineSignalJob {
     private static final int LONG_MA_PERIOD = 20;    // 长期MA周期
     
     public static void main(String[] args) throws Exception {
+        config = FlinkConfig.getInstance();
         log.info("🚀 Starting Kline Signal Generation Job (Multiple MA Strategy)");
         
         // ===== Step 1: 设置执行环境 =====

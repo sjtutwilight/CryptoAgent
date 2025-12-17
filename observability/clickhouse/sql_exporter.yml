@@ -1,0 +1,88 @@
+# ClickHouse SQL Exporter 配置
+global:
+  scrape_timeout: 10s
+  min_interval: 15s
+
+target:
+  data_source_name: 'clickhouse://default:@clickhouse:9000/default'
+  collectors:
+    - clickhouse_metrics
+
+collectors:
+  - collector_name: clickhouse_metrics
+    metrics:
+      # 查询数量
+      - metric_name: clickhouse_query_count
+        type: counter
+        help: 'Total number of queries'
+        values: [value]
+        query: |
+          SELECT count() as value FROM system.query_log WHERE type = 'QueryFinish'
+
+      # 当前运行的查询
+      - metric_name: clickhouse_running_queries
+        type: gauge
+        help: 'Number of currently running queries'
+        values: [value]
+        query: |
+          SELECT count() as value FROM system.processes
+
+      # 数据库大小 (bytes)
+      - metric_name: clickhouse_database_size_bytes
+        type: gauge
+        help: 'Database size in bytes'
+        key_labels: [database]
+        values: [bytes]
+        query: |
+          SELECT database, sum(bytes_on_disk) as bytes 
+          FROM system.parts 
+          WHERE active 
+          GROUP BY database
+
+      # 表行数
+      - metric_name: clickhouse_table_rows
+        type: gauge
+        help: 'Number of rows in tables'
+        key_labels: [database, table]
+        values: [rows]
+        query: |
+          SELECT database, table, sum(rows) as rows 
+          FROM system.parts 
+          WHERE active 
+          GROUP BY database, table
+
+      # 内存使用
+      - metric_name: clickhouse_memory_usage_bytes
+        type: gauge
+        help: 'Current memory usage'
+        values: [value]
+        query: |
+          SELECT sum(value) as value FROM system.metrics WHERE metric = 'MemoryTracking'
+
+      # 连接数
+      - metric_name: clickhouse_connections
+        type: gauge
+        help: 'Number of connections'
+        values: [value]
+        query: |
+          SELECT value FROM system.metrics WHERE metric = 'TCPConnection'
+
+      # 合并操作
+      - metric_name: clickhouse_merges
+        type: gauge
+        help: 'Number of active merges'
+        values: [value]
+        query: |
+          SELECT count() as value FROM system.merges
+
+      # 复制延迟
+      - metric_name: clickhouse_replication_lag_seconds
+        type: gauge
+        help: 'Replication lag in seconds'
+        key_labels: [database, table]
+        values: [lag]
+        query: |
+          SELECT database, table, absolute_delay as lag 
+          FROM system.replicas 
+          WHERE absolute_delay > 0
+

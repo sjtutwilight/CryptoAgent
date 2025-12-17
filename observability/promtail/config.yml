@@ -1,0 +1,216 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # ==================== Docker 容器日志采集 ====================
+  - job_name: docker-containers
+    pipeline_stages:
+      - docker: {}
+      - labels:
+          container: container_name
+          image: image
+      # 为不同组件添加标签
+      - match:
+          selector: '{container=~"flink.*"}'
+          stages:
+            - labels:
+                component: flink
+      - match:
+          selector: '{container=~".*kafka.*"}'
+          stages:
+            - labels:
+                component: kafka
+      - match:
+          selector: '{container=~"clickhouse.*"}'
+          stages:
+            - labels:
+                component: clickhouse
+      - match:
+          selector: '{container=~"obs-.*"}'
+          stages:
+            - labels:
+                component: observability
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: docker
+          __path__: /var/lib/docker/containers/*/*.log
+
+  # ==================== Flink 应用日志 ====================
+  - job_name: flink-logs
+    pipeline_stages:
+      - regex:
+          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) (?P<level>\w+)\s+(?P<logger>[\w.]+)\s+\[(?P<thread>[^\]]+)\]\s+-\s+(?P<message>.*)$'
+      - labels:
+          level:
+          logger:
+          thread:
+      - timestamp:
+          source: timestamp
+          format: '2006-01-02 15:04:05,000'
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: flink
+          component: flink
+          __path__: /var/log/app/runtime/flink/*.log
+
+  # ==================== Worker 日志采集 ====================
+  # Worker运行在宿主机时，需要挂载对应目录
+  - job_name: worker-logs
+    pipeline_stages:
+      # Go标准日志格式: 2024/01/15 10:30:45 message
+      - regex:
+          expression: '^(?P<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}) (?P<message>.*)$'
+      - timestamp:
+          source: timestamp
+          format: '2006/01/02 15:04:05'
+      # 提取日志级别（如果有）
+      - regex:
+          expression: '(?P<level>INFO|WARN|ERROR|DEBUG|FATAL)'
+          source: message
+      - labels:
+          level:
+      # 提取role_id
+      - regex:
+          expression: 'role (?P<role_id>[\w-]+):'
+          source: message
+      - labels:
+          role_id:
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: worker
+          component: worker
+          service: datainjector
+          __path__: /var/log/app/worker/*.log
+
+  # ==================== Backend 日志采集 ====================
+  # Spring Boot 日志格式
+  - job_name: backend-logs
+    pipeline_stages:
+      # Spring Boot默认日志格式
+      - regex:
+          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\s+\[(?P<thread>[^\]]+)\]\s+(?P<level>\w+)\s+(?P<logger>[\w.]+)\s+-\s+(?P<message>.*)$'
+      - labels:
+          level:
+          logger:
+          thread:
+      - timestamp:
+          source: timestamp
+          format: '2006-01-02 15:04:05.000'
+      # 提取trace_id（如果有）
+      - regex:
+          expression: 'traceId=(?P<trace_id>\w+)'
+          source: message
+      - labels:
+          trace_id:
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: backend
+          component: backend
+          service: twilight-backend
+          __path__: /var/log/app/backend/*.log
+
+  # 直接采集backend/logs目录
+  - job_name: backend-logs-direct
+    pipeline_stages:
+      - regex:
+          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\s+\[(?P<thread>[^\]]+)\]\s+(?P<level>\w+)\s+(?P<logger>[\w.]+)\s+-\s+(?P<message>.*)$'
+      - labels:
+          level:
+          logger:
+          thread:
+      - timestamp:
+          source: timestamp
+          format: '2006-01-02 15:04:05.000'
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: backend
+          component: backend
+          service: twilight-backend
+          __path__: /var/log/app/twilight-backend*.log
+
+  # ==================== 应用 JSON 格式日志 ====================
+  - job_name: app-json-logs
+    pipeline_stages:
+      - json:
+          expressions:
+            level: level
+            logger: logger
+            thread: thread
+            message: message
+            timestamp: timestamp
+            trace_id: trace_id
+            span_id: span_id
+            role_id: role_id
+            datasource_id: datasource_id
+      - labels:
+          level:
+          trace_id:
+          span_id:
+          role_id:
+          datasource_id:
+      - timestamp:
+          source: timestamp
+          format: RFC3339
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: application
+          __path__: /var/log/app/*.json
+
+  # ==================== Aggregator (Flink Jobs) 日志 ====================
+  - job_name: aggregator-logs
+    pipeline_stages:
+      - regex:
+          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) (?P<level>\w+)\s+(?P<logger>[\w.]+)\s+\[(?P<thread>[^\]]+)\]\s+-\s+(?P<message>.*)$'
+      - labels:
+          level:
+          logger:
+          thread:
+      - timestamp:
+          source: timestamp
+          format: '2006-01-02 15:04:05,000'
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: aggregator
+          component: flink
+          service: aggregator
+          __path__: /var/log/app/aggregator/*.log
+
+  # ==================== ClickHouse 日志 ====================
+  - job_name: clickhouse-logs
+    pipeline_stages:
+      - regex:
+          expression: '^(?P<timestamp>\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}:\d{2}\.\d+) \[ (?P<thread_id>\d+) \] \{(?P<query_id>[^}]*)\} <(?P<level>\w+)> (?P<logger>[\w.]+): (?P<message>.*)$'
+      - labels:
+          level:
+          logger:
+      - timestamp:
+          source: timestamp
+          format: '2006.01.02 15:04:05.000000'
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: clickhouse
+          component: clickhouse
+          __path__: /var/log/clickhouse-server/*.log

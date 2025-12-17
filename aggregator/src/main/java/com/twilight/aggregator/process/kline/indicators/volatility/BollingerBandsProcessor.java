@@ -335,3 +335,4 @@ public class BollingerBandsProcessor extends BaseIndicatorProcessor<BollingerBan
 
 
 
+

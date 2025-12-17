@@ -1,0 +1,49 @@
+# Flink 配置文件 - 用于可观测性
+# 注意：docker-compose 中的 FLINK_PROPERTIES 环境变量会覆盖此配置
+
+# 基础配置
+jobmanager.rpc.address: jobmanager
+jobmanager.rpc.port: 6123
+jobmanager.bind-host: 0.0.0.0
+jobmanager.memory.process.size: 1600m
+
+taskmanager.bind-host: 0.0.0.0
+taskmanager.host: taskmanager
+taskmanager.memory.process.size: 1728m
+taskmanager.numberOfTaskSlots: 4
+
+# REST API
+rest.bind-address: 0.0.0.0
+rest.port: 8081
+rest.address: jobmanager
+
+# 并行度
+parallelism.default: 2
+
+# 状态后端
+state.backend: rocksdb
+
+# 心跳配置
+heartbeat.interval: 10000
+heartbeat.timeout: 50000
+
+# 故障恢复
+jobmanager.execution.failover-strategy: region
+
+# Blob Server
+blob.server.port: 6124
+query.server.port: 6125
+
+# ==================== Prometheus Metrics 配置 ====================
+# 启用 Prometheus Reporter
+metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+
+# JobManager metrics 端口 (默认 9249)
+# TaskManager metrics 端口 (默认 9250)
+# 注意：实际端口在 docker-compose 中通过 FLINK_PROPERTIES 配置
+
+# Metrics 通用配置
+metrics.scope.delimiter: .
+metrics.latency.interval: 5s
+metrics.reporter.prom.host: 0.0.0.0
+metrics.reporter.prom.largest-label-value-length: 256

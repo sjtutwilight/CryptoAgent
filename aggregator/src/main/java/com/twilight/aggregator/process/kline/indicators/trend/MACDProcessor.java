@@ -353,3 +353,4 @@ public class MACDProcessor extends BaseIndicatorProcessor<MACDProcessor.MACDValu
 
 
 
+

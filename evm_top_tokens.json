@@ -1,0 +1,3711 @@
+{
+  "timestamp": "2025-12-16T02:14:37.741Z",
+  "total_count": 99,
+  "tokens": [
+    {
+      "id": 1027,
+      "name": "Ethereum",
+      "symbol": "ETH",
+      "slug": "ethereum",
+      "cmc_rank": 2,
+      "circulating_supply": 120695086.92172861,
+      "total_supply": 120695086.92172861,
+      "max_supply": null,
+      "platform": null,
+      "tags": [
+        "pos",
+        "smart-contracts",
+        "ethereum-ecosystem",
+        "coinbase-ventures-portfolio",
+        "three-arrows-capital-portfolio",
+        "polychain-capital-portfolio",
+        "binance-labs-portfolio",
+        "blockchain-capital-portfolio",
+        "boostvc-portfolio",
+        "cms-holdings-portfolio",
+        "dcg-portfolio",
+        "dragonfly-capital-portfolio",
+        "electric-capital-portfolio",
+        "fabric-ventures-portfolio",
+        "framework-ventures-portfolio",
+        "hashkey-capital-portfolio",
+        "kenetic-capital-portfolio",
+        "huobi-capital-portfolio",
+        "alameda-research-portfolio",
+        "a16z-portfolio",
+        "1confirmation-portfolio",
+        "winklevoss-capital-portfolio",
+        "usv-portfolio",
+        "placeholder-ventures-portfolio",
+        "pantera-capital-portfolio",
+        "multicoin-capital-portfolio",
+        "paradigm-portfolio",
+        "ethereum-pow-ecosystem",
+        "layer-1",
+        "ftx-bankruptcy-estate",
+        "sora-ecosystem",
+        "rsk-rbtc-ecosystem",
+        "world-liberty-financial-portfolio",
+        "us-strategic-crypto-reserve",
+        "binance-ecosystem",
+        "binance-listing",
+        "sophon-ecosystem"
+      ],
+      "quote": {
+        "price": 2946.682504897781,
+        "volume_24h": 27879827387.63281,
+        "market_cap": 355650101059.3747,
+        "percent_change_24h": -5.69053808
+      }
+    },
+    {
+      "id": 825,
+      "name": "Tether USDt",
+      "symbol": "USDT",
+      "slug": "tether",
+      "cmc_rank": 3,
+      "circulating_supply": 186313498397.76343,
+      "total_supply": 188855384671.2825,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xdac17f958d2ee523a2206206994597c13d831ec7"
+      },
+      "tags": [
+        "stablecoin",
+        "asset-backed-stablecoin",
+        "usd-stablecoin",
+        "ethereum-pow-ecosystem",
+        "fiat-stablecoin",
+        "tron20-ecosystem",
+        "rsk-rbtc-ecosystem",
+        "venom-ecosystem",
+        "world-liberty-financial-portfolio",
+        "binance-ecosystem",
+        "binance-listing",
+        "peaq-ecosystem",
+        "apertum-ecosystem",
+        "etherlink-ecosystem",
+        "duckchain-ecosystem",
+        "onus-ecosystem",
+        "sophon-ecosystem",
+        "zedxion-smart-chain-ecosystem",
+        "xlayer-ecosystem"
+      ],
+      "quote": {
+        "price": 0.9999678194681298,
+        "volume_24h": 94670179302.5632,
+        "market_cap": 186307502730.2904,
+        "percent_change_24h": -0.02646924
+      }
+    },
+    {
+      "id": 1839,
+      "name": "BNB",
+      "symbol": "BNB",
+      "slug": "bnb",
+      "cmc_rank": 4,
+      "circulating_supply": 137735435.87,
+      "total_supply": 137735435.87,
+      "max_supply": 137735435.87,
+      "platform": null,
+      "tags": [
+        "marketplace",
+        "centralized-exchange",
+        "payments",
+        "smart-contracts",
+        "alameda-research-portfolio",
+        "multicoin-capital-portfolio",
+        "bnb-chain-ecosystem",
+        "layer-1",
+        "alleged-sec-securities",
+        "celsius-bankruptcy-estate",
+        "binance-ecosystem",
+        "binance-listing",
+        "etherlink-ecosystem",
+        "made-in-china"
+      ],
+      "quote": {
+        "price": 853.5002182162967,
+        "volume_24h": 2167429670.7718167,
+        "market_cap": 117557224571.16174,
+        "percent_change_24h": -4.18704108
+      }
+    },
+    {
+      "id": 3408,
+      "name": "USDC",
+      "symbol": "USDC",
+      "slug": "usd-coin",
+      "cmc_rank": 6,
+      "circulating_supply": 78354608213.51335,
+      "total_supply": 78354608213.51335,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+      },
+      "tags": [
+        "medium-of-exchange",
+        "stablecoin",
+        "asset-backed-stablecoin",
+        "stellar-ecosystem",
+        "coinbase-ventures-portfolio",
+        "usd-stablecoin",
+        "xdc-ecosystem",
+        "ethereum-pow-ecosystem",
+        "fiat-stablecoin",
+        "tron20-ecosystem",
+        "venom-ecosystem",
+        "made-in-america",
+        "world-liberty-financial-portfolio",
+        "sonic-ecosystem",
+        "binance-ecosystem",
+        "binance-listing",
+        "hyperevm-ecosystem",
+        "etherlink-ecosystem",
+        "unichain-ecosystem",
+        "vector-smart-chain-ecosystem",
+        "sophon-ecosystem",
+        "monad-ecosystem",
+        "xlayer-ecosystem"
+      ],
+      "quote": {
+        "price": 0.9997438184290234,
+        "volume_24h": 12019574331.675455,
+        "market_cap": 78334535206.88795,
+        "percent_change_24h": -0.02747823
+      }
+    },
+    {
+      "id": 1975,
+      "name": "Chainlink",
+      "symbol": "LINK",
+      "slug": "chainlink",
+      "cmc_rank": 13,
+      "circulating_supply": 696849970.4525867,
+      "total_supply": 1000000000,
+      "max_supply": 1000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x514910771af9ca656af840dff83e8264ecf986ca"
+      },
+      "tags": [
+        "platform",
+        "cosmos-ecosystem",
+        "defi",
+        "interoperability",
+        "iot",
+        "oracles",
+        "smart-contracts",
+        "ethereum-ecosystem",
+        "tron-ecosystem",
+        "polkadot",
+        "tokenized-stock",
+        "polkadot-ecosystem",
+        "heco-ecosystem",
+        "avalanche-ecosystem",
+        "solana-ecosystem",
+        "framework-ventures-portfolio",
+        "hedera-hashgraph-ecosystem",
+        "polygon-ecosystem",
+        "fantom-ecosystem",
+        "cardano-ecosystem",
+        "terra-ecosystem",
+        "web3",
+        "near-protocol-ecosystem",
+        "arbitrum-ecosystem",
+        "celo-ecosystem",
+        "defi-2",
+        "cross-chain",
+        "cronos-ecosystem",
+        "cardano",
+        "injective-ecosystem",
+        "bnb-chain-ecosystem",
+        "oasis-ecosystem",
+        "moonbeam-ecosystem",
+        "xdc-ecosystem",
+        "metisdao-ecosystem",
+        "velas-ecosystem",
+        "doge-chain-ecosystem",
+        "aptos-ecosystem",
+        "sui-ecosystem",
+        "optimism-ecosystem",
+        "bitcoin-ecosystem",
+        "real-world-assets-protocols",
+        "zksync-era-ecosystem",
+        "kadena-ecosystem",
+        "base-ecosystem",
+        "linea-ecosystem",
+        "sei-ecosystem",
+        "toncoin-ecosystem",
+        "paal-ecosystem",
+        "blast-ecosystem",
+        "atomicals-ecosystem",
+        "move-vm",
+        "eigenlayer-ecosystem",
+        "hyperliquid-ecosystem",
+        "gnosis-chain-ecosystem",
+        "ronin-ecosystem",
+        "astar-ecosystem",
+        "core-ecosystem",
+        "starknet-ecosystem",
+        "mantle-ecosystem",
+        "opbnb-ecosystem",
+        "scroll-ecosystem",
+        "merlin-ecosystem",
+        "x-layer-ecosystem",
+        "b²-network-ecosystem",
+        "mode-ecosystem",
+        "world-chain-mainnet-ecosystem",
+        "apechain-ecosystem",
+        "made-in-america",
+        "btcfi",
+        "world-liberty-financial-portfolio",
+        "corn-ecosystem",
+        "bonk-fun-ecosystem",
+        "sonic-ecosystem",
+        "binance-ecosystem",
+        "binance-listing",
+        "bittensor-ecosystem",
+        "tokenized-assets",
+        "xstocks-ecosystem",
+        "hyperevm-ecosystem",
+        "etherlink-ecosystem",
+        "bera-chain-ecosystem",
+        "abstract-chain-ecosystem",
+        "unichain-ecosystem",
+        "soneium-ecosystem",
+        "fraxtal-ecosystem",
+        "monad-ecosystem",
+        "hashkey-chain-ecosystem",
+        "wlfi-ecosystem",
+        "plasma-ecosystem",
+        "x402-ecosystem",
+        "iso-20022"
+      ],
+      "quote": {
+        "price": 12.72960141777237,
+        "volume_24h": 658809145.4149542,
+        "market_cap": 8870622371.847881,
+        "percent_change_24h": -6.34971953
+      }
+    },
+    {
+      "id": 3957,
+      "name": "UNUS SED LEO",
+      "symbol": "LEO",
+      "slug": "unus-sed-leo",
+      "cmc_rank": 14,
+      "circulating_supply": 921892660.9,
+      "total_supply": 985239504,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x2af5d2ad76741191d15dfe7bf6ac92d4bd912ca3"
+      },
+      "tags": [
+        "marketplace",
+        "centralized-exchange",
+        "discount-token",
+        "payments",
+        "ethereum-ecosystem",
+        "kenetic-capital-portfolio",
+        "alameda-research-portfolio"
+      ],
+      "quote": {
+        "price": 9.226420526651731,
+        "volume_24h": 666592.38903062,
+        "market_cap": 8505769369.897344,
+        "percent_change_24h": 0.30533141
+      }
+    },
+    {
+      "id": 29470,
+      "name": "Ethena USDe",
+      "symbol": "USDe",
+      "slug": "ethena-usde",
+      "cmc_rank": 18,
+      "circulating_supply": 6493914355.105681,
+      "total_supply": 6493914355.105681,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x4c9edd5852cd905f086c759e8383e09bff1e68b3"
+      },
+      "tags": [
+        "stablecoin",
+        "asset-backed-stablecoin",
+        "binance-labs-portfolio",
+        "dragonfly-capital-portfolio",
+        "usd-stablecoin",
+        "eigenlayer-ecosystem",
+        "binance-ecosystem",
+        "binance-listing",
+        "xlayer-ecosystem",
+        "plasma-ecosystem"
+      ],
+      "quote": {
+        "price": 0.9992019449057846,
+        "volume_24h": 83304497.91171104,
+        "market_cap": 6488731853.673191,
+        "percent_change_24h": -0.03785447
+      }
+    },
+    {
+      "id": 4943,
+      "name": "Dai",
+      "symbol": "DAI",
+      "slug": "multi-collateral-dai",
+      "cmc_rank": 21,
+      "circulating_supply": 5365382702.664872,
+      "total_supply": 5365382702.664872,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x6b175474e89094c44da98b954eedeac495271d0f"
+      },
+      "tags": [
+        "defi",
+        "stablecoin",
+        "asset-backed-stablecoin",
+        "usd-stablecoin",
+        "binance-ecosystem",
+        "binance-listing",
+        "xlayer-ecosystem"
+      ],
+      "quote": {
+        "price": 0.9998994281338516,
+        "volume_24h": 111238076.52766308,
+        "market_cap": 5364843096.113865,
+        "percent_change_24h": 0.00360126
+      }
+    },
+    {
+      "id": 5805,
+      "name": "Avalanche",
+      "symbol": "AVAX",
+      "slug": "avalanche",
+      "cmc_rank": 22,
+      "circulating_supply": 429467392.168706,
+      "total_supply": 461136492.168706,
+      "max_supply": 715748719,
+      "platform": null,
+      "tags": [
+        "smart-contracts",
+        "three-arrows-capital-portfolio",
+        "polychain-capital-portfolio",
+        "avalanche-ecosystem",
+        "cms-holdings-portfolio",
+        "dragonfly-capital-portfolio",
+        "real-world-assets-protocols",
+        "layer-1",
+        "made-in-america",
+        "world-liberty-financial-portfolio",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 12.252513193565012,
+        "volume_24h": 403894069.12245727,
+        "market_cap": 5262054888.753029,
+        "percent_change_24h": -6.65134869
+      }
+    },
+    {
+      "id": 5994,
+      "name": "Shiba Inu",
+      "symbol": "SHIB",
+      "slug": "shiba-inu",
+      "cmc_rank": 24,
+      "circulating_supply": 589244310264738.5,
+      "total_supply": 589500594028946.1,
+      "max_supply": 589552695333683,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce"
+      },
+      "tags": [
+        "memes",
+        "ethereum-ecosystem",
+        "doggone-doggerel",
+        "bnb-chain-ecosystem",
+        "base-ecosystem",
+        "animal-memes",
+        "binance-ecosystem",
+        "binance-listing",
+        "etherlink-ecosystem"
+      ],
+      "quote": {
+        "price": 7.821873803372605e-06,
+        "volume_24h": 119812679.98469187,
+        "market_cap": 4608994634.246118,
+        "percent_change_24h": -4.76127386
+      }
+    },
+    {
+      "id": 27075,
+      "name": "Mantle",
+      "symbol": "MNT",
+      "slug": "mantle",
+      "cmc_rank": 25,
+      "circulating_supply": 3252944055.636841,
+      "total_supply": 6219316794.89,
+      "max_supply": 6219316795,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x3c3a81e81dc49a522a592e7622a7e711c06bf354"
+      },
+      "tags": [
+        "ethereum-ecosystem",
+        "layer-2",
+        "dwf-labs-portfolio",
+        "made-in-china",
+        "neobank"
+      ],
+      "quote": {
+        "price": 1.2569714792738302,
+        "volume_24h": 245111951.89454597,
+        "market_cap": 4088857901.6088524,
+        "percent_change_24h": -0.60189413
+      }
+    },
+    {
+      "id": 27772,
+      "name": "PayPal USD",
+      "symbol": "PYUSD",
+      "slug": "paypal-usd",
+      "cmc_rank": 26,
+      "circulating_supply": 3865722892.936976,
+      "total_supply": 3865722892.936976,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x6c3ea9036406852006290770bedfcaba0e23a0e8"
+      },
+      "tags": [
+        "stablecoin",
+        "asset-backed-stablecoin",
+        "stellar-ecosystem",
+        "usd-stablecoin",
+        "fiat-stablecoin"
+      ],
+      "quote": {
+        "price": 0.9996314627415496,
+        "volume_24h": 66817284.58041152,
+        "market_cap": 3864298230.020084,
+        "percent_change_24h": -0.01602276
+      }
+    },
+    {
+      "id": 3635,
+      "name": "Cronos",
+      "symbol": "CRO",
+      "slug": "cronos",
+      "cmc_rank": 28,
+      "circulating_supply": 37370370775.48645,
+      "total_supply": 98237038062.7448,
+      "max_supply": 100000000000,
+      "platform": null,
+      "tags": [
+        "medium-of-exchange",
+        "centralized-exchange",
+        "mobile",
+        "payments",
+        "layer-1"
+      ],
+      "quote": {
+        "price": 0.09486467816721501,
+        "volume_24h": 33593366.21757244,
+        "market_cap": 3545128196.6060195,
+        "percent_change_24h": -3.94031015
+      }
+    },
+    {
+      "id": 33251,
+      "name": "World Liberty Financial",
+      "symbol": "WLFI",
+      "slug": "world-liberty-financial-wlfi",
+      "cmc_rank": 29,
+      "circulating_supply": 26734297276,
+      "total_supply": 100000000000,
+      "max_supply": 100000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xdA5e1988097297dCdc1f90D4dFE7909e847CBeF6"
+      },
+      "tags": [
+        "defi",
+        "ethereum-ecosystem",
+        "solana-ecosystem",
+        "bnb-chain-ecosystem",
+        "made-in-america",
+        "binance-ecosystem",
+        "binance-listing",
+        "wlfi-ecosystem"
+      ],
+      "quote": {
+        "price": 0.13232443144400022,
+        "volume_24h": 103211684.70820887,
+        "market_cap": 3537600687.101584,
+        "percent_change_24h": -4.52011202
+      }
+    },
+    {
+      "id": 7083,
+      "name": "Uniswap",
+      "symbol": "UNI",
+      "slug": "uniswap",
+      "cmc_rank": 30,
+      "circulating_supply": 630330527.7099,
+      "total_supply": 1000000000,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984"
+      },
+      "tags": [
+        "decentralized-exchange-dex-token",
+        "defi",
+        "dao",
+        "ethereum-ecosystem",
+        "yield-farming",
+        "amm",
+        "coinbase-ventures-portfolio",
+        "three-arrows-capital-portfolio",
+        "governance",
+        "heco-ecosystem",
+        "avalanche-ecosystem",
+        "solana-ecosystem",
+        "blockchain-capital-portfolio",
+        "defiance-capital-portfolio",
+        "alameda-research-portfolio",
+        "a16z-portfolio",
+        "pantera-capital-portfolio",
+        "parafi-capital",
+        "paradigm-portfolio",
+        "polygon-ecosystem",
+        "terra-ecosystem",
+        "near-protocol-ecosystem",
+        "arbitrum-ecosystem",
+        "cmc-crypto-awards-2024",
+        "gnosis-chain-ecosystem",
+        "sora-ecosystem",
+        "hoo-smart-chain-ecosystem",
+        "made-in-america",
+        "binance-ecosystem",
+        "binance-listing",
+        "etherlink-ecosystem"
+      ],
+      "quote": {
+        "price": 5.025117606326836,
+        "volume_24h": 228896231.27386808,
+        "market_cap": 3167485032.600304,
+        "percent_change_24h": -7.27839767
+      }
+    },
+    {
+      "id": 7278,
+      "name": "Aave",
+      "symbol": "AAVE",
+      "slug": "aave",
+      "cmc_rank": 32,
+      "circulating_supply": 15304416.23375213,
+      "total_supply": 16000000,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9"
+      },
+      "tags": [
+        "defi",
+        "dao",
+        "ethereum-ecosystem",
+        "yield-farming",
+        "three-arrows-capital-portfolio",
+        "governance",
+        "heco-ecosystem",
+        "avalanche-ecosystem",
+        "solana-ecosystem",
+        "lending-borowing",
+        "blockchain-capital-portfolio",
+        "defiance-capital-portfolio",
+        "framework-ventures-portfolio",
+        "alameda-research-portfolio",
+        "pantera-capital-portfolio",
+        "parafi-capital",
+        "polygon-ecosystem",
+        "fantom-ecosystem",
+        "near-protocol-ecosystem",
+        "arbitrum-ecosystem",
+        "optimism-ecosystem",
+        "standard-crypto-portfolio",
+        "gnosis-chain-ecosystem",
+        "sora-ecosystem",
+        "made-in-america",
+        "world-liberty-financial-portfolio",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 190.54002409246135,
+        "volume_24h": 445337457.7969985,
+        "market_cap": 2916103837.9001875,
+        "percent_change_24h": -1.76129694
+      }
+    },
+    {
+      "id": 36148,
+      "name": "World Liberty Financial USD",
+      "symbol": "USD1",
+      "slug": "usd1",
+      "cmc_rank": 34,
+      "circulating_supply": 2722721822.12718,
+      "total_supply": 2722721822.12718,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d"
+      },
+      "tags": [
+        "stablecoin",
+        "usd-stablecoin",
+        "tron20-ecosystem",
+        "made-in-america",
+        "world-liberty-financial-portfolio",
+        "binance-ecosystem",
+        "binance-listing",
+        "wlfi-ecosystem"
+      ],
+      "quote": {
+        "price": 0.9992273253200049,
+        "volume_24h": 880393410.8320459,
+        "market_cap": 2720618043.914552,
+        "percent_change_24h": -0.02711081
+      }
+    },
+    {
+      "id": 11092,
+      "name": "Bitget Token",
+      "symbol": "BGB",
+      "slug": "bitget-token-new",
+      "cmc_rank": 36,
+      "circulating_supply": 696931978.5437413,
+      "total_supply": 919992035.9787906,
+      "max_supply": 919992035.98,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x54D2252757e1672EEaD234D27B1270728fF90581"
+      },
+      "tags": [
+        "centralized-exchange",
+        "ethereum-ecosystem",
+        "made-in-china"
+      ],
+      "quote": {
+        "price": 3.497470101474389,
+        "volume_24h": 66615274.07146208,
+        "market_cap": 2437498757.718126,
+        "percent_change_24h": -1.78445446
+      }
+    },
+    {
+      "id": 3897,
+      "name": "OKB",
+      "symbol": "OKB",
+      "slug": "okb",
+      "cmc_rank": 37,
+      "circulating_supply": 21000000,
+      "total_supply": 21000000,
+      "max_supply": 21000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x75231f58b43240c9718dd58b4967c5114342a86c"
+      },
+      "tags": [
+        "marketplace",
+        "centralized-exchange",
+        "discount-token",
+        "ethereum-ecosystem",
+        "alameda-research-portfolio",
+        "x1-ecosystem",
+        "okexchain-ecosystem",
+        "x-layer-ecosystem",
+        "xlayer-ecosystem",
+        "made-in-china"
+      ],
+      "quote": {
+        "price": 106.25388605061717,
+        "volume_24h": 32533272.3979012,
+        "market_cap": 2231331607.0629606,
+        "percent_change_24h": -4.2731789
+      }
+    },
+    {
+      "id": 24478,
+      "name": "Pepe",
+      "symbol": "PEPE",
+      "slug": "pepe",
+      "cmc_rank": 42,
+      "circulating_supply": 420689899653542.56,
+      "total_supply": 420689899653542.56,
+      "max_supply": 420689899653542.56,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x6982508145454ce325ddbe47a25d4ec3d2311933"
+      },
+      "tags": [
+        "memes",
+        "ethereum-ecosystem",
+        "binance-ecosystem",
+        "binance-listing",
+        "etherlink-ecosystem"
+      ],
+      "quote": {
+        "price": 3.992181234362226e-06,
+        "volume_24h": 340190677.62428284,
+        "market_cap": 1679470322.8826005,
+        "percent_change_24h": -7.321765
+      }
+    },
+    {
+      "id": 30171,
+      "name": "Ethena",
+      "symbol": "ENA",
+      "slug": "ethena",
+      "cmc_rank": 43,
+      "circulating_supply": 7690625000,
+      "total_supply": 15000000000,
+      "max_supply": 15000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x57e114B691Db790C35207b2e685D4A43181e6061"
+      },
+      "tags": [
+        "defi",
+        "ethereum-ecosystem",
+        "binance-labs-portfolio",
+        "okx-ventures-portfolio",
+        "cmc-crypto-yearbook-2024-2025",
+        "world-liberty-financial-portfolio",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.21478693498915427,
+        "volume_24h": 202060392.40728298,
+        "market_cap": 1651845771.9009645,
+        "percent_change_24h": -10.27095464
+      }
+    },
+    {
+      "id": 5176,
+      "name": "Tether Gold",
+      "symbol": "XAUt",
+      "slug": "tether-gold",
+      "cmc_rank": 45,
+      "circulating_supply": 377737.6417,
+      "total_supply": 520089.3,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x68749665FF8D2d112Fa859AA293F07A622782F38"
+      },
+      "tags": [
+        "ethereum-ecosystem",
+        "tokenized-gold",
+        "real-world-assets-protocols",
+        "binance-ecosystem",
+        "binance-listing",
+        "tokenized-assets",
+        "tokenized-commodities"
+      ],
+      "quote": {
+        "price": 4312.240478792508,
+        "volume_24h": 141775807.543314,
+        "market_cap": 1628895548.9023607,
+        "percent_change_24h": -0.38340978
+      }
+    },
+    {
+      "id": 4705,
+      "name": "PAX Gold",
+      "symbol": "PAXG",
+      "slug": "pax-gold",
+      "cmc_rank": 47,
+      "circulating_supply": 343339.878,
+      "total_supply": 343339.878,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x45804880de22913dafe09f4980848ece6ecbaf78"
+      },
+      "tags": [
+        "ethereum-ecosystem",
+        "tokenized-gold",
+        "real-world-assets-protocols",
+        "binance-ecosystem",
+        "binance-listing",
+        "tokenized-assets",
+        "tokenized-commodities"
+      ],
+      "quote": {
+        "price": 4322.630704570776,
+        "volume_24h": 201401592.71618047,
+        "market_cap": 1484131498.7463844,
+        "percent_change_24h": -0.37388897
+      }
+    },
+    {
+      "id": 33793,
+      "name": "Global Dollar",
+      "symbol": "USDG",
+      "slug": "global-dollar-usdg",
+      "cmc_rank": 48,
+      "circulating_supply": 1429832355.187904,
+      "total_supply": 1429832355.187904,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xe343167631d89B6Ffc58B88d6b7fB0228795491D"
+      },
+      "tags": [
+        "stablecoin",
+        "usd-stablecoin"
+      ],
+      "quote": {
+        "price": 0.9997504371804785,
+        "volume_24h": 39234853.14168275,
+        "market_cap": 1429475522.1939,
+        "percent_change_24h": -0.00585689
+      }
+    },
+    {
+      "id": 2087,
+      "name": "KuCoin Token",
+      "symbol": "KCS",
+      "slug": "kucoin-token",
+      "cmc_rank": 49,
+      "circulating_supply": 129675261.73556715,
+      "total_supply": 142175261.73556715,
+      "max_supply": 200000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xf34960d9d60be18cc1d5afc1a6f012a723a28811"
+      },
+      "tags": [
+        "marketplace",
+        "centralized-exchange",
+        "discount-token",
+        "ethereum-ecosystem",
+        "made-in-china"
+      ],
+      "quote": {
+        "price": 10.288442035856946,
+        "volume_24h": 7504638.21850366,
+        "market_cap": 1334156413.8509607,
+        "percent_change_24h": -3.88928129
+      }
+    },
+    {
+      "id": 33038,
+      "name": "Sky",
+      "symbol": "SKY",
+      "slug": "sky",
+      "cmc_rank": 50,
+      "circulating_supply": 22942286922.974075,
+      "total_supply": 23462665147.365967,
+      "max_supply": 23462665147,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x56072C95FAA701256059aa122697B133aDEd9279"
+      },
+      "tags": [
+        "store-of-value",
+        "defi",
+        "dao",
+        "ethereum-ecosystem",
+        "polychain-capital-portfolio",
+        "governance",
+        "lending-borowing",
+        "dragonfly-capital-portfolio",
+        "electric-capital-portfolio",
+        "a16z-portfolio",
+        "1confirmation-portfolio",
+        "placeholder-ventures-portfolio",
+        "pantera-capital-portfolio",
+        "paradigm-portfolio",
+        "near-protocol-ecosystem",
+        "arbitrum-ecosystem",
+        "spartan-group",
+        "bnb-chain-ecosystem",
+        "bitcoin-ecosystem",
+        "real-world-assets-protocols",
+        "standard-crypto-portfolio",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.057924234819027386,
+        "volume_24h": 23684821.02462788,
+        "market_cap": 1328914415.0118515,
+        "percent_change_24h": -1.95380536
+      }
+    },
+    {
+      "id": 13502,
+      "name": "Worldcoin",
+      "symbol": "WLD",
+      "slug": "worldcoin-org",
+      "cmc_rank": 51,
+      "circulating_supply": 2461654328.609168,
+      "total_supply": 10000000000,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x163f8c2467924be0ae7b5347228cabf260318753"
+      },
+      "tags": [
+        "defi",
+        "zero-knowledge-proofs",
+        "identity",
+        "ethereum-ecosystem",
+        "governance",
+        "blockchain-capital-portfolio",
+        "a16z-portfolio",
+        "token",
+        "optimism-ecosystem",
+        "world-chain-mainnet-ecosystem",
+        "made-in-america",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.5313253485005581,
+        "volume_24h": 115568145.51203711,
+        "market_cap": 1307939344.0361736,
+        "percent_change_24h": -8.40629431
+      }
+    },
+    {
+      "id": 21159,
+      "name": "Ondo",
+      "symbol": "ONDO",
+      "slug": "ondo-finance",
+      "cmc_rank": 52,
+      "circulating_supply": 3159107529,
+      "total_supply": 10000000000,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xfaba6f8e4a5e8ab82f62fe7c39859fa577269be3"
+      },
+      "tags": [
+        "ethereum-ecosystem",
+        "real-world-assets-protocols",
+        "cmc-crypto-yearbook-2024-2025",
+        "made-in-america",
+        "world-liberty-financial-portfolio",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.40439707001758196,
+        "volume_24h": 85793734.99649718,
+        "market_cap": 1277533828.5980833,
+        "percent_change_24h": -10.71349029
+      }
+    },
+    {
+      "id": 28321,
+      "name": "Polygon (prev. MATIC)",
+      "symbol": "POL",
+      "slug": "polygon-ecosystem-token",
+      "cmc_rank": 53,
+      "circulating_supply": 10556415943.659721,
+      "total_supply": 10556415953.659721,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x455e53cbb86018ac2b8092fdcd39d8444affc3f6"
+      },
+      "tags": [
+        "ethereum-ecosystem",
+        "layer-2",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.11167369151678287,
+        "volume_24h": 107021111.2821077,
+        "market_cap": 1178873937.6151042,
+        "percent_change_24h": -6.68803913
+      }
+    },
+    {
+      "id": 11841,
+      "name": "Arbitrum",
+      "symbol": "ARB",
+      "slug": "arbitrum",
+      "cmc_rank": 56,
+      "circulating_supply": 5618148833,
+      "total_supply": 10000000000,
+      "max_supply": null,
+      "platform": {
+        "id": 11841,
+        "name": "Arbitrum",
+        "symbol": "ARB",
+        "slug": "arbitrum",
+        "token_address": "0x912CE59144191C1204E64559FE8253a0e49E6548"
+      },
+      "tags": [
+        "scaling",
+        "dao",
+        "dapp",
+        "ethereum-ecosystem",
+        "polychain-capital-portfolio",
+        "layer-2",
+        "rollups",
+        "pantera-capital-portfolio",
+        "arbitrum-ecosystem",
+        "osmosis-ecosystem",
+        "modular-blockchain",
+        "egirl-capital-portfolio",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.19314572710655206,
+        "volume_24h": 160940774.015575,
+        "market_cap": 1085121441.342612,
+        "percent_change_24h": -7.83709639
+      }
+    },
+    {
+      "id": 3155,
+      "name": "Quant",
+      "symbol": "QNT",
+      "slug": "quant",
+      "cmc_rank": 66,
+      "circulating_supply": 12072738,
+      "total_supply": 14881364,
+      "max_supply": 14881364,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x4a220e6096b25eadb88358cb44068a3248254675"
+      },
+      "tags": [
+        "platform",
+        "defi",
+        "interoperability",
+        "ethereum-ecosystem",
+        "real-world-assets-protocols",
+        "binance-ecosystem",
+        "binance-listing",
+        "iso-20022"
+      ],
+      "quote": {
+        "price": 74.44527672753618,
+        "volume_24h": 16124234.06649919,
+        "market_cap": 898758321.2690417,
+        "percent_change_24h": -4.97257399
+      }
+    },
+    {
+      "id": 4269,
+      "name": "GateToken",
+      "symbol": "GT",
+      "slug": "gatetoken",
+      "cmc_rank": 69,
+      "circulating_supply": 80287179.7486646,
+      "total_supply": 117344473.53114802,
+      "max_supply": 300000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xe66747a101bff2dba3697199dcce5b743b454759"
+      },
+      "tags": [
+        "marketplace",
+        "centralized-exchange",
+        "discount-token",
+        "ethereum-ecosystem",
+        "solana-ecosystem",
+        "ftx-bankruptcy-estate",
+        "made-in-china"
+      ],
+      "quote": {
+        "price": 10.149420512677851,
+        "volume_24h": 3997818.98949713,
+        "market_cap": 814868349.0461503,
+        "percent_change_24h": -3.14700133
+      }
+    },
+    {
+      "id": 5690,
+      "name": "Render",
+      "symbol": "RENDER",
+      "slug": "render",
+      "cmc_rank": 72,
+      "circulating_supply": 518584616.1640741,
+      "total_supply": 533344789.44407415,
+      "max_supply": 644168762,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x6de037ef9ad2725eb40118bb1702ebb27e4aeb24"
+      },
+      "tags": [
+        "art",
+        "media",
+        "vr-ar",
+        "ai-big-data",
+        "distributed-computing",
+        "collectibles-nfts",
+        "defi",
+        "gaming",
+        "scaling",
+        "video",
+        "ethereum-ecosystem",
+        "solana-ecosystem",
+        "metaverse",
+        "alameda-research-portfolio",
+        "multicoin-capital-portfolio",
+        "polygon-ecosystem",
+        "web3",
+        "generative-ai",
+        "depin",
+        "cmc-crypto-yearbook-2024-2025",
+        "made-in-america",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 1.3969786856891553,
+        "volume_24h": 37060345.95537604,
+        "market_cap": 724451655.5075034,
+        "percent_change_24h": -7.73230816
+      }
+    },
+    {
+      "id": 7186,
+      "name": "PancakeSwap",
+      "symbol": "CAKE",
+      "slug": "pancakeswap",
+      "cmc_rank": 74,
+      "circulating_supply": 336227447.0164426,
+      "total_supply": 350036657.7506936,
+      "max_supply": 450000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x152649eA73beAb28c5b49B26eb48f7EAD6d4c898"
+      },
+      "tags": [
+        "collectibles-nfts",
+        "decentralized-exchange-dex-token",
+        "defi",
+        "smart-contracts",
+        "ethereum-ecosystem",
+        "yield-farming",
+        "amm",
+        "dex",
+        "governance",
+        "solana-ecosystem",
+        "arbitrum-ecosystem",
+        "bnb-chain-ecosystem",
+        "aptos-ecosystem",
+        "zksync-era-ecosystem",
+        "base-ecosystem",
+        "linea-ecosystem",
+        "move-vm",
+        "polygon-zkevm-ecosystem",
+        "opbnb-ecosystem",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 1.9852619162892382,
+        "volume_24h": 67275168.56651326,
+        "market_cap": 667499545.7729012,
+        "percent_change_24h": -8.7927724
+      }
+    },
+    {
+      "id": 2694,
+      "name": "Nexo",
+      "symbol": "NEXO",
+      "slug": "nexo",
+      "cmc_rank": 77,
+      "circulating_supply": 646145839.5746847,
+      "total_supply": 1000000000,
+      "max_supply": 1000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xb62132e35a6c13ee1ee0f84dc5d40bad8d815206"
+      },
+      "tags": [
+        "services",
+        "payments",
+        "ethereum-ecosystem",
+        "polygon-ecosystem",
+        "cardano-ecosystem",
+        "alleged-sec-securities",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.9105906152266884,
+        "volume_24h": 8658437.7715202,
+        "market_cap": 588374337.5844773,
+        "percent_change_24h": -4.51274809
+      }
+    },
+    {
+      "id": 26081,
+      "name": "First Digital USD",
+      "symbol": "FDUSD",
+      "slug": "first-digital-usd",
+      "cmc_rank": 79,
+      "circulating_supply": 569547633.607839,
+      "total_supply": 569547633.607839,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409"
+      },
+      "tags": [
+        "stablecoin",
+        "binance-smart-chain",
+        "usd-stablecoin",
+        "fiat-stablecoin",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.998666956676533,
+        "volume_24h": 4816844161.753863,
+        "market_cap": 568788401.9374616,
+        "percent_change_24h": -0.01506379
+      }
+    },
+    {
+      "id": 11840,
+      "name": "Optimism",
+      "symbol": "OP",
+      "slug": "optimism-ethereum",
+      "cmc_rank": 80,
+      "circulating_supply": 1944092497,
+      "total_supply": 4294967296,
+      "max_supply": 4294967296,
+      "platform": {
+        "id": 11840,
+        "name": "Optimism",
+        "symbol": "OP",
+        "slug": "optimism-ethereum",
+        "token_address": "0x4200000000000000000000000000000000000042"
+      },
+      "tags": [
+        "layer-2",
+        "optimism-ecosystem",
+        "made-in-america",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.28707706906258107,
+        "volume_24h": 90294624.0857419,
+        "market_cap": 558104376.0253147,
+        "percent_change_24h": -6.8973291
+      }
+    },
+    {
+      "id": 6538,
+      "name": "Curve DAO Token",
+      "symbol": "CRV",
+      "slug": "curve-dao-token",
+      "cmc_rank": 82,
+      "circulating_supply": 1424249183.699503,
+      "total_supply": 2332532171.9777727,
+      "max_supply": 3030303030.299,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xD533a949740bb3306d119CC777fa900bA034cd52"
+      },
+      "tags": [
+        "decentralized-exchange-dex-token",
+        "defi",
+        "dao",
+        "ethereum-ecosystem",
+        "yield-farming",
+        "amm",
+        "governance",
+        "framework-ventures-portfolio",
+        "alameda-research-portfolio",
+        "polygon-ecosystem",
+        "fantom-ecosystem",
+        "arbitrum-ecosystem",
+        "optimism-ecosystem",
+        "dwf-labs-portfolio",
+        "base-ecosystem",
+        "gnosis-chain-ecosystem",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.35232154254481035,
+        "volume_24h": 76388263.03008418,
+        "market_cap": 501793669.3691958,
+        "percent_change_24h": -7.87415629
+      }
+    },
+    {
+      "id": 10603,
+      "name": "Immutable",
+      "symbol": "IMX",
+      "slug": "immutable-x",
+      "cmc_rank": 84,
+      "circulating_supply": 1988972529.209814,
+      "total_supply": 2000000000,
+      "max_supply": 2000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xf57e7e7c23978c3caec3c3548e3d615c346e79ff"
+      },
+      "tags": [
+        "collectibles-nfts",
+        "zero-knowledge-proofs",
+        "gaming",
+        "scaling",
+        "ethereum-ecosystem",
+        "layer-2",
+        "rollups",
+        "arrington-xrp-capital-portfolio",
+        "alameda-research-portfolio",
+        "modular-blockchain",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.2480105655704987,
+        "volume_24h": 20887636.69162353,
+        "market_cap": 493286201.8735112,
+        "percent_change_24h": -8.22156155
+      }
+    },
+    {
+      "id": 2563,
+      "name": "TrueUSD",
+      "symbol": "TUSD",
+      "slug": "trueusd",
+      "cmc_rank": 85,
+      "circulating_supply": 494515083,
+      "total_supply": 494515083,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x0000000000085d4780B73119b644AE5ecd22b376"
+      },
+      "tags": [
+        "store-of-value",
+        "stablecoin",
+        "asset-backed-stablecoin",
+        "usd-stablecoin",
+        "fiat-stablecoin",
+        "tron20-ecosystem",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.9963348177044364,
+        "volume_24h": 16161975.88699805,
+        "market_cap": 492702595.0728993,
+        "percent_change_24h": -0.03788179
+      }
+    },
+    {
+      "id": 7226,
+      "name": "Injective",
+      "symbol": "INJ",
+      "slug": "injective",
+      "cmc_rank": 86,
+      "circulating_supply": 99970935.41,
+      "total_supply": 100000000,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xe28b3b32b6c345a34ff64674606124dd5aceca30"
+      },
+      "tags": [
+        "pos",
+        "platform",
+        "ai-big-data",
+        "smart-contracts",
+        "cosmos",
+        "binance-smart-chain",
+        "binance-launchpad",
+        "binance-labs-portfolio",
+        "cms-holdings-portfolio",
+        "pantera-capital-portfolio",
+        "web3",
+        "injective-ecosystem",
+        "real-world-assets-protocols",
+        "layer-1",
+        "made-in-america",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 4.914651953629795,
+        "volume_24h": 63926971.83877064,
+        "market_cap": 491322353.0189545,
+        "percent_change_24h": -7.19273756
+      }
+    },
+    {
+      "id": 8000,
+      "name": "Lido DAO",
+      "symbol": "LDO",
+      "slug": "lido-dao",
+      "cmc_rank": 87,
+      "circulating_supply": 893568192.593889,
+      "total_supply": 1000000000,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x5a98fcbea516cf06857215779fd812ca3bef1b32"
+      },
+      "tags": [
+        "defi",
+        "dao",
+        "ethereum-ecosystem",
+        "three-arrows-capital-portfolio",
+        "solana-ecosystem",
+        "paradigm-portfolio",
+        "terra-ecosystem",
+        "arbitrum-ecosystem",
+        "liquid-staking-derivatives",
+        "optimism-ecosystem",
+        "standard-crypto-portfolio",
+        "egirl-capital-portfolio",
+        "cmc-crypto-yearbook-2024-2025",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.5459010618865401,
+        "volume_24h": 97474329.3159864,
+        "market_cap": 487799825.2050404,
+        "percent_change_24h": -9.52859092
+      }
+    },
+    {
+      "id": 29270,
+      "name": "Aerodrome Finance",
+      "symbol": "AERO",
+      "slug": "aerodrome-finance",
+      "cmc_rank": 91,
+      "circulating_supply": 905429416.3849924,
+      "total_supply": 1801488278.5612621,
+      "max_supply": null,
+      "platform": {
+        "id": 27716,
+        "name": "Base",
+        "symbol": "-",
+        "slug": "base",
+        "token_address": "0x940181a94a35a4569e4529a3cdfb74e38fd98631"
+      },
+      "tags": [
+        "defi",
+        "amm",
+        "base-ecosystem",
+        "binance-alpha",
+        "made-in-america",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.5318169076834216,
+        "volume_24h": 32609735.52475135,
+        "market_cap": 481522672.3474718,
+        "percent_change_24h": -8.09108894
+      }
+    },
+    {
+      "id": 22691,
+      "name": "Starknet",
+      "symbol": "STRK",
+      "slug": "starknet-token",
+      "cmc_rank": 92,
+      "circulating_supply": 4964699314.348971,
+      "total_supply": 10000000000,
+      "max_supply": 10000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xCa14007Eff0dB1f8135f4C25B34De49AB0d42766"
+      },
+      "tags": [
+        "privacy",
+        "zero-knowledge-proofs",
+        "quantum-resistant",
+        "dapp",
+        "ethereum-ecosystem",
+        "layer-2",
+        "rollups",
+        "modular-blockchain",
+        "starknet-ecosystem",
+        "binance-ecosystem",
+        "binance-listing",
+        "privacy-blockchain"
+      ],
+      "quote": {
+        "price": 0.09667953234134098,
+        "volume_24h": 71439661.70983392,
+        "market_cap": 479984807.9266348,
+        "percent_change_24h": -7.95380505
+      }
+    },
+    {
+      "id": 28081,
+      "name": "SPX6900",
+      "symbol": "SPX",
+      "slug": "spx6900",
+      "cmc_rank": 92,
+      "circulating_supply": 930993090.07,
+      "total_supply": 930993090.07,
+      "max_supply": 1000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xe0f63a424a4439cbe457d80e4f4b51ad25b2c56c"
+      },
+      "tags": [
+        "memes",
+        "ethereum-ecosystem",
+        "solana-ecosystem",
+        "base-ecosystem",
+        "binance-alpha",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.5082348236256735,
+        "volume_24h": 18287172.21069787,
+        "market_cap": 473163108.92844725,
+        "percent_change_24h": -8.03630278
+      }
+    },
+    {
+      "id": 29814,
+      "name": "ether.fi",
+      "symbol": "ETHFI",
+      "slug": "ether-fi-ethfi",
+      "cmc_rank": 95,
+      "circulating_supply": 608661794,
+      "total_supply": 1000000000,
+      "max_supply": 1000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xFe0c30065B384F05761f15d0CC899D4F9F9Cc0eB"
+      },
+      "tags": [
+        "defi",
+        "staking",
+        "ethereum-ecosystem",
+        "binance-launchpool",
+        "arbitrum-ecosystem",
+        "eigenlayer-ecosystem",
+        "cmc-crypto-yearbook-2024-2025",
+        "binance-ecosystem",
+        "binance-listing",
+        "neobank"
+      ],
+      "quote": {
+        "price": 0.7705755180088479,
+        "volume_24h": 45125594.90739694,
+        "market_cap": 469019877.2037447,
+        "percent_change_24h": -3.87114051
+      }
+    },
+    {
+      "id": 29420,
+      "name": "Virtuals Protocol",
+      "symbol": "VIRTUAL",
+      "slug": "virtual-protocol",
+      "cmc_rank": 96,
+      "circulating_supply": 656101378.8092347,
+      "total_supply": 1000000000,
+      "max_supply": 1000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x44ff8620b8cA30902395A7bD3F2407e1A091BF73"
+      },
+      "tags": [
+        "ai-big-data",
+        "gaming",
+        "ethereum-ecosystem",
+        "solana-ecosystem",
+        "metaverse",
+        "generative-ai",
+        "base-ecosystem",
+        "ai-agents",
+        "virtuals-protocol-ecosystem",
+        "ai-agent-launchpad",
+        "binance-ecosystem",
+        "binance-listing",
+        "robotics"
+      ],
+      "quote": {
+        "price": 0.7099245351054951,
+        "volume_24h": 76821070.5539462,
+        "market_cap": 465782466.3332203,
+        "percent_change_24h": -9.00935172
+      }
+    },
+    {
+      "id": 30712,
+      "name": "Merlin Chain",
+      "symbol": "MERL",
+      "slug": "merlin-chain",
+      "cmc_rank": 98,
+      "circulating_supply": 1051977508,
+      "total_supply": 2100000000,
+      "max_supply": 2100000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xa0c56a8c0692bD10B3fA8f8bA79Cf5332B7107F9"
+      },
+      "tags": [
+        "ethereum-ecosystem",
+        "layer-2",
+        "bnb-chain-ecosystem",
+        "binance-alpha",
+        "merlin-ecosystem",
+        "binance-alpha-airdrops",
+        "binance-ecosystem",
+        "binance-listing",
+        "made-in-china"
+      ],
+      "quote": {
+        "price": 0.4152674764460695,
+        "volume_24h": 47907829.47528765,
+        "market_cap": 436852045.02518487,
+        "percent_change_24h": -7.92076176
+      }
+    },
+    {
+      "id": 34104,
+      "name": "Morpho",
+      "symbol": "MORPHO",
+      "slug": "morpho",
+      "cmc_rank": 101,
+      "circulating_supply": 374979977.9047751,
+      "total_supply": 999999999.8010328,
+      "max_supply": 1000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x58D97B57BB95320F9a05dC918Aef65434969c2B2"
+      },
+      "tags": [
+        "defi",
+        "ethereum-ecosystem",
+        "coinbase-ventures-portfolio",
+        "lending-borowing",
+        "fenbushi-capital-portfolio",
+        "pantera-capital-portfolio",
+        "arbitrum-ecosystem",
+        "base-ecosystem",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 1.1096319552920735,
+        "volume_24h": 65634963.99328805,
+        "market_cap": 416089766.0778541,
+        "percent_change_24h": -1.60330929
+      }
+    },
+    {
+      "id": 10804,
+      "name": "FLOKI",
+      "symbol": "FLOKI",
+      "slug": "floki-inu",
+      "cmc_rank": 103,
+      "circulating_supply": 9541340992722.064,
+      "total_supply": 9654801862263.291,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xcf0c122c6b73ff809c693db761e7baebe62b6a2e"
+      },
+      "tags": [
+        "defi",
+        "gaming",
+        "memes",
+        "ethereum-ecosystem",
+        "metaverse",
+        "doggone-doggerel",
+        "play-to-earn",
+        "bnb-chain-ecosystem",
+        "dwf-labs-portfolio",
+        "paal-ecosystem",
+        "tokenfi-launchpad",
+        "animal-memes",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 4.230736567861801e-05,
+        "volume_24h": 45253516.07719354,
+        "market_cap": 403669002.44348055,
+        "percent_change_24h": -7.65417899
+      }
+    },
+    {
+      "id": 6719,
+      "name": "The Graph",
+      "symbol": "GRT",
+      "slug": "the-graph",
+      "cmc_rank": 104,
+      "circulating_supply": 10628474302.977982,
+      "total_supply": 11428489939.711107,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xc944e90c64b2c07662a292be6244bdf05cda44a7"
+      },
+      "tags": [
+        "ai-big-data",
+        "enterprise-solutions",
+        "defi",
+        "ethereum-ecosystem",
+        "coinbase-ventures-portfolio",
+        "avalanche-ecosystem",
+        "solana-ecosystem",
+        "analytics",
+        "coinfund-portfolio",
+        "dcg-portfolio",
+        "fabric-ventures-portfolio",
+        "framework-ventures-portfolio",
+        "ledgerprime-portfolio",
+        "multicoin-capital-portfolio",
+        "parafi-capital",
+        "polygon-ecosystem",
+        "fantom-ecosystem",
+        "web3",
+        "near-protocol-ecosystem",
+        "arbitrum-ecosystem",
+        "spartan-group",
+        "injective-ecosystem",
+        "sora-ecosystem",
+        "made-in-america",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.03780198176921415,
+        "volume_24h": 24171125.44992537,
+        "market_cap": 401777391.8357347,
+        "percent_change_24h": -7.41500748
+      }
+    },
+    {
+      "id": 9816,
+      "name": "AINFT",
+      "symbol": "NFT",
+      "slug": "apenft",
+      "cmc_rank": 105,
+      "circulating_supply": 999990000000000,
+      "total_supply": 999990000000000,
+      "max_supply": 999990000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x198d14f2ad9ce69e76ea330b374de4957c3f850a"
+      },
+      "tags": [
+        "art",
+        "collectibles-nfts",
+        "ethereum-ecosystem",
+        "tron-ecosystem",
+        "binance-alpha",
+        "tron20-ecosystem",
+        "binance-ecosystem"
+      ],
+      "quote": {
+        "price": 3.981865153159925e-07,
+        "volume_24h": 31145971.15570312,
+        "market_cap": 398182533.45083934,
+        "percent_change_24h": 10.03849173
+      }
+    },
+    {
+      "id": 2394,
+      "name": "Telcoin",
+      "symbol": "TEL",
+      "slug": "telcoin",
+      "cmc_rank": 111,
+      "circulating_supply": 91007371550,
+      "total_supply": 100000000000,
+      "max_supply": 100000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x467bccd9d29f223bce8043b84e8c8b282827790f"
+      },
+      "tags": [
+        "medium-of-exchange",
+        "ethereum-ecosystem",
+        "polygon-ecosystem",
+        "arbitrum-ecosystem",
+        "base-ecosystem",
+        "made-in-america"
+      ],
+      "quote": {
+        "price": 0.0041050528888891035,
+        "volume_24h": 4938408.68270817,
+        "market_cap": 373590073.4915315,
+        "percent_change_24h": -7.67226606
+      }
+    },
+    {
+      "id": 13855,
+      "name": "Ethereum Name Service",
+      "symbol": "ENS",
+      "slug": "ethereum-name-service",
+      "cmc_rank": 112,
+      "circulating_supply": 38192599.85889656,
+      "total_supply": 100000000,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xC18360217D8F7Ab5e7c516566761Ea12Ce7F9D72"
+      },
+      "tags": [
+        "dao",
+        "ethereum-ecosystem",
+        "governance",
+        "solana-ecosystem",
+        "web3",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 9.64130035810235,
+        "volume_24h": 32585594.25669476,
+        "market_cap": 368226326.6964392,
+        "percent_change_24h": -9.12911662
+      }
+    },
+    {
+      "id": 26997,
+      "name": "LayerZero",
+      "symbol": "ZRO",
+      "slug": "layerzero",
+      "cmc_rank": 116,
+      "circulating_supply": 244897990.76914346,
+      "total_supply": 1000000000,
+      "max_supply": 1000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x6985884C4392D348587B19cb9eAAf157F13271cd"
+      },
+      "tags": [
+        "defi",
+        "interoperability",
+        "ethereum-ecosystem",
+        "coinbase-ventures-portfolio",
+        "binance-labs-portfolio",
+        "avalanche-ecosystem",
+        "a16z-portfolio",
+        "multicoin-capital-portfolio",
+        "polygon-ecosystem",
+        "arbitrum-ecosystem",
+        "cross-chain",
+        "optimism-ecosystem",
+        "sino-global-capital",
+        "base-ecosystem",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 1.4180732361872952,
+        "volume_24h": 40738761.85635586,
+        "market_cap": 347283286.3057656,
+        "percent_change_24h": -6.33797772
+      }
+    },
+    {
+      "id": 20641,
+      "name": "EURC",
+      "symbol": "EURC",
+      "slug": "euro-coin",
+      "cmc_rank": 117,
+      "circulating_supply": 289371281.0088121,
+      "total_supply": 289371281.0088121,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x1abaea1f7c830bd89acc67ec4af516284b1bc33c"
+      },
+      "tags": [
+        "stablecoin",
+        "stellar-ecosystem",
+        "eur-stablecoin",
+        "fiat-stablecoin",
+        "sonic-ecosystem"
+      ],
+      "quote": {
+        "price": 1.1750775737261532,
+        "volume_24h": 41999428.91686864,
+        "market_cap": 340033702.79386383,
+        "percent_change_24h": 0.12477605
+      }
+    },
+    {
+      "id": 1697,
+      "name": "Basic Attention Token",
+      "symbol": "BAT",
+      "slug": "basic-attention-token",
+      "cmc_rank": 119,
+      "circulating_supply": 1495713456.9526057,
+      "total_supply": 1500000000,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x0d8775f648430679a709e98d2b0cb6250d2887ef"
+      },
+      "tags": [
+        "marketing",
+        "communications-social-media",
+        "ai-big-data",
+        "content-creation",
+        "defi",
+        "interoperability",
+        "payments",
+        "smart-contracts",
+        "staking",
+        "ethereum-ecosystem",
+        "governance",
+        "avalanche-ecosystem",
+        "solana-ecosystem",
+        "dcg-portfolio",
+        "1confirmation-portfolio",
+        "pantera-capital-portfolio",
+        "web3",
+        "near-protocol-ecosystem",
+        "gnosis-chain-ecosystem",
+        "made-in-america",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.22201645995730726,
+        "volume_24h": 41462551.23473403,
+        "market_cap": 332073006.8231238,
+        "percent_change_24h": -12.20849408
+      }
+    },
+    {
+      "id": 9481,
+      "name": "Pendle",
+      "symbol": "PENDLE",
+      "slug": "pendle",
+      "cmc_rank": 120,
+      "circulating_supply": 164192783.4314538,
+      "total_supply": 281527448.45853144,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x808507121b80c02388fad14726482e061b8da827"
+      },
+      "tags": [
+        "defi",
+        "ethereum-ecosystem",
+        "olympus-pro-ecosystem",
+        "arbitrum-ecosystem",
+        "spartan-group",
+        "bitcoin-ecosystem",
+        "real-world-assets-protocols",
+        "restaking",
+        "eigenlayer-ecosystem",
+        "cmc-crypto-yearbook-2024-2025",
+        "btcfi",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 1.9741471424312158,
+        "volume_24h": 29587828.85618317,
+        "market_cap": 324140714.219032,
+        "percent_change_24h": -7.89673553
+      }
+    },
+    {
+      "id": 1659,
+      "name": "Gnosis",
+      "symbol": "GNO",
+      "slug": "gnosis-gno",
+      "cmc_rank": 125,
+      "circulating_supply": 2639236.35977638,
+      "total_supply": 2999934.74577209,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x6810e776880c02933d47db1b9fc05908e5386b96"
+      },
+      "tags": [
+        "services",
+        "decentralized-exchange-dex-token",
+        "prediction-markets",
+        "kenetic-capital-portfolio",
+        "layer-1",
+        "gnosis-chain-ecosystem",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 116.79655164373516,
+        "volume_24h": 4778670.93972219,
+        "market_cap": 308253705.79464555,
+        "percent_change_24h": -6.66968289
+      }
+    },
+    {
+      "id": 4066,
+      "name": "Chiliz",
+      "symbol": "CHZ",
+      "slug": "chiliz",
+      "cmc_rank": 126,
+      "circulating_supply": 10160352724,
+      "total_supply": 10160352724,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x3506424f91fd33084466f402d5d97f05f8e3b4af"
+      },
+      "tags": [
+        "sports",
+        "communications-social-media",
+        "collectibles-nfts",
+        "content-creation",
+        "payments",
+        "layer-1",
+        "alleged-sec-securities",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.030221222029296505,
+        "volume_24h": 41576301.69806996,
+        "market_cap": 307058275.5679715,
+        "percent_change_24h": -6.99309458
+      }
+    },
+    {
+      "id": 6210,
+      "name": "The Sandbox",
+      "symbol": "SAND",
+      "slug": "the-sandbox",
+      "cmc_rank": 127,
+      "circulating_supply": 2613289192.2233224,
+      "total_supply": 3000000000,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x3845badAde8e6dFF049820680d1F14bD3903a5d0"
+      },
+      "tags": [
+        "communications-social-media",
+        "collectibles-nfts",
+        "content-creation",
+        "gaming",
+        "ethereum-ecosystem",
+        "binance-launchpad",
+        "metaverse",
+        "polygon-ecosystem",
+        "play-to-earn",
+        "animoca-brands-portfolio",
+        "alleged-sec-securities",
+        "base-ecosystem",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.11717350063222925,
+        "volume_24h": 36768583.84042081,
+        "market_cap": 306208242.81717736,
+        "percent_change_24h": -8.92385913
+      }
+    },
+    {
+      "id": 7080,
+      "name": "Gala",
+      "symbol": "GALA",
+      "slug": "gala",
+      "cmc_rank": 130,
+      "circulating_supply": 46845801844.151985,
+      "total_supply": 46845801844.151985,
+      "max_supply": 50000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xd1d2Eb1B1e90B638588728b4130137D262C87cae"
+      },
+      "tags": [
+        "collectibles-nfts",
+        "gaming",
+        "binance-smart-chain",
+        "polygon-ecosystem",
+        "play-to-earn",
+        "layer-1",
+        "dwf-labs-portfolio",
+        "made-in-america",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.006458171157385443,
+        "volume_24h": 31609229.55218939,
+        "market_cap": 302538206.31449616,
+        "percent_change_24h": -7.09930061
+      }
+    },
+    {
+      "id": 33824,
+      "name": "Maple Finance",
+      "symbol": "SYRUP",
+      "slug": "maple-finance",
+      "cmc_rank": 131,
+      "circulating_supply": 1142547259.6985319,
+      "total_supply": 1216127147.9985635,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x643C4E15d7d62Ad0aBeC4a9BD4b001aA3Ef52d66"
+      },
+      "tags": [
+        "defi",
+        "dao",
+        "ethereum-ecosystem",
+        "framework-ventures-portfolio",
+        "real-world-assets-protocols",
+        "circle-ventures-portfolio",
+        "base-ecosystem",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.26307912205678846,
+        "volume_24h": 24351835.72102581,
+        "market_cap": 300580329.98987925,
+        "percent_change_24h": -2.13790045
+      }
+    },
+    {
+      "id": 37322,
+      "name": "Vision",
+      "symbol": "VSN",
+      "slug": "vision-token",
+      "cmc_rank": 132,
+      "circulating_supply": 3467820978.1031866,
+      "total_supply": 4210728578.4291234,
+      "max_supply": 4200000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x699ccf919c1dfdfa4c374292f42cadc9899bf753"
+      },
+      "tags": [
+        "ethereum-ecosystem",
+        "arbitrum-ecosystem",
+        "binance-alpha",
+        "binance-alpha-airdrops",
+        "binance-ecosystem"
+      ],
+      "quote": {
+        "price": 0.0859372696969948,
+        "volume_24h": 45780492.53155801,
+        "market_cap": 298015066.65614986,
+        "percent_change_24h": -5.56831052
+      }
+    },
+    {
+      "id": 8425,
+      "name": "JasmyCoin",
+      "symbol": "JASMY",
+      "slug": "jasmy",
+      "cmc_rank": 133,
+      "circulating_supply": 49444999677.16958,
+      "total_supply": 50000000000,
+      "max_supply": 50000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x7420B4b9a0110cdC71fB720908340C03F9Bc03EC"
+      },
+      "tags": [
+        "iot",
+        "ethereum-ecosystem",
+        "dwf-labs-portfolio",
+        "binance-ecosystem",
+        "binance-listing",
+        "robotics"
+      ],
+      "quote": {
+        "price": 0.005957113907765859,
+        "volume_24h": 27166355.77688271,
+        "market_cap": 294549495.2463453,
+        "percent_change_24h": -4.50144621
+      }
+    },
+    {
+      "id": 7326,
+      "name": "DeXe",
+      "symbol": "DEXE",
+      "slug": "dexe",
+      "cmc_rank": 134,
+      "circulating_supply": 83733637.70915848,
+      "total_supply": 96504599.33609451,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xde4EE8057785A7e8e800Db58F9784845A5C2Cbd6"
+      },
+      "tags": [
+        "asset-management",
+        "ai-big-data",
+        "defi",
+        "dao",
+        "ethereum-ecosystem",
+        "bnb-chain-ecosystem",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 3.3650433840502005,
+        "volume_24h": 3559870.10530065,
+        "market_cap": 281767323.59566015,
+        "percent_change_24h": -3.0425148
+      }
+    },
+    {
+      "id": 5692,
+      "name": "Compound",
+      "symbol": "COMP",
+      "slug": "compound",
+      "cmc_rank": 135,
+      "circulating_supply": 9959953.26408615,
+      "total_supply": 10000000,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xc00e94cb662c3520282e6f5717214004a7f26888"
+      },
+      "tags": [
+        "defi",
+        "dao",
+        "ethereum-ecosystem",
+        "yield-farming",
+        "coinbase-ventures-portfolio",
+        "three-arrows-capital-portfolio",
+        "polychain-capital-portfolio",
+        "avalanche-ecosystem",
+        "solana-ecosystem",
+        "lending-borowing",
+        "dragonfly-capital-portfolio",
+        "alameda-research-portfolio",
+        "a16z-portfolio",
+        "pantera-capital-portfolio",
+        "paradigm-portfolio",
+        "near-protocol-ecosystem",
+        "arbitrum-ecosystem",
+        "gnosis-chain-ecosystem",
+        "sora-ecosystem",
+        "made-in-america",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 27.030165983134484,
+        "volume_24h": 25613822.22902739,
+        "market_cap": 269219189.9125107,
+        "percent_change_24h": -6.2066849
+      }
+    },
+    {
+      "id": 1966,
+      "name": "Decentraland",
+      "symbol": "MANA",
+      "slug": "decentraland",
+      "cmc_rank": 137,
+      "circulating_supply": 1969729010.368757,
+      "total_supply": 2193179327.320146,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x0f5d2fb29fb7d3cfee444a200298f468908cc942"
+      },
+      "tags": [
+        "platform",
+        "collectibles-nfts",
+        "gaming",
+        "payments",
+        "ethereum-ecosystem",
+        "solana-ecosystem",
+        "metaverse",
+        "boostvc-portfolio",
+        "dcg-portfolio",
+        "fabric-ventures-portfolio",
+        "kenetic-capital-portfolio",
+        "polygon-ecosystem",
+        "play-to-earn",
+        "alleged-sec-securities",
+        "gnosis-chain-ecosystem",
+        "fusion-network-ecosystem",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.1320009795514596,
+        "volume_24h": 26630946.05017018,
+        "market_cap": 260006158.81960303,
+        "percent_change_24h": -6.81164206
+      }
+    },
+    {
+      "id": 38482,
+      "name": "Falcon Finance",
+      "symbol": "FF",
+      "slug": "falcon-finance-ff",
+      "cmc_rank": 145,
+      "circulating_supply": 2340000000,
+      "total_supply": 10000000000,
+      "max_supply": 10000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xfa1c09fc8b491b6a4d3ff53a10cad29381b3f949"
+      },
+      "tags": [
+        "government",
+        "ethereum-ecosystem",
+        "bnb-chain-ecosystem",
+        "binance-hodler-airdrops",
+        "binance-alpha-airdrops",
+        "binance-ecosystem",
+        "binance-listing",
+        "stablecoin-protocol"
+      ],
+      "quote": {
+        "price": 0.09786583712718877,
+        "volume_24h": 42728346.75864093,
+        "market_cap": 229006058.8776217,
+        "percent_change_24h": -10.45652475
+      }
+    },
+    {
+      "id": 8104,
+      "name": "1inch",
+      "symbol": "1INCH",
+      "slug": "1inch",
+      "cmc_rank": 146,
+      "circulating_supply": 1402088825.9724398,
+      "total_supply": 1500000000,
+      "max_supply": 1500000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x111111111117dc0aa78b770fa6a738034120c302"
+      },
+      "tags": [
+        "decentralized-exchange-dex-token",
+        "defi",
+        "wallet",
+        "ethereum-ecosystem",
+        "amm",
+        "binance-labs-portfolio",
+        "avalanche-ecosystem",
+        "solana-ecosystem",
+        "blockchain-capital-portfolio",
+        "dragonfly-capital-portfolio",
+        "fabric-ventures-portfolio",
+        "alameda-research-portfolio",
+        "parafi-capital",
+        "spartan-group",
+        "bnb-chain-ecosystem",
+        "celsius-bankruptcy-estate",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.16108378898753858,
+        "volume_24h": 16724701.7717215,
+        "market_cap": 225853780.5847302,
+        "percent_change_24h": -4.22517219
+      }
+    },
+    {
+      "id": 10508,
+      "name": "Fluid",
+      "symbol": "FLUID",
+      "slug": "instadapp",
+      "cmc_rank": 147,
+      "circulating_supply": 77249827.8672596,
+      "total_supply": 100000000,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x6f40d4A6237C257fff2dB00FA0510DeEECd303eb"
+      },
+      "tags": [
+        "defi",
+        "dao",
+        "ethereum-ecosystem",
+        "coinbase-ventures-portfolio",
+        "arbitrum-ecosystem",
+        "base-ecosystem",
+        "standard-crypto-portfolio",
+        "binance-alpha",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 2.8387561869693396,
+        "volume_24h": 6616549.4478152,
+        "market_cap": 219293426.8004997,
+        "percent_change_24h": -7.80154577
+      }
+    },
+    {
+      "id": 2467,
+      "name": "OriginTrail",
+      "symbol": "TRAC",
+      "slug": "origintrail",
+      "cmc_rank": 153,
+      "circulating_supply": 499998299.602,
+      "total_supply": 500000000,
+      "max_supply": 500000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xaa7a9ca87d3694b5755f213b5d04094b8d0f0a6f"
+      },
+      "tags": [
+        "marketplace",
+        "logistics",
+        "ai-big-data",
+        "enterprise-solutions",
+        "distributed-computing",
+        "data-provenance",
+        "defi",
+        "privacy",
+        "interoperability",
+        "smart-contracts",
+        "ethereum-ecosystem",
+        "web3",
+        "open-source",
+        "desci",
+        "generative-ai",
+        "real-world-assets-protocols",
+        "base-ecosystem",
+        "depin",
+        "ai-agents",
+        "gnosis-chain-ecosystem"
+      ],
+      "quote": {
+        "price": 0.4177859934386694,
+        "volume_24h": 4305708.54533724,
+        "market_cap": 208892286.31686702,
+        "percent_change_24h": -11.88591164
+      }
+    },
+    {
+      "id": 35931,
+      "name": "ZORA",
+      "symbol": "ZORA",
+      "slug": "zora",
+      "cmc_rank": 154,
+      "circulating_supply": 4469999999,
+      "total_supply": 10000000000,
+      "max_supply": 10000000000,
+      "platform": {
+        "id": 27716,
+        "name": "Base",
+        "symbol": "-",
+        "slug": "base",
+        "token_address": "0x1111111111166b7fe7bd91427724b487980afc69"
+      },
+      "tags": [
+        "communications-social-media",
+        "collectibles-nfts",
+        "social-money",
+        "layer-2",
+        "base-ecosystem",
+        "binance-alpha",
+        "binance-alpha-airdrops",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.04651296573323652,
+        "volume_24h": 36746405.33560843,
+        "market_cap": 207912956.7810543,
+        "percent_change_24h": -1.59101141
+      }
+    },
+    {
+      "id": 1455,
+      "name": "Golem",
+      "symbol": "GLM",
+      "slug": "golem-network-tokens",
+      "cmc_rank": 155,
+      "circulating_supply": 1000000000,
+      "total_supply": 1000000000,
+      "max_supply": 1000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x7DD9c5Cba05E151C895FDe1CF355C9A1D5DA6429"
+      },
+      "tags": [
+        "platform",
+        "ai-big-data",
+        "distributed-computing",
+        "payments",
+        "ethereum-ecosystem",
+        "polygon-ecosystem",
+        "web3",
+        "depin",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.20722480954184624,
+        "volume_24h": 7470224.58968772,
+        "market_cap": 207224809.54184625,
+        "percent_change_24h": -1.95610145
+      }
+    },
+    {
+      "id": 30494,
+      "name": "EigenCloud",
+      "symbol": "EIGEN",
+      "slug": "eigencloud",
+      "cmc_rank": 157,
+      "circulating_supply": 489879724.18605375,
+      "total_supply": 1774461597.7706828,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xec53bF9167f50cDEB3Ae105f56099aaaB9061F83"
+      },
+      "tags": [
+        "defi",
+        "ethereum-ecosystem",
+        "restaking",
+        "cmc-crypto-yearbook-2024-2025",
+        "made-in-america",
+        "binance-ecosystem",
+        "binance-listing",
+        "x402-ecosystem"
+      ],
+      "quote": {
+        "price": 0.4025239335068379,
+        "volume_24h": 54185938.4116935,
+        "market_cap": 197188313.5246152,
+        "percent_change_24h": -7.11577481
+      }
+    },
+    {
+      "id": 4041,
+      "name": "MX Token",
+      "symbol": "MX",
+      "slug": "mx-token",
+      "cmc_rank": 159,
+      "circulating_supply": 92456834,
+      "total_supply": 411206834,
+      "max_supply": 413787834,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x11eef04c884e24d9b7b4760e7476d06ddf797f36"
+      },
+      "tags": [
+        "marketplace",
+        "centralized-exchange",
+        "discount-token",
+        "ethereum-ecosystem",
+        "made-in-china"
+      ],
+      "quote": {
+        "price": 2.0867896666191417,
+        "volume_24h": 20059217.94913969,
+        "market_cap": 192937965.79952133,
+        "percent_change_24h": -2.31082856
+      }
+    },
+    {
+      "id": 29587,
+      "name": "Wormhole",
+      "symbol": "W",
+      "slug": "wormhole",
+      "cmc_rank": 163,
+      "circulating_supply": 5104564082,
+      "total_supply": 10000000000,
+      "max_supply": 10000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xB0fFa8000886e57F86dd5264b9582b2Ad87b2b91"
+      },
+      "tags": [
+        "collectibles-nfts",
+        "defi",
+        "interoperability",
+        "dao",
+        "ethereum-ecosystem",
+        "coinbase-ventures-portfolio",
+        "governance",
+        "solana-ecosystem",
+        "arrington-xrp-capital-portfolio",
+        "multicoin-capital-portfolio",
+        "web3",
+        "arbitrum-ecosystem",
+        "cross-chain",
+        "optimism-ecosystem",
+        "jump-crypto",
+        "base-ecosystem",
+        "cmc-crypto-yearbook-2024-2025",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.03574472321316703,
+        "volume_24h": 35786387.74203992,
+        "market_cap": 182461230.23496407,
+        "percent_change_24h": -3.32462813
+      }
+    },
+    {
+      "id": 38337,
+      "name": "0G",
+      "symbol": "0G",
+      "slug": "zero-gravity",
+      "cmc_rank": 163,
+      "circulating_supply": 213243998,
+      "total_supply": 1000000000,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x4B948d64dE1F71fCd12fB586f4c776421a35b3eE"
+      },
+      "tags": [
+        "distributed-computing",
+        "data-provenance",
+        "okx-ventures-portfolio",
+        "layer-1",
+        "polygon-ventures-portfolio",
+        "depin",
+        "binance-hodler-airdrops",
+        "binance-alpha-airdrops",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.8489727999853964,
+        "volume_24h": 32088986.06982039,
+        "market_cap": 181038354.0621403,
+        "percent_change_24h": -6.6418282
+      }
+    },
+    {
+      "id": 38864,
+      "name": "Folks Finance",
+      "symbol": "FOLKS",
+      "slug": "folks-finance",
+      "cmc_rank": 163,
+      "circulating_supply": 12198406.999994,
+      "total_supply": 50000000,
+      "max_supply": 50000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xFF7F8F301F7A706E3CfD3D2275f5dc0b9EE8009B"
+      },
+      "tags": [
+        "asset-management",
+        "defi",
+        "ethereum-ecosystem",
+        "coinbase-ventures-portfolio",
+        "algorand-ecosystem",
+        "avalanche-ecosystem",
+        "lending-borowing",
+        "polygon-ecosystem",
+        "arbitrum-ecosystem",
+        "okx-ventures-portfolio",
+        "bnb-chain-ecosystem",
+        "jump-crypto",
+        "base-ecosystem",
+        "binance-alpha",
+        "binance-alpha-airdrops",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 15.042477160415316,
+        "volume_24h": 36396251.23473898,
+        "market_cap": 183494258.69086006,
+        "percent_change_24h": -46.65224019
+      }
+    },
+    {
+      "id": 18679,
+      "name": "Onyxcoin",
+      "symbol": "XCN",
+      "slug": "onyxcoin",
+      "cmc_rank": 166,
+      "circulating_supply": 36392105629.73914,
+      "total_supply": 48402432408.486084,
+      "max_supply": 68892071756.90897,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xA2cd3D43c775978A96BdBf12d733D5A1ED94fb18"
+      },
+      "tags": [
+        "layer-1",
+        "made-in-america"
+      ],
+      "quote": {
+        "price": 0.0049192993557783445,
+        "volume_24h": 8850369.46461818,
+        "market_cap": 179023661.77979323,
+        "percent_change_24h": -5.36276466
+      }
+    },
+    {
+      "id": 38408,
+      "name": "Lombard",
+      "symbol": "BARD",
+      "slug": "lombard",
+      "cmc_rank": 168,
+      "circulating_supply": 225000000,
+      "total_supply": 1000000000,
+      "max_supply": 1000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xf0DB65D17e30a966C2ae6A21f6BBA71cea6e9754"
+      },
+      "tags": [
+        "defi",
+        "ethereum-ecosystem",
+        "polychain-capital-portfolio",
+        "binance-labs-portfolio",
+        "okx-ventures-portfolio",
+        "bnb-chain-ecosystem",
+        "bitcoin-ecosystem",
+        "nomad-capital",
+        "binance-hodler-airdrops",
+        "binance-alpha-airdrops",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.7650643477117398,
+        "volume_24h": 25662206.60434715,
+        "market_cap": 172139478.23514146,
+        "percent_change_24h": -3.02223434
+      }
+    },
+    {
+      "id": 3964,
+      "name": "Reserve Rights",
+      "symbol": "RSR",
+      "slug": "reserve-rights",
+      "cmc_rank": 170,
+      "circulating_supply": 61816349255,
+      "total_supply": 100000000000,
+      "max_supply": 100000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x320623b8e4ff03373931769a31fc52a4e78b5d70"
+      },
+      "tags": [
+        "store-of-value",
+        "defi",
+        "ethereum-ecosystem",
+        "coinbase-ventures-portfolio",
+        "dcg-portfolio",
+        "bitcoin-ecosystem",
+        "real-world-assets-protocols",
+        "base-ecosystem",
+        "made-in-america",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.0027283396603765384,
+        "volume_24h": 12722064.70057151,
+        "market_cap": 168655997.33210418,
+        "percent_change_24h": -8.40697734
+      }
+    },
+    {
+      "id": 9903,
+      "name": "Convex Finance",
+      "symbol": "CVX",
+      "slug": "convex-finance",
+      "cmc_rank": 170,
+      "circulating_supply": 98512635.00861914,
+      "total_supply": 99939723.37267861,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x4e3fbd56cd56c3e72c1403e103b45db9da5b9d2b"
+      },
+      "tags": [
+        "defi",
+        "ethereum-ecosystem",
+        "yield-aggregator",
+        "solana-ecosystem",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 1.7163417578641842,
+        "volume_24h": 7908812.29548605,
+        "market_cap": 169081349.14252615,
+        "percent_change_24h": -2.9679085
+      }
+    },
+    {
+      "id": 4120,
+      "name": "Prom",
+      "symbol": "PROM",
+      "slug": "prom",
+      "cmc_rank": 172,
+      "circulating_supply": 18250000,
+      "total_supply": 19250000,
+      "max_supply": 19250000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xfc82bb4ba86045af6f327323a46e80412b91b27d"
+      },
+      "tags": [
+        "ethereum-ecosystem",
+        "bnb-chain-ecosystem",
+        "dwf-labs-portfolio",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 8.970601958820625,
+        "volume_24h": 6826720.41643163,
+        "market_cap": 163713485.74847642,
+        "percent_change_24h": 0.02969909
+      }
+    },
+    {
+      "id": 6945,
+      "name": "Amp",
+      "symbol": "AMP",
+      "slug": "amp",
+      "cmc_rank": 173,
+      "circulating_supply": 84282145795.1372,
+      "total_supply": 99720005508.11165,
+      "max_supply": 100000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xff20817765cb7f73d4bde2e66e067e58d11095c2"
+      },
+      "tags": [
+        "ethereum-ecosystem",
+        "alleged-sec-securities",
+        "made-in-america",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.0019208789868316695,
+        "volume_24h": 5116120.44684535,
+        "market_cap": 161895802.82296222,
+        "percent_change_24h": -5.94554049
+      }
+    },
+    {
+      "id": 38828,
+      "name": "Kite",
+      "symbol": "KITE",
+      "slug": "kite",
+      "cmc_rank": 174,
+      "circulating_supply": 1800000000,
+      "total_supply": 10000000000,
+      "max_supply": 10000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x904567252D8F48555b7447c67dCA23F0372E16be"
+      },
+      "tags": [
+        "ai-big-data",
+        "dapp",
+        "hashkey-capital-portfolio",
+        "animoca-brands-portfolio",
+        "layer-1",
+        "ai-agents",
+        "binance-alpha-airdrops",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.08826340477468664,
+        "volume_24h": 64284997.06830062,
+        "market_cap": 158874128.59443596,
+        "percent_change_24h": 4.89911879
+      }
+    },
+    {
+      "id": 18876,
+      "name": "ApeCoin",
+      "symbol": "APE",
+      "slug": "apecoin-ape",
+      "cmc_rank": 176,
+      "circulating_supply": 752651515,
+      "total_supply": 1000000000,
+      "max_supply": 1000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x4d224452801aced8b2f0aebe155379bb5d594381"
+      },
+      "tags": [
+        "communications-social-media",
+        "collectibles-nfts",
+        "content-creation",
+        "gaming",
+        "entertainment",
+        "memes",
+        "dao",
+        "ethereum-ecosystem",
+        "governance",
+        "metaverse",
+        "animoca-brands-portfolio",
+        "bnb-chain-ecosystem",
+        "ip-memes",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.2093227339224413,
+        "volume_24h": 25642841.72794415,
+        "market_cap": 157547072.81066734,
+        "percent_change_24h": -7.27015297
+      }
+    },
+    {
+      "id": 3640,
+      "name": "Livepeer",
+      "symbol": "LPT",
+      "slug": "livepeer",
+      "cmc_rank": 177,
+      "circulating_supply": 47670637.21306668,
+      "total_supply": 47670637.21306668,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x58b6a8a3302369daec383334672404ee733ab239"
+      },
+      "tags": [
+        "media",
+        "ai-big-data",
+        "distributed-computing",
+        "video",
+        "ethereum-ecosystem",
+        "coinfund-portfolio",
+        "dcg-portfolio",
+        "pantera-capital-portfolio",
+        "multicoin-capital-portfolio",
+        "web3",
+        "arbitrum-ecosystem",
+        "harmony-ecosystem",
+        "generative-ai",
+        "depin",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 3.276473929360354,
+        "volume_24h": 14933858.24362457,
+        "market_cap": 156191600.02460852,
+        "percent_change_24h": -6.77832848
+      }
+    },
+    {
+      "id": 30083,
+      "name": "Aethir",
+      "symbol": "ATH",
+      "slug": "aethir",
+      "cmc_rank": 178,
+      "circulating_supply": 15726074469,
+      "total_supply": 42000000000,
+      "max_supply": 42000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xbe0ed4138121ecfc5c0e56b40517da27e6c5226b"
+      },
+      "tags": [
+        "ai-big-data",
+        "distributed-computing",
+        "ethereum-ecosystem",
+        "solana-ecosystem",
+        "arbitrum-ecosystem",
+        "depin",
+        "binance-alpha",
+        "cmc-crypto-yearbook-2024-2025",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.009856523128804548,
+        "volume_24h": 12422411.4791911,
+        "market_cap": 155004416.7290012,
+        "percent_change_24h": -13.72455024
+      }
+    },
+    {
+      "id": 6783,
+      "name": "Axie Infinity",
+      "symbol": "AXS",
+      "slug": "axie-infinity",
+      "cmc_rank": 180,
+      "circulating_supply": 167476603.4495573,
+      "total_supply": 270000000,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xbb0e17ef65f82ab018d8edd776e8dd940327b28b"
+      },
+      "tags": [
+        "collectibles-nfts",
+        "gaming",
+        "ethereum-ecosystem",
+        "binance-launchpad",
+        "solana-ecosystem",
+        "metaverse",
+        "defiance-capital-portfolio",
+        "play-to-earn",
+        "animoca-brands-portfolio",
+        "harmony-ecosystem",
+        "alleged-sec-securities",
+        "ronin-ecosystem",
+        "binance-ecosystem",
+        "binance-listing",
+        "trading-card-game"
+      ],
+      "quote": {
+        "price": 0.9087637363115277,
+        "volume_24h": 17127457.72179211,
+        "market_cap": 152196663.89558378,
+        "percent_change_24h": -7.65890332
+      }
+    },
+    {
+      "id": 8290,
+      "name": "SuperVerse",
+      "symbol": "SUPER",
+      "slug": "superverse",
+      "cmc_rank": 181,
+      "circulating_supply": 637162626.4169173,
+      "total_supply": 999998077.4169173,
+      "max_supply": 999998077.417,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xe53ec727dbdeb9e2d5456c3be40cff031ab40a55"
+      },
+      "tags": [
+        "collectibles-nfts",
+        "defi",
+        "gaming",
+        "ethereum-ecosystem",
+        "launchpad",
+        "avalanche-ecosystem",
+        "polkastarter",
+        "exnetwork-capital-portfolio",
+        "superstarter",
+        "polygon-ecosystem",
+        "animoca-brands-portfolio",
+        "injective-ecosystem",
+        "base-ecosystem",
+        "made-in-america",
+        "binance-ecosystem",
+        "binance-listing",
+        "soneium-ecosystem"
+      ],
+      "quote": {
+        "price": 0.23527707651989058,
+        "volume_24h": 14810234.83206378,
+        "market_cap": 149909760.0111075,
+        "percent_change_24h": -10.33804356
+      }
+    },
+    {
+      "id": 29743,
+      "name": "Brett (Based)",
+      "symbol": "BRETT",
+      "slug": "based-brett",
+      "cmc_rank": 182,
+      "circulating_supply": 9910236395,
+      "total_supply": 9910236395,
+      "max_supply": 10000000000,
+      "platform": {
+        "id": 27716,
+        "name": "Base",
+        "symbol": "-",
+        "slug": "base",
+        "token_address": "0x532f27101965dd16442e59d40670faf5ebb142e4"
+      },
+      "tags": [
+        "memes",
+        "bnb-chain-ecosystem",
+        "base-ecosystem",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.015053992147396384,
+        "volume_24h": 16594392.75738729,
+        "market_cap": 149188620.86917186,
+        "percent_change_24h": -8.36535759
+      }
+    },
+    {
+      "id": 36922,
+      "name": "Humanity Protocol",
+      "symbol": "H",
+      "slug": "humanity-protocol",
+      "cmc_rank": 183,
+      "circulating_supply": 2200000000,
+      "total_supply": 10000000000,
+      "max_supply": 10000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xcf5104D094e3864CfCBDa43B82e1cEFD26A016eB"
+      },
+      "tags": [
+        "privacy",
+        "identity",
+        "ethereum-ecosystem",
+        "pantera-capital-portfolio",
+        "animoca-brands-portfolio",
+        "bnb-chain-ecosystem",
+        "jump-crypto",
+        "binance-alpha",
+        "binance-alpha-airdrops",
+        "binance-ecosystem",
+        "binance-listing",
+        "privacy-blockchain"
+      ],
+      "quote": {
+        "price": 0.06747705506843116,
+        "volume_24h": 36760640.69162352,
+        "market_cap": 148449521.15054855,
+        "percent_change_24h": -2.9163291
+      }
+    },
+    {
+      "id": 28298,
+      "name": "Beam",
+      "symbol": "BEAM",
+      "slug": "onbeam",
+      "cmc_rank": 184,
+      "circulating_supply": 49466004168,
+      "total_supply": 58470184687,
+      "max_supply": 58470184687,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x62D0A8458eD7719FDAF978fe5929C6D342B0bFcE"
+      },
+      "tags": [
+        "gaming",
+        "ethereum-ecosystem",
+        "binance-chain",
+        "binance-launchpool",
+        "governance",
+        "play-to-earn",
+        "token",
+        "gaming-guild",
+        "spartan-group",
+        "bnb-chain-ecosystem",
+        "dwf-labs-portfolio",
+        "base-ecosystem",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.002961089898643324,
+        "volume_24h": 10139575.12086213,
+        "market_cap": 146473285.26811334,
+        "percent_change_24h": -4.98731421
+      }
+    },
+    {
+      "id": 2586,
+      "name": "Synthetix",
+      "symbol": "SNX",
+      "slug": "synthetix",
+      "cmc_rank": 188,
+      "circulating_supply": 343466216.99839866,
+      "total_supply": 343889850.0967736,
+      "max_supply": 339889850.089,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f"
+      },
+      "tags": [
+        "services",
+        "decentralized-exchange-dex-token",
+        "defi",
+        "derivatives",
+        "dao",
+        "ethereum-ecosystem",
+        "yield-farming",
+        "coinbase-ventures-portfolio",
+        "three-arrows-capital-portfolio",
+        "governance",
+        "heco-ecosystem",
+        "avalanche-ecosystem",
+        "solana-ecosystem",
+        "synthetics",
+        "defiance-capital-portfolio",
+        "framework-ventures-portfolio",
+        "alameda-research-portfolio",
+        "parafi-capital",
+        "paradigm-portfolio",
+        "polygon-ecosystem",
+        "fantom-ecosystem",
+        "near-protocol-ecosystem",
+        "spartan-group",
+        "optimism-ecosystem",
+        "real-world-assets-protocols",
+        "dwf-labs-portfolio",
+        "celsius-bankruptcy-estate",
+        "binance-ecosystem",
+        "binance-listing",
+        "perp-dex-coins"
+      ],
+      "quote": {
+        "price": 0.41912175398279905,
+        "volume_24h": 20244522.60133754,
+        "market_cap": 143954163.3022055,
+        "percent_change_24h": -6.66321712
+      }
+    },
+    {
+      "id": 24911,
+      "name": "Turbo",
+      "symbol": "TURBO",
+      "slug": "turbo",
+      "cmc_rank": 193,
+      "circulating_supply": 69000000000,
+      "total_supply": 69000000000,
+      "max_supply": 69000000000,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0xa35923162c49cf95e6bf26623385eb431ad920d3"
+      },
+      "tags": [
+        "art",
+        "ai-big-data",
+        "memes",
+        "ethereum-ecosystem",
+        "solana-ecosystem",
+        "web3",
+        "dwf-labs-portfolio",
+        "ai-memes",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.001911881939902925,
+        "volume_24h": 24019637.4831648,
+        "market_cap": 131919853.85330182,
+        "percent_change_24h": -5.64627046
+      }
+    },
+    {
+      "id": 35763,
+      "name": "KAITO",
+      "symbol": "KAITO",
+      "slug": "kaito",
+      "cmc_rank": 194,
+      "circulating_supply": 241388889,
+      "total_supply": 1000000000,
+      "max_supply": 1000000000,
+      "platform": {
+        "id": 27716,
+        "name": "Base",
+        "symbol": "-",
+        "slug": "base",
+        "token_address": "0x98d0baa52b2D063E780DE12F615f963Fe8537553"
+      },
+      "tags": [
+        "communications-social-media",
+        "ai-big-data",
+        "social-token",
+        "governance",
+        "dragonfly-capital-portfolio",
+        "hashkey-capital-portfolio",
+        "spartan-group",
+        "base-ecosystem",
+        "binance-hodler-airdrops",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.534038099285806,
+        "volume_24h": 11330697.83262797,
+        "market_cap": 128910863.4702724,
+        "percent_change_24h": -10.61208565
+      }
+    },
+    {
+      "id": 17799,
+      "name": "Axelar",
+      "symbol": "AXL",
+      "slug": "axelar",
+      "cmc_rank": 196,
+      "circulating_supply": 1087485965.3269548,
+      "total_supply": 1225846677.168159,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x467719aD09025FcC6cF6F8311755809d45a5E5f3"
+      },
+      "tags": [
+        "defi",
+        "interoperability",
+        "ethereum-ecosystem",
+        "coinbase-ventures-portfolio",
+        "polychain-capital-portfolio",
+        "binance-labs-portfolio",
+        "avalanche-ecosystem",
+        "galaxy-digital-portfolio",
+        "polygon-ecosystem",
+        "fantom-ecosystem",
+        "arbitrum-ecosystem",
+        "bnb-chain-ecosystem",
+        "optimism-ecosystem",
+        "osmosis-ecosystem",
+        "real-world-assets-protocols",
+        "base-ecosystem",
+        "linea-ecosystem",
+        "sei-ecosystem",
+        "mantle-ecosystem",
+        "scroll-ecosystem",
+        "made-in-america",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 0.11493474212676388,
+        "volume_24h": 42772391.47442504,
+        "market_cap": 124989918.99132845,
+        "percent_change_24h": -15.31707689
+      }
+    },
+    {
+      "id": 5864,
+      "name": "yearn.finance",
+      "symbol": "YFI",
+      "slug": "yearn-finance",
+      "cmc_rank": 199,
+      "circulating_supply": 35093.95019188,
+      "total_supply": 36646.35701814,
+      "max_supply": null,
+      "platform": {
+        "id": 1027,
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "slug": "ethereum",
+        "token_address": "0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e"
+      },
+      "tags": [
+        "defi",
+        "dao",
+        "ethereum-ecosystem",
+        "yield-farming",
+        "yield-aggregator",
+        "yearn-partnerships",
+        "three-arrows-capital-portfolio",
+        "polychain-capital-portfolio",
+        "governance",
+        "heco-ecosystem",
+        "avalanche-ecosystem",
+        "solana-ecosystem",
+        "blockchain-capital-portfolio",
+        "framework-ventures-portfolio",
+        "alameda-research-portfolio",
+        "parafi-capital",
+        "fantom-ecosystem",
+        "near-protocol-ecosystem",
+        "arbitrum-ecosystem",
+        "standard-crypto-portfolio",
+        "gnosis-chain-ecosystem",
+        "binance-ecosystem",
+        "binance-listing"
+      ],
+      "quote": {
+        "price": 3371.6712345844535,
+        "volume_24h": 13463834.99485975,
+        "market_cap": 118325262.36990136,
+        "percent_change_24h": -3.66108986
+      }
+    }
+  ]
+}

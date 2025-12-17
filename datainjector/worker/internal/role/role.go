@@ -40,10 +40,10 @@ type Role struct {
 }
 
 func Build(rc config.RoleConfig) (*Role, error) {
-	// 构造传入 caller 的参数：native_call 需要区分 caller_config / caller_params，其他 caller 直接使用 CallerParams
+	// 构造传入 caller 的参数：native_call 和 batch_file 需要区分 caller_config / caller_params，其他 caller 直接使用 CallerParams
 	var paramsForCaller map[string]any
 	switch rc.Caller {
-	case "native_call":
+	case "native_call", "batch_file":
 		cfg := map[string]any{}
 		if rc.CallerConfig != nil {
 			cfg["caller_config"] = rc.CallerConfig

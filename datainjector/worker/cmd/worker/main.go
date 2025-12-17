@@ -6,12 +6,20 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/config"
+	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/metrics"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/role"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/status"
+)
+
+// 构建时注入的版本信息
+var (
+	Version   = "dev"
+	BuildTime = "unknown"
 )
 
 func main() {
@@ -29,6 +37,23 @@ func main() {
 
 	status.Init(cfg.StatusReporter)
 	defer status.Close()
+
+	// 启动metrics服务器
+	var metricsServer *metrics.Server
+	if cfg.Metrics.Enabled {
+		metricsServer = metrics.NewServer(metrics.Config{
+			Enabled: cfg.Metrics.Enabled,
+			Port:    cfg.Metrics.Port,
+			Path:    cfg.Metrics.Path,
+		})
+		if err := metricsServer.Start(); err != nil {
+			log.Printf("failed to start metrics server: %v", err)
+		} else {
+			log.Printf("metrics server started on port %d", cfg.Metrics.Port)
+		}
+		// 设置构建信息
+		metrics.SetBuildInfo(Version, runtime.Version(), BuildTime)
+	}
 
 	// 仅启动配置中的所有角色（当前关注 localnode-block）
 	ctx, cancel := context.WithCancel(context.Background())
@@ -68,6 +93,15 @@ func main() {
 			log.Printf("role exited with error: %v", err)
 		}
 	case <-ctx.Done():
+	}
+
+	// 停止metrics服务器
+	if metricsServer != nil {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		if err := metricsServer.Stop(shutdownCtx); err != nil {
+			log.Printf("metrics server shutdown error: %v", err)
+		}
 	}
 
 	// 给各 goroutine 留一点退出时间

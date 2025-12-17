@@ -1,0 +1,44 @@
+server:
+  port: 8095
+
+spring:
+  application:
+    name: metadata-core
+  datasource:
+    url: jdbc:postgresql://localhost:5432/twilight
+    username: twilight
+    password: twilight123
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        jdbc.lob.non_contextual_creation: true
+        format_sql: true
+    open-in-view: false
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: metadata-core
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  redis:
+    host: localhost
+    port: 6379
+
+metadata:
+  ingestion:
+    topics:
+      - metadata.raw.clickhouse
+      - metadata.raw.kafka
+      - metadata.raw.postgres
+  cache:
+    ttl: 60s
+  lineage:
+    max-depth: 3
+
+logging:
+  level:
+    com.twilight.metadatacore: INFO

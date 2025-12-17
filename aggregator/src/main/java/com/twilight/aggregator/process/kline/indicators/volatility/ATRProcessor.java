@@ -375,3 +375,4 @@ public class ATRProcessor extends BaseIndicatorProcessor<ATRProcessor.ATRValue> 
 
 
 
+
