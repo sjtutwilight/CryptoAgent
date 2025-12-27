@@ -1,0 +1,3 @@
+./config.go
+./generator.go
+./types.go

@@ -14,5 +14,13 @@ target/
 **/target/
 build/
 
+# Runtime data (raw outputs, scratch, checkpoints)
+runtime/data/
+
 # Node modules
 node_modules/
+
+# Local infrastructure overrides
+.env.local
+config/infrastructure/env/*.local.env
+config/infrastructure/env/*.secret.env

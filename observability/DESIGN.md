@@ -29,4 +29,19 @@
 
 ## 变更记录
 - 2025-12-17: 初始化DESIGN.md框架
+- 2025-12-19: 修复 Grafana 无法搜索容器日志问题
+  - **问题**: Grafana Loki Explore 显示 404 错误，无法查看容器日志
+  - **根因**: Loki 2.9.2 不支持 Volume API (`/loki/api/v1/index/volume`)，而 Grafana 新版 Loki Explore 插件依赖此 API
+  - **修复**: 
+    - 升级 Loki: 2.9.2 → 3.3.1
+    - 升级 Promtail: 2.9.2 → 3.3.1
+    - 更新 Loki 配置: schema v11 (boltdb-shipper) → v13 (tsdb)
+    - 启用 Volume API 支持 (`volume_enabled: true`)
+    - 添加日志保留策略 (7天)
+  - **新增工具**: `automation/test/tools/probe_cli.py infra stack` - 日志链路/观测栈诊断（probe）
+  - **验证**: Promtail 正常采集容器日志，Loki 存储正常，Grafana 连接正常
+
+
+
+
 

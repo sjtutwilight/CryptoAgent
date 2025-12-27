@@ -1,0 +1,10 @@
+{
+  "status": "partial",
+  "counts": {
+    "SUCCESS": 10,
+    "SKIP": 1
+  },
+  "failures": [],
+  "run_id": "20251227-053947-3sdsmd",
+  "scenario": "binance_spot_link_kline_batch"
+}

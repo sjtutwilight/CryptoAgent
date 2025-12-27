@@ -6,9 +6,7 @@
 | IMPLEMENTATION_SUMMARY.md | 汇总数据接入层的组件划分、配置驱动设计及当前支持的数据源，供新成员快速了解实现 | reviewed: 2025-02-14 |
 
 ## 2) 脚本
-| Path | What | Usage |
-|---|---|---|
-| test_dune_real.sh | 一键调起 Worker、发送真实 Chainlink 任务并校验 Kafka/输出目录的连通性，可验证整条链路 | ./agent/test_dune_real.sh |
+脚本入口统一见 `.note/REGISTRY.md`，本模块不再重复登记。
 
 ## 3) 你生成的临时文档（允许短期存在，必须可合并或删除）
 | Path | What |

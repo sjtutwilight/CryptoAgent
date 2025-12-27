@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "counts": {
+    "SUCCESS": 11
+  },
+  "failures": [],
+  "run_id": "20251227-052559-91plfl",
+  "scenario": "binance_kline"
+}

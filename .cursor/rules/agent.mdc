@@ -1,0 +1,25 @@
+---
+description: 需要了解项目全局的情况下阅读
+alwaysApply: false
+---
+# 项目速览
+## 全局
+- 项目定位：加密货币实时数据平台，覆盖接入、处理、存储、应用闭环。
+- 核心链路：datainjector -> Kafka -> aggregator/realtime -> ClickHouse/Postgres/Redis/Paimon -> backend -> frontend/agent。
+- 权威入口：README_中文.md。
+- 常用脚本：`./scripts/dev.sh`、`./scripts/data.sh`、`./scripts/ops.sh`、`./scripts/ci.sh`。
+## 子模块一句话 & 位置
+- datainjector：接入层控制面+worker；位置：`datainjector/`。
+- aggregator：Flink流处理聚合；位置：`aggregator/`。
+- realtime-pipeline：实时标准化DEX流；位置：`realtime-pipeline/`。
+- batch：批处理与湖仓；位置：`batch/`。
+- backend：对外REST API；位置：`backend/`。
+- frontend：可视化前端；位置：`frontend/`。
+- agent：MVP智能分析助手；位置：`agent/`。
+- config：全局配置；位置：`config/`。
+- observability：可观测性与告警；位置：`observability/`。
+- onedata：数据质量引擎；位置：`onedata/`。
+- scripts：统一脚本入口；位置：`scripts/`。
+- sql：DDL/ETL/查询脚本；位置：`sql/`。
+- runtime：运行期日志；位置：`runtime/`。
+- test：端到端验证；位置：`test/`。

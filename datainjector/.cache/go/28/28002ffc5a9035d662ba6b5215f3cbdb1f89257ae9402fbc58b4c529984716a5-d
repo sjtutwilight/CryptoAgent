@@ -1,0 +1,10 @@
+./decode.go
+./decode_asm.go
+./encode.go
+./encode_all.go
+./encode_best.go
+./encode_better.go
+./encode_go.go
+./index.go
+./s2.go
+./decode_arm64.s

@@ -1,0 +1,16 @@
+{
+  "status": "failed",
+  "counts": {
+    "SKIP": 2,
+    "FAIL": 1
+  },
+  "failures": [
+    {
+      "stage": "observe",
+      "probe": "worker.events",
+      "detail": "missing events: emitter.fire, caller.request, caller.response, pipeline.finish"
+    }
+  ],
+  "run_id": "20251227-051926-07b12p",
+  "scenario": "binance_spot_link_kline_batch"
+}

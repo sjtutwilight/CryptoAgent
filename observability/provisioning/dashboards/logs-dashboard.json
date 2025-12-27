@@ -49,13 +49,13 @@
       },
       "targets": [
         {
-          "expr": "{job=\"application\",experiment_id=\"$experiment_id\"}",
-          "legendFormat": "{{level}}",
+          "expr": "{container=~\"$container\"}",
+          "legendFormat": "{{container}}",
           "queryType": "range",
           "refId": "A"
         }
       ],
-      "title": "实验运行日志",
+      "title": "容器日志",
       "type": "logs"
     }
   ],
@@ -63,22 +63,32 @@
   "schemaVersion": 39,
   "style": "dark",
   "tags": [
-    "experiment",
-    "logs"
+    "logs",
+    "containers"
   ],
   "templating": {
     "list": [
       {
-        "current": {
-          "selected": false,
-          "text": "",
-          "value": ""
+    "allValue": ".+",
+    "current": {
+      "selected": true,
+      "text": "All",
+      "value": ".+"
+    },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
         },
         "hide": 0,
-        "label": "experiment_id",
-        "name": "experiment_id",
-        "query": "",
-        "type": "textbox"
+        "includeAll": true,
+        "label": "container",
+        "multi": false,
+        "name": "container",
+        "options": [],
+        "query": "label_values({job=\"docker\"}, container)",
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
       }
     ]
   },
@@ -88,7 +98,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "实验日志监控",
+  "title": "容器日志监控",
   "uid": "logs-observability",
   "version": 1,
   "weekStart": ""

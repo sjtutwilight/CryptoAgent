@@ -1,0 +1,68 @@
+[
+  {
+    "stage": "precondition",
+    "probe": "worker.health",
+    "result": "SUCCESS",
+    "detail": "container running"
+  },
+  {
+    "stage": "precondition",
+    "probe": "api.connectivity",
+    "result": "SUCCESS",
+    "detail": "API reachable: 200"
+  },
+  {
+    "stage": "precondition",
+    "probe": "file.permissions",
+    "result": "SUCCESS",
+    "detail": "directory writable: /app/runtime/data/binance/spot/kline/LINKUSDT"
+  },
+  {
+    "stage": "apply_roles",
+    "probe": "ingress.apply_roles",
+    "result": "SUCCESS",
+    "detail": "applied 1 roles"
+  },
+  {
+    "stage": "apply_roles",
+    "probe": "ingress.role_status",
+    "result": "FAIL",
+    "detail": "role not found: binance-spot-link-kline-batch"
+  },
+  {
+    "stage": "submit",
+    "probe": "kafka.send_task",
+    "result": "SUCCESS",
+    "detail": "message sent via kafka-console-producer(kafka:29092)"
+  },
+  {
+    "stage": "observe",
+    "probe": "kafka.consumer_lag",
+    "result": "SKIP",
+    "detail": "consumer group not found: worker.binance.kline.batch"
+  },
+  {
+    "stage": "observe",
+    "probe": "worker.events",
+    "result": "FAIL",
+    "detail": "missing events: pipeline.finish"
+  },
+  {
+    "stage": "observe",
+    "probe": "worker.errors",
+    "result": "SUCCESS",
+    "detail": "errors: 0"
+  },
+  {
+    "stage": "verify",
+    "probe": "file.verify_output",
+    "result": "SUCCESS",
+    "detail": "file generated (host)"
+  },
+  {
+    "stage": "cleanup",
+    "probe": "cleanup.stop",
+    "result": "SUCCESS",
+    "detail": "cleanup ok"
+  }
+]

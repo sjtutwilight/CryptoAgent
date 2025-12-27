@@ -141,11 +141,54 @@ func (p *BinanceParser) handleLiquidation(msg *types.Message) ([]*types.Message,
 
 // handleKline 处理 K 线数据并标准化
 func (p *BinanceParser) handleKline(msg *types.Message) ([]*types.Message, error) {
-	var root map[string]any
+	var root any
 	if err := json.Unmarshal(msg.Payload, &root); err != nil {
 		return nil, fmt.Errorf("binance_parser kline: invalid json payload: %w", err)
 	}
 
+	switch val := root.(type) {
+	case []any:
+		return p.handleKlineArray(msg, val)
+	case map[string]any:
+		return p.handleKlineMap(msg, val)
+	default:
+		return nil, fmt.Errorf("binance_parser kline: unsupported payload type %T", root)
+	}
+}
+
+func (p *BinanceParser) handleKlineArray(msg *types.Message, rows []any) ([]*types.Message, error) {
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	out := make([]*types.Message, 0, len(rows))
+	for _, row := range rows {
+		entry, ok := row.([]any)
+		if !ok {
+			continue
+		}
+		root := map[string]any{
+			"k": buildKlineFromArray(entry),
+		}
+		if symbol := util.ToString(msg.Metadata["symbol"]); symbol != "" {
+			root["symbol"] = symbol
+		}
+		if interval := util.ToString(msg.Metadata["interval"]); interval != "" {
+			root["interval"] = interval
+		}
+		msgCopy := &types.Message{
+			Metadata: util.CopyMap(msg.Metadata),
+			Payload:  msg.Payload,
+		}
+		parsed, err := p.handleKlineMap(msgCopy, root)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, parsed...)
+	}
+	return out, nil
+}
+
+func (p *BinanceParser) handleKlineMap(msg *types.Message, root map[string]any) ([]*types.Message, error) {
 	payload := util.ExtractMap(root, "data")
 	if payload == nil {
 		payload = root
@@ -173,6 +216,7 @@ func (p *BinanceParser) handleKline(msg *types.Message) ([]*types.Message, error
 		util.ToString(payload["symbol"]),
 		util.ToString(payload["s"]),
 		util.ToString(klineSource["s"]),
+		util.ToString(msg.Metadata["symbol"]),
 	)
 	if symbol == "" {
 		symbol = "UNKNOWN"
@@ -181,6 +225,7 @@ func (p *BinanceParser) handleKline(msg *types.Message) ([]*types.Message, error
 	interval := util.FirstNonEmpty(
 		util.ToString(payload["interval"]),
 		util.ToString(klineSource["i"]),
+		util.ToString(msg.Metadata["interval"]),
 	)
 	if interval == "" {
 		interval = "UNKNOWN"
@@ -192,6 +237,9 @@ func (p *BinanceParser) handleKline(msg *types.Message) ([]*types.Message, error
 		util.ToInt64(root["eventTime"]),
 		util.ToInt64(root["E"]),
 	)
+	if eventTime == 0 {
+		eventTime = util.ToInt64(klineSource["T"])
+	}
 
 	ingestTime := util.FirstNonZero(
 		util.ToInt64(payload["ingestTime"]),
@@ -240,6 +288,19 @@ func (p *BinanceParser) handleKline(msg *types.Message) ([]*types.Message, error
 		},
 	}
 
+	if _, ok := normalized["run_id"]; !ok {
+		runID := util.ToString(msg.Metadata["run_id"])
+		if runID == "" {
+			runID = util.ToString(payload["run_id"])
+		}
+		if runID == "" {
+			runID = util.ToString(root["run_id"])
+		}
+		if runID != "" {
+			normalized["run_id"] = runID
+		}
+	}
+
 	if p.includeRaw {
 		normalized["raw"] = root
 	}
@@ -253,6 +314,9 @@ func (p *BinanceParser) handleKline(msg *types.Message) ([]*types.Message, error
 	meta["exchange"] = exchange
 	meta["symbol"] = symbol
 	meta["interval"] = interval
+	if runID := util.ToString(normalized["run_id"]); runID != "" {
+		meta["run_id"] = runID
+	}
 	if eventTime != 0 {
 		meta["event_time"] = eventTime
 	}
@@ -266,4 +330,37 @@ func (p *BinanceParser) handleKline(msg *types.Message) ([]*types.Message, error
 	msg.Metadata = meta
 	msg.Payload = payloadBytes
 	return []*types.Message{msg}, nil
+}
+
+func buildKlineFromArray(row []any) map[string]any {
+	out := map[string]any{}
+	if len(row) > 0 {
+		out["t"] = row[0]
+	}
+	if len(row) > 1 {
+		out["o"] = row[1]
+	}
+	if len(row) > 2 {
+		out["h"] = row[2]
+	}
+	if len(row) > 3 {
+		out["l"] = row[3]
+	}
+	if len(row) > 4 {
+		out["c"] = row[4]
+	}
+	if len(row) > 5 {
+		out["v"] = row[5]
+	}
+	if len(row) > 6 {
+		out["T"] = row[6]
+	}
+	if len(row) > 7 {
+		out["q"] = row[7]
+	}
+	if len(row) > 8 {
+		out["n"] = row[8]
+	}
+	out["x"] = true
+	return out
 }

@@ -1,0 +1,68 @@
+[
+  {
+    "stage": "precondition",
+    "probe": "worker.health",
+    "result": "FAIL",
+    "detail": "container not found: datainjector-worker"
+  },
+  {
+    "stage": "precondition",
+    "probe": "api.connectivity",
+    "result": "FAIL",
+    "detail": "cannot reach https://api.binance.com/api/v3/ping"
+  },
+  {
+    "stage": "precondition",
+    "probe": "file.permissions",
+    "result": "FAIL",
+    "detail": "cannot create directory: /app/runtime/data/binance/spot/kline/LINKUSDT"
+  },
+  {
+    "stage": "apply_roles",
+    "probe": "ingress.apply_roles",
+    "result": "FAIL",
+    "detail": "apply roles failed: install curl failed: permission denied while trying to connect to the Docker daemon socket at unix:///Users/yangguang/.docker/run/docker.sock: Get \"http://%2FUsers%2Fyangguang%2F.docker%2Frun%2Fdocker.sock/v1.47/containers/datainjector-worker/json\": dial unix /Users/yangguang/.docker/run/docker.sock: connect: operation not permitted\n"
+  },
+  {
+    "stage": "apply_roles",
+    "probe": "ingress.role_status",
+    "result": "FAIL",
+    "detail": "failed to query roles API"
+  },
+  {
+    "stage": "submit",
+    "probe": "kafka.send_task",
+    "result": "FAIL",
+    "detail": "produce failed: kafka-console-producer failed: permission denied while trying to connect to the Docker daemon socket at unix:///Users/yangguang/.docker/run/docker.sock: Get \"http://%2FUsers%2Fyangguang%2F.docker%2Frun%2Fdocker.sock/v1.47/containers/crypto-kafka/json\": dial unix /Users/yangguang/.docker/run/docker.sock: connect: operation not permitted\n"
+  },
+  {
+    "stage": "observe",
+    "probe": "kafka.consumer_lag",
+    "result": "SKIP",
+    "detail": "consumer group not found: worker.binance.kline.batch"
+  },
+  {
+    "stage": "observe",
+    "probe": "worker.events",
+    "result": "FAIL",
+    "detail": "permission denied while trying to connect to the Docker daemon socket at unix:///Users/yangguang/.docker/run/docker.sock: Get \"http://%2FUsers%2Fyangguang%2F.docker%2Frun%2Fdocker.sock/v1.47/containers/datainjector-worker/json\": dial unix /Users/yangguang/.docker/run/docker.sock: connect: operation not permitted"
+  },
+  {
+    "stage": "observe",
+    "probe": "worker.errors",
+    "result": "FAIL",
+    "detail": "permission denied while trying to connect to the Docker daemon socket at unix:///Users/yangguang/.docker/run/docker.sock: Get \"http://%2FUsers%2Fyangguang%2F.docker%2Frun%2Fdocker.sock/v1.47/containers/datainjector-worker/json\": dial unix /Users/yangguang/.docker/run/docker.sock: connect: operation not permitted"
+  },
+  {
+    "stage": "verify",
+    "probe": "file.verify_output",
+    "result": "FAIL",
+    "detail": "no new files after 123s"
+  },
+  {
+    "stage": "cleanup",
+    "probe": "cleanup.stop",
+    "result": "SUCCESS",
+    "detail": "no roles to clean"
+  }
+]

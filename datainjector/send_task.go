@@ -47,3 +47,4 @@ func main() {
 	fmt.Printf("TaskID: %s\n", message["taskId"])
 	fmt.Printf("消息内容: %s\n", string(data))
 }
+

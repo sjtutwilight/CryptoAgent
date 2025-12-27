@@ -18,21 +18,21 @@ docker-compose up -d kafka postgresql redis
 ### 3. 运行集成测试
 
 ```bash
-cd datainjector/worker
-./test_dune_integration.sh
+cd DataPlatform
+./scripts/data.sh datainjector:test:dune
 ```
 
 ### 4. 查看结果
 
 ```bash
 # 查看输出目录
-ls -lh /tmp/dune/token-holders/1/0x514910771af9ca656af840dff83e8264ecf986ca/
+ls -lh runtime/data/dune/token-holders/1/0x514910771af9ca656af840dff83e8264ecf986ca/
 
 # 查看 Manifest
-cat /tmp/dune/token-holders/1/0x514910771af9ca656af840dff83e8264ecf986ca/manifest.json | jq '.'
+cat runtime/data/dune/token-holders/1/0x514910771af9ca656af840dff83e8264ecf986ca/manifest.json | jq '.'
 
 # 查看数据样例
-head -3 /tmp/dune/token-holders/1/0x514910771af9ca656af840dff83e8264ecf986ca/holders_000.json | jq '.'
+head -3 runtime/data/dune/token-holders/1/0x514910771af9ca656af840dff83e8264ecf986ca/holders_000.json | jq '.'
 ```
 
 ## 手动运行
@@ -75,7 +75,7 @@ cat /tmp/task.json | docker exec -i $(docker ps -qf "name=kafka") \
 
 ```bash
 # 实时查看游标状态
-watch -n 1 'cat /tmp/dune/token-holders/1/0x514910771af9ca656af840dff83e8264ecf986ca/.cursor.json 2>/dev/null | jq .'
+watch -n 1 'cat runtime/data/dune/token-holders/1/0x514910771af9ca656af840dff83e8264ecf986ca/.cursor.json 2>/dev/null | jq .'
 
 # 查看 Worker 日志
 tail -f /tmp/dune_worker.log
@@ -118,4 +118,3 @@ rate_limit:
 - 查看完整文档：`DUNE_INTEGRATION.md`
 - 查看实现总结：`IMPLEMENTATION_SUMMARY.md`
 - 查看架构设计：`worker/DESIGN.md`
-

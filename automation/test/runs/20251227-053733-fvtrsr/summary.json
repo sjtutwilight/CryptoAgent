@@ -1,0 +1,22 @@
+{
+  "status": "failed",
+  "counts": {
+    "SUCCESS": 8,
+    "FAIL": 2,
+    "SKIP": 1
+  },
+  "failures": [
+    {
+      "stage": "apply_roles",
+      "probe": "ingress.role_status",
+      "detail": "role not found: binance-spot-link-kline-batch"
+    },
+    {
+      "stage": "observe",
+      "probe": "worker.events",
+      "detail": "missing events: pipeline.finish"
+    }
+  ],
+  "run_id": "20251227-053733-fvtrsr",
+  "scenario": "binance_spot_link_kline_batch"
+}

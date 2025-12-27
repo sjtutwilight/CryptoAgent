@@ -1,0 +1,806 @@
+x-env-files: &default-env-files
+  - ${INFRA_ENV_FILE:-../../config/infrastructure/env/docker.env}
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.1
+    container_name: ${ZOOKEEPER_CONTAINER_NAME}
+    hostname: zookeeper
+    env_file: *default-env-files
+    ports:
+      - "${ZOOKEEPER_CLIENT_PORT}:${ZOOKEEPER_CLIENT_PORT}"
+    deploy:
+      resources:
+        limits:
+          cpus: "${ZOOKEEPER_CPUS}"
+          memory: "${ZOOKEEPER_MEM}"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT}
+      ZOOKEEPER_TICK_TIME: ${ZOOKEEPER_TICK_TIME}
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-logs:/var/lib/zookeeper/log
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "echo",
+          "ruok",
+          "|",
+          "nc",
+          "localhost",
+          "${ZOOKEEPER_CLIENT_PORT}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - infra
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.1
+    container_name: ${KAFKA_CONTAINER_NAME}
+    hostname: kafka
+    env_file: *default-env-files
+    ports:
+      - "${KAFKA_EXTERNAL_PORT}:${KAFKA_EXTERNAL_PORT}"
+      - "${KAFKA_JMX_PORT}:${KAFKA_JMX_PORT}"
+    deploy:
+      resources:
+        limits:
+          cpus: "${KAFKA_CPUS}"
+          memory: "${KAFKA_MEM}"
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    restart: on-failure:3
+    environment:
+      KAFKA_BROKER_ID: ${KAFKA_BROKER_ID}
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:${ZOOKEEPER_CLIENT_PORT}"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:${KAFKA_INTERNAL_PORT},PLAINTEXT_HOST://0.0.0.0:${KAFKA_EXTERNAL_PORT}"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:${KAFKA_INTERNAL_PORT},PLAINTEXT_HOST://${INFRA_KAFKA_ADVERTISED_HOST}:${KAFKA_EXTERNAL_PORT}"
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_JMX_PORT: ${KAFKA_JMX_PORT}
+      KAFKA_JMX_HOSTNAME: ${INFRA_KAFKA_ADVERTISED_HOST}
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-broker-api-versions --bootstrap-server ${INFRA_KAFKA_ADVERTISED_HOST}:${KAFKA_EXTERNAL_PORT}",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - infra
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: crypto-kafka-ui
+    env_file: *default-env-files
+    ports:
+      - "${KAFKA_UI_PORT}:8080"
+    deploy:
+      resources:
+        limits:
+          cpus: "${KAFKA_UI_CPUS}"
+          memory: "${KAFKA_UI_MEM}"
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: ${KAFKA_CLUSTER_NAME}
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:${KAFKA_INTERNAL_PORT}
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:${ZOOKEEPER_CLIENT_PORT}
+    networks:
+      - infra
+
+  redis:
+    image: redis:7.2
+    container_name: ${REDIS_CONTAINER_NAME}
+    env_file: *default-env-files
+    ports:
+      - "${REDIS_PORT}:${REDIS_PORT}"
+    deploy:
+      resources:
+        limits:
+          cpus: "${REDIS_CPUS}"
+          memory: "${REDIS_MEM}"
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - redis-data:/data
+    networks:
+      - infra
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: ${REDISINSIGHT_CONTAINER_NAME}
+    env_file: *default-env-files
+    ports:
+      - "${REDISINSIGHT_PORT}:5540"
+    deploy:
+      resources:
+        limits:
+          cpus: "${REDISINSIGHT_CPUS}"
+          memory: "${REDISINSIGHT_MEM}"
+    volumes:
+      - redisinsight-data:/data
+    networks:
+      - infra
+    depends_on:
+      - redis
+
+  postgres:
+    image: postgres:15
+    container_name: ${POSTGRES_CONTAINER_NAME}
+    env_file: *default-env-files
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    deploy:
+      resources:
+        limits:
+          cpus: "${POSTGRES_CPUS}"
+          memory: "${POSTGRES_MEM}"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../../runtime/batch/scripts:/scripts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - infra
+
+  init-db:
+    image: postgres:15
+    env_file: *default-env-files
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TEST_ENV: "true"
+    volumes:
+      - ../../runtime/batch/scripts:/scripts
+    command: ["/scripts/init.sh"]
+    networks:
+      - infra
+    deploy:
+      resources:
+        limits:
+          cpus: "${INIT_DB_CPUS}"
+          memory: "${INIT_DB_MEM}"
+
+  jobmanager:
+    image: ${FLINK_IMAGE}
+    container_name: ${FLINK_JOBMANAGER_CONTAINER}
+    hostname: jobmanager
+    env_file: *default-env-files
+    ports:
+      - "${FLINK_JOBMANAGER_PORT}:8081"
+      - "${FLINK_JOBMANAGER_PROM_PORT}:9249"
+    deploy:
+      resources:
+        limits:
+          cpus: "${FLINK_JOBMANAGER_CPUS}"
+          memory: "${FLINK_JOBMANAGER_MEM}"
+    command: >
+      bash -c "
+        cp /opt/flink/custom-lib/*.jar /opt/flink/lib/ 2>/dev/null || true &&
+        /docker-entrypoint.sh jobmanager
+      "
+    environment:
+      APP_ENV: container
+      AWS_ACCESS_KEY_ID: ${FLINK_AWS_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${FLINK_AWS_SECRET}
+      REALTIME_PIPELINE_CONFIG: /opt/flink/conf/realtime-pipeline.properties
+      JAVA_TOOL_OPTIONS: "--add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.time=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
+      FLINK_PROPERTIES: |-
+        jobmanager.rpc.address: jobmanager
+        jobmanager.memory.process.size: 1600m
+        taskmanager.memory.process.size: 1728m
+        taskmanager.numberOfTaskSlots: 8
+        parallelism.default: 1
+        rest.bind-address: 0.0.0.0
+        web.submit.enable: true
+        env.java.opts.jobmanager: --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.util.concurrent=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.invoke=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.time=ALL-UNNAMED --add-opens java.base/java.nio=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED -Denv=container
+        table.exec.source.idle-timeout: 30s
+        execution.checkpointing.interval: 10s
+        execution.checkpointing.mode: EXACTLY_ONCE
+        state.backend: rocksdb
+        state.checkpoints.dir: file:///opt/flink/checkpoints
+        state.savepoints.dir: file:///opt/flink/savepoints
+        metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+        metrics.reporter.prom.port: 9249
+        metrics.reporter.prom.host: 0.0.0.0
+    volumes:
+      - ../../config/realtime-pipeline.properties:/opt/flink/conf/realtime-pipeline.properties:ro
+      - ../../runtime/lib:/opt/flink/custom-lib
+      - ../../runtime/batch/sql:/opt/flink/sql
+      - ../../runtime/data:/opt/flink/data
+      - ../../runtime/logs:/opt/flink/log
+      - ../../runtime/checkpoints:/opt/flink/checkpoints
+      - flink-savepoints:/opt/flink/savepoints
+      - ../../runtime/paimon-warehouse:/opt/flink/data/paimon-warehouse
+    networks:
+      - infra
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/overview"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  taskmanager:
+    image: ${FLINK_IMAGE}
+    container_name: ${FLINK_TASKMANAGER_CONTAINER}
+    hostname: taskmanager
+    env_file: *default-env-files
+    depends_on:
+      - jobmanager
+    ports:
+      - "${FLINK_TASKMANAGER_PROM_PORT_RANGE}:9250"
+    deploy:
+      resources:
+        limits:
+          cpus: "${FLINK_TASKMANAGER_CPUS}"
+          memory: "${FLINK_TASKMANAGER_MEM}"
+    command: >
+      bash -c "
+        cp /opt/flink/custom-lib/*.jar /opt/flink/lib/ 2>/dev/null || true &&
+        /docker-entrypoint.sh taskmanager
+      "
+    environment:
+      APP_ENV: container
+      AWS_ACCESS_KEY_ID: ${FLINK_AWS_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${FLINK_AWS_SECRET}
+      REALTIME_PIPELINE_CONFIG: /opt/flink/conf/realtime-pipeline.properties
+      JAVA_TOOL_OPTIONS: "--add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.time=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
+      FLINK_PROPERTIES: |-
+        jobmanager.rpc.address: jobmanager
+        taskmanager.memory.process.size: 1728m
+        taskmanager.numberOfTaskSlots: 4
+        env.java.opts.taskmanager: --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.util.concurrent=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.invoke=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.time=ALL-UNNAMED --add-opens java.base/java.nio=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED -Denv=container
+        metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+        metrics.reporter.prom.port: 9250
+        metrics.reporter.prom.host: 0.0.0.0
+    volumes:
+      - ../../config/realtime-pipeline.properties:/opt/flink/conf/realtime-pipeline.properties:ro
+      - ../../runtime/lib:/opt/flink/custom-lib
+      - ../../runtime/batch/sql:/opt/flink/sql
+      - ../../runtime/data:/opt/flink/data
+      - ../../runtime/logs:/opt/flink/log
+      - ../../runtime/checkpoints:/opt/flink/checkpoints
+      - flink-savepoints:/opt/flink/savepoints
+      - ../../runtime/paimon-warehouse:/opt/flink/data/paimon-warehouse
+    networks:
+      - infra
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: ${CLICKHOUSE_CONTAINER_NAME}
+    hostname: clickhouse
+    env_file: *default-env-files
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT}:8123"
+      - "${CLICKHOUSE_NATIVE_PORT}:9000"
+      - "${CLICKHOUSE_PROM_PORT}:9363"
+    deploy:
+      resources:
+        limits:
+          cpus: "${CLICKHOUSE_CPUS}"
+          memory: "${CLICKHOUSE_MEM}"
+    environment:
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ../../runtime/batch/scripts/clickhouse/clickhouse-init.sql:/docker-entrypoint-initdb.d
+      - ../../observability/clickhouse/prometheus.xml:/etc/clickhouse-server/config.d/prometheus.xml:ro
+    networks:
+      - infra
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    ulimits:
+      nofile: 262144
+
+  worker-app:
+    build:
+      context: ../..
+      dockerfile: automation/orchestration/dockerfiles/datainjector-worker.Dockerfile
+    container_name: datainjector-worker
+    env_file: *default-env-files
+    command: ["--config", "${WORKER_CONFIG_PATH:-/app/configs/base.yaml}"]
+    environment:
+      WORKER_CONFIG_PATH: ${WORKER_CONFIG_PATH:-/app/configs/base.yaml}
+    volumes:
+      - ../../datainjector/worker/configs:/app/configs
+      - ../../runtime/data:/app/runtime/data
+    deploy:
+      resources:
+        limits:
+          cpus: "${WORKER_APP_CPUS}"
+          memory: "${WORKER_APP_MEM}"
+    networks:
+      - infra
+
+  control-plane-app:
+    build:
+      context: ../..
+      dockerfile: automation/orchestration/dockerfiles/datainjector-control-plane.Dockerfile
+    container_name: datainjector-control-plane
+    env_file: *default-env-files
+    environment:
+      SPRING_PROFILES_ACTIVE: ${CONTROL_PLANE_PROFILE:-local}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: ${REDIS_PORT}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:${KAFKA_INTERNAL_PORT}
+      SERVER_PORT: 8083
+    ports:
+      - "8083:8083"
+    deploy:
+      resources:
+        limits:
+          cpus: "${CONTROL_PLANE_CPUS}"
+          memory: "${CONTROL_PLANE_MEM}"
+    networks:
+      - infra
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: obs-prometheus
+    env_file: *default-env-files
+    ports:
+      - "${PROMETHEUS_PORT}:9090"
+    deploy:
+      resources:
+        limits:
+          cpus: "${PROMETHEUS_CPUS}"
+          memory: "${PROMETHEUS_MEM}"
+    volumes:
+      - ../../observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ../../observability/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - infra
+
+  loki:
+    image: grafana/loki:3.3.1
+    container_name: obs-loki
+    env_file: *default-env-files
+    ports:
+      - "${LOKI_PORT}:3100"
+    deploy:
+      resources:
+        limits:
+          cpus: "${LOKI_CPUS}"
+          memory: "${LOKI_MEM}"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ../../observability/loki/local-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    networks:
+      - infra
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: obs-grafana
+    env_file: *default-env-files
+    ports:
+      - "${GRAFANA_PORT}:3000"
+    deploy:
+      resources:
+        limits:
+          cpus: "${GRAFANA_CPUS}"
+          memory: "${GRAFANA_MEM}"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=true
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../../observability/provisioning:/etc/grafana/provisioning
+    networks:
+      - infra
+
+  promtail:
+    image: grafana/promtail:3.3.1
+    container_name: obs-promtail
+    user: "root"
+    env_file: *default-env-files
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ../../observability/promtail/config.yml:/etc/promtail/config.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ../../runtime/logs:/var/log/app/runtime:ro
+      - ../../backend/logs:/var/log/app/backend:ro
+      - ../../process/aggregator/logs:/var/log/app/aggregator:ro
+    networks:
+      - infra
+    deploy:
+      resources:
+        limits:
+          cpus: "${PROMTAIL_CPUS}"
+          memory: "${PROMTAIL_MEM}"
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.7.0
+    container_name: obs-kafka-exporter
+    env_file: *default-env-files
+    command:
+      - "--kafka.server=kafka:${KAFKA_INTERNAL_PORT}"
+      - "--kafka.version=3.5.1"
+    ports:
+      - "${KAFKA_EXPORTER_PORT}:9308"
+    deploy:
+      resources:
+        limits:
+          cpus: "${KAFKA_EXPORTER_CPUS}"
+          memory: "${KAFKA_EXPORTER_MEM}"
+    networks:
+      - infra
+
+  # ==================== Spark 实验环境 ====================
+
+  minio:
+    image: minio/minio:latest
+    container_name: spark-lab-minio
+    hostname: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=password123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - spark-lab-network
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-mc:
+    image: minio/mc:latest
+    container_name: spark-lab-minio-mc
+    entrypoint:
+      - sh
+      - -c
+      - |
+        until mc alias set myminio http://minio:9000 admin password123 >/dev/null 2>&1; do
+          sleep 0.5
+        done
+
+        mc ls myminio >/dev/null 2>&1 || exit 1
+
+        mc mb myminio/paimon-warehouse --ignore-existing
+        mc mb myminio/spark-checkpoints --ignore-existing
+        mc mb myminio/starrocks --ignore-existing
+
+        mc admin user svcacct add --access-key AAAAAAAAAAAAAAAAAAAA \
+          --secret-key BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB \
+          myminio \
+          admin
+
+        echo '✅ MinIO 初始化完成：buckets 和 service account 已创建'
+        exit 0
+    networks:
+      - spark-lab-network
+
+  starrocks:
+    image: starrocks/allin1-ubuntu:latest
+    container_name: spark-lab-starrocks
+    hostname: starrocks-allin1
+    ports:
+      - "9030:9030"
+      - "8030:8030"
+      - "9020:9020"
+      - "9010:9010"
+      - "8040:8040"
+      - "9060:9060"
+      - "9050:9050"
+      - "8060:8060"
+    environment:
+      - JAVA_OPTS=-Xmx2g
+      - SR_RUN_MODE=shared_data
+      - SR_CLOUD_NATIVE_STORAGE_TYPE=S3
+      - SR_AWS_S3_ENDPOINT=minio:9000
+      - SR_AWS_S3_PATH=starrocks
+      - SR_AWS_S3_ACCESS_KEY=AAAAAAAAAAAAAAAAAAAA
+      - SR_AWS_S3_SECRET_KEY=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+      - SR_AWS_S3_USE_HTTPS=false
+      - SR_AWS_S3_REGION=us-east-1
+    volumes:
+      - starrocks-fe-meta:/opt/starrocks/fe/meta
+      - starrocks-be-storage:/opt/starrocks/be/storage
+      - starrocks-logs:/opt/starrocks/fe/log
+    networks:
+      - spark-lab-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysql -h127.0.0.1 -P9030 -uroot -e 'SHOW DATABASES;' || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  starrocks-init:
+    image: mysql:8.0
+    container_name: spark-lab-starrocks-init
+    volumes:
+      - ../../automation/data/sql/init/starrocks/ddl/catalog.sql:/init.sql
+    entrypoint:
+      - sh
+      - -c
+      - |
+        echo '正在初始化 StarRocks 数据库...'
+        mysql -hstarrocks-allin1 -P9030 -uroot < /init.sql
+        echo '✅ StarRocks 初始化完成'
+        exit 0
+    networks:
+      - spark-lab-network
+
+  spark-master:
+    image: apache/spark:3.5.0
+    container_name: spark-lab-master
+    hostname: spark-master
+    user: root
+    ports:
+      - "7077:7077"
+      - "8088:8080"
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_MASTER_PORT=7077
+      - SPARK_MASTER_WEBUI_PORT=8080
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password123
+      - SPARK_NO_DAEMONIZE=true
+    volumes:
+      - ../../process/batch/spark/jobs:/opt/spark-jobs
+      - ../../process/batch/spark/config:/opt/spark-config
+      - spark-logs:/opt/spark/logs
+    networks:
+      - spark-lab-network
+    command: >
+      /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+      --host spark-master --port 7077 --webui-port 8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  spark-worker:
+    image: apache/spark:3.5.0
+    container_name: spark-lab-worker
+    hostname: spark-worker
+    user: root
+    ports:
+      - "8089:8081"
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_WEBUI_PORT=8081
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password123
+      - SPARK_NO_DAEMONIZE=true
+    volumes:
+      - ../../process/batch/spark/jobs:/opt/spark-jobs
+      - ../../process/batch/spark/config:/opt/spark-config
+      - spark-logs:/opt/spark/logs
+    networks:
+      - spark-lab-network
+    command: >
+      /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker
+      spark://spark-master:7077 --webui-port 8081
+
+  spark-client:
+    image: apache/spark:3.5.0
+    container_name: spark-lab-client
+    hostname: spark-client
+    user: root
+    environment:
+      - SPARK_MODE=client
+      - AWS_ACCESS_KEY_ID=admin
+      - AWS_SECRET_ACCESS_KEY=password123
+    volumes:
+      - ../../process/batch/spark/jobs:/opt/spark-jobs
+      - ../../process/batch/spark/config:/opt/spark-config
+      - ./lib:/opt/spark/work-dir/lib
+      - spark-logs:/opt/spark/logs
+    networks:
+      - spark-lab-network
+    command: >
+      bash -c "
+        echo '✅ Spark 客户端已就绪'
+        echo '使用以下命令提交作业:'
+        echo 'docker exec -it spark-lab-client /opt/spark/bin/spark-submit ...'
+        tail -f /dev/null
+      "
+
+  airflow-postgres:
+    image: postgres:15
+    container_name: spark-lab-airflow-postgres
+    hostname: airflow-postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-postgres-data:/var/lib/postgresql/data
+    networks:
+      - spark-lab-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  airflow-webserver:
+    build:
+      context: ../..
+      dockerfile: automation/orchestration/dockerfiles/airflow.Dockerfile
+    container_name: spark-lab-airflow-webserver
+    hostname: airflow-webserver
+    user: "0:0"
+    ports:
+      - "8085:8080"
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      - AIRFLOW__CORE__FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__WEBSERVER__SECRET_KEY=spark-lab-airflow-secret
+      - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=true
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=false
+      - PATH=/home/airflow/.local/bin:/usr/local/bin:/usr/bin:/bin
+      - PYTHONPATH=/home/airflow/.local/lib/python3.10/site-packages
+    volumes:
+      - ../../process/batch/airflow/dags:/opt/airflow/dags
+      - ../../process/batch/airflow/logs:/opt/airflow/logs
+      - ../../process/batch/airflow/plugins:/opt/airflow/plugins
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - spark-lab-network
+    command: ["bash", "-c", "/home/airflow/.local/bin/airflow webserver"]
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  airflow-scheduler:
+    build:
+      context: ../..
+      dockerfile: automation/orchestration/dockerfiles/airflow.Dockerfile
+    container_name: spark-lab-airflow-scheduler
+    hostname: airflow-scheduler
+    user: "0:0"
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      - AIRFLOW__CORE__FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=false
+      - PATH=/home/airflow/.local/bin:/usr/local/bin:/usr/bin:/bin
+      - PYTHONPATH=/home/airflow/.local/lib/python3.10/site-packages
+    volumes:
+      - ../../process/batch/airflow/dags:/opt/airflow/dags
+      - ../../process/batch/airflow/logs:/opt/airflow/logs
+      - ../../process/batch/airflow/plugins:/opt/airflow/plugins
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - spark-lab-network
+    command: ["bash", "-c", "/home/airflow/.local/bin/airflow scheduler"]
+
+  airflow-init:
+    build:
+      context: ../..
+      dockerfile: automation/orchestration/dockerfiles/airflow.Dockerfile
+    container_name: spark-lab-airflow-init
+    user: "0:0"
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      - AIRFLOW__CORE__FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+      - _AIRFLOW_DB_MIGRATE=true
+      - _AIRFLOW_WWW_USER_CREATE=true
+      - _AIRFLOW_WWW_USER_USERNAME=admin
+      - _AIRFLOW_WWW_USER_PASSWORD=admin
+      - PATH=/home/airflow/.local/bin:/usr/local/bin:/usr/bin:/bin
+      - PYTHONPATH=/home/airflow/.local/lib/python3.10/site-packages
+    volumes:
+      - ../../process/batch/airflow/dags:/opt/airflow/dags
+      - ../../process/batch/airflow/logs:/opt/airflow/logs
+    networks:
+      - spark-lab-network
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        /home/airflow/.local/bin/airflow db migrate
+        /home/airflow/.local/bin/airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@example.com || true
+        echo "✅ Airflow 初始化完成"
+
+volumes:
+  zookeeper-data:
+  zookeeper-logs:
+  kafka-data:
+  redis-data:
+  postgres-data:
+  flink-savepoints:
+  clickhouse-data:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+  redisinsight-data:
+  minio-data:
+  starrocks-fe-meta:
+  starrocks-be-storage:
+  starrocks-logs:
+  spark-logs:
+  airflow-postgres-data:
+
+networks:
+  infra:
+    name: ${INFRA_NETWORK}
+    external: true
+  spark-lab-network:
+    driver: bridge

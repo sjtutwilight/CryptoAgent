@@ -32,3 +32,12 @@ Worker → StatusListener → PostgreSQL (状态更新)
 ## 变更记录
 - 2025-12-17: 初始化DESIGN.md框架
 
+
+
+
+
+
+
+
+
+

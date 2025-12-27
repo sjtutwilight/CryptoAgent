@@ -1,0 +1,7 @@
+./arith.go
+./asm.go
+./doc.go
+./element.go
+./element_exp.go
+./element_ops_purego.go
+./vector.go

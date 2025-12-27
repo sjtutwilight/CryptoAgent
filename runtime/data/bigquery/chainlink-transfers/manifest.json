@@ -1,0 +1,68 @@
+{
+  "job_id": "job_LLy-y2lAwh5BBId7dfkjCBhBpACm",
+  "total_rows": 1000,
+  "files": [
+    {
+      "filename": "data_0000.json",
+      "records": 500,
+      "size_bytes": 274012,
+      "md5": "054f3c77a2b46b07b724c4621bdbe762"
+    },
+    {
+      "filename": "data_0001.json",
+      "records": 500,
+      "size_bytes": 273565,
+      "md5": "98296719ef8de457c82ffcf1fb3bf7ad"
+    }
+  ],
+  "schema": {
+    "fields": [
+      {
+        "name": "block_timestamp",
+        "type": "TIMESTAMP",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "block_number",
+        "type": "INTEGER",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "transaction_hash",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "log_index",
+        "type": "INTEGER",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "from_address",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "to_address",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "value_raw",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "value_bn",
+        "type": "BIGNUMERIC",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "value_link",
+        "type": "BIGNUMERIC",
+        "mode": "NULLABLE"
+      }
+    ]
+  },
+  "created_at": "2025-12-17 20:47:28"
+}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	kafka "github.com/segmentio/kafka-go"
 )
@@ -69,6 +70,29 @@ func (k *KafkaCommand) Start(ctx context.Context, fire func(args map[string]any)
 			log.Printf("[KafkaCommand] invalid message, offset=%d error=%v, raw=%s", m.Offset, err, string(m.Value))
 			_ = k.reader.CommitMessages(ctx, m)
 			continue
+		}
+		meta := map[string]any{}
+		for _, header := range m.Headers {
+			key := strings.ToLower(header.Key)
+			switch key {
+			case "traceparent", "tracestate", "baggage", "x-run-id":
+				meta[key] = string(header.Value)
+			}
+		}
+		if v, ok := meta["x-run-id"]; ok {
+			meta["run_id"] = v
+		}
+		if len(meta) > 0 {
+			if existing, ok := payload["metadata"].(map[string]any); ok && existing != nil {
+				for k, v := range meta {
+					if _, exists := existing[k]; !exists {
+						existing[k] = v
+					}
+				}
+				payload["metadata"] = existing
+			} else {
+				payload["metadata"] = meta
+			}
 		}
 
 		log.Printf("[KafkaCommand] 解析成功，payload keys: %v", getKeys(payload))

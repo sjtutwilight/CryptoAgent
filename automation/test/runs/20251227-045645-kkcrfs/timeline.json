@@ -1,0 +1,86 @@
+[
+  {
+    "stage": "infra",
+    "probe": "infra.clickhouse_ready",
+    "result": "SUCCESS",
+    "detail": "clickhouse ok"
+  },
+  {
+    "stage": "infra",
+    "probe": "infra.flink_ready",
+    "result": "SUCCESS",
+    "detail": "flink rest ok"
+  },
+  {
+    "stage": "ingress",
+    "probe": "ingress.prepare",
+    "result": "SUCCESS",
+    "detail": "prepare ok"
+  },
+  {
+    "stage": "ingress",
+    "probe": "ingress.apply_roles",
+    "result": "SUCCESS",
+    "detail": "roles applied (docker)"
+  },
+  {
+    "stage": "ingress",
+    "probe": "ingress.kafka.perp.orderbook",
+    "result": "FAIL",
+    "detail": "run_id not found in perp.orderbook"
+  },
+  {
+    "stage": "ingress",
+    "probe": "ingress.kafka.perp.trades",
+    "result": "FAIL",
+    "detail": "run_id not found in perp.trades"
+  },
+  {
+    "stage": "ingress",
+    "probe": "ingress.kafka.perp.mark_index",
+    "result": "FAIL",
+    "detail": "run_id not found in perp.mark_index"
+  },
+  {
+    "stage": "process",
+    "probe": "process.prepare",
+    "result": "SUCCESS",
+    "detail": "prepare ok"
+  },
+  {
+    "stage": "process",
+    "probe": "process.submit_jobs",
+    "result": "SUCCESS",
+    "detail": "jobs submitted"
+  },
+  {
+    "stage": "process",
+    "probe": "process.job_status",
+    "result": "SUCCESS",
+    "detail": "job status ok"
+  },
+  {
+    "stage": "process",
+    "probe": "process.verify.dws_exec_1s",
+    "result": "FAIL",
+    "detail": "dws_exec_1s rows < 1"
+  },
+  {
+    "stage": "process",
+    "probe": "process.verify.dws_perps_ctx_1m",
+    "result": "FAIL",
+    "detail": "dws_perps_ctx_1m rows < 1"
+  },
+  {
+    "stage": "process",
+    "probe": "process.verify.dws_perps_panel_1m",
+    "result": "FAIL",
+    "detail": "dws_perps_panel_1m rows < 1"
+  },
+  {
+    "stage": "cleanup",
+    "probe": "cleanup.resources",
+    "result": "SUCCESS",
+    "detail": "cleanup ok"
+  }
+]

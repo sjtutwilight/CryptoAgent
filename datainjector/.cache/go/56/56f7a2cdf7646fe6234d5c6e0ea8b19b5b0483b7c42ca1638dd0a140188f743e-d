@@ -1,0 +1,5 @@
+./balance_parser.go
+./binance_parser.go
+./dex_parser.go
+./hyperliquid_parser.go
+./registry.go

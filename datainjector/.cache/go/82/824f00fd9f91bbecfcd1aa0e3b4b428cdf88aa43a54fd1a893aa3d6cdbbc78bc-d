@@ -1,0 +1,13 @@
+./bls12-377.go
+./bls12-378.go
+./bls12-381.go
+./bls24-315.go
+./bls24-317.go
+./bn254.go
+./bw6-633.go
+./bw6-756.go
+./bw6-761.go
+./curve.go
+./hash_to_curve.go
+./secp256k1.go
+./stark-curve.go

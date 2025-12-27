@@ -1,0 +1,68 @@
+[
+  {
+    "stage": "infra",
+    "probe": "infra.clickhouse_ready",
+    "result": "SUCCESS",
+    "detail": "clickhouse ok"
+  },
+  {
+    "stage": "infra",
+    "probe": "infra.flink_ready",
+    "result": "SUCCESS",
+    "detail": "flink rest ok"
+  },
+  {
+    "stage": "ingress",
+    "probe": "ingress.prepare",
+    "result": "SUCCESS",
+    "detail": "prepare ok"
+  },
+  {
+    "stage": "ingress",
+    "probe": "ingress.apply_roles",
+    "result": "SUCCESS",
+    "detail": "roles applied (docker)"
+  },
+  {
+    "stage": "ingress",
+    "probe": "ingress.kafka.binance.kline",
+    "result": "SUCCESS",
+    "detail": "run_id found in binance.kline"
+  },
+  {
+    "stage": "process",
+    "probe": "process.prepare",
+    "result": "SUCCESS",
+    "detail": "prepare ok"
+  },
+  {
+    "stage": "process",
+    "probe": "process.submit_jobs",
+    "result": "SUCCESS",
+    "detail": "jobs submitted"
+  },
+  {
+    "stage": "process",
+    "probe": "process.job_status",
+    "result": "SUCCESS",
+    "detail": "job status ok"
+  },
+  {
+    "stage": "process",
+    "probe": "process.verify.kline_metrics",
+    "result": "SUCCESS",
+    "detail": "kline_metrics rows >= 1"
+  },
+  {
+    "stage": "process",
+    "probe": "process.verify.kline_indicator_metrics",
+    "result": "SUCCESS",
+    "detail": "kline_indicator_metrics rows >= 1"
+  },
+  {
+    "stage": "cleanup",
+    "probe": "cleanup.resources",
+    "result": "SUCCESS",
+    "detail": "cleanup ok"
+  }
+]

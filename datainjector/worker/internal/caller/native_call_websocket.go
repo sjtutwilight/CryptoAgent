@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/observability/logging"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/protocol"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/types"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/util"
@@ -189,13 +189,17 @@ func NewWebSocketCall(callerConfig map[string]any, params map[string]any) (*WebS
 
 	call.wsClient = protocol.NewWebSocketClient(cfg)
 	if err := call.wsClient.Connect(); err != nil {
-		log.Printf("[WebSocketCall] 初次连接失败，将在轮询时重试: %v", err)
+		logging.Warn(context.Background(), logging.EventWSInitConnectError, "initial websocket connect failed, will retry", logging.Fields{
+			"error": err.Error(),
+		})
 	}
 
 	call.refreshSubscribeRequest(callerParams)
 	go call.receiveMessages()
 
-	log.Printf("[WebSocketCall] WebSocket 客户端初始化完成")
+	logging.Info(context.Background(), logging.EventWSInit, "websocket client initialized", logging.Fields{
+		"message_format": call.messageFormat,
+	})
 	return call, nil
 }
 
@@ -224,7 +228,9 @@ func (w *WebSocketCall) CallOnce(ctx context.Context, args map[string]any) ([]*t
 	}
 
 	if err := w.ensureConnected(); err != nil {
-		log.Printf("[WebSocketCall] websocket 连接中，等待重试: %v", err)
+		logging.Warn(ctx, logging.EventWSConnectPending, "websocket connecting, waiting for retry", logging.Fields{
+			"error": err.Error(),
+		})
 		return nil, nil
 	}
 
@@ -238,7 +244,9 @@ func (w *WebSocketCall) CallOnce(ctx context.Context, args map[string]any) ([]*t
 		}
 		w.subscribed = true
 		if !w.skipSubscribe {
-			log.Printf("[WebSocketCall] WebSocket 已发起订阅: %s", w.subscribeTopic)
+			logging.Info(ctx, logging.EventWSSubscribeRequested, "websocket subscribe requested", logging.Fields{
+				"subscription": w.subscribeTopic,
+			})
 		}
 	}
 
@@ -331,7 +339,9 @@ func (w *WebSocketCall) refreshSubscribeRequest(callerParams map[string]any) {
 	if rawPayload, ok := callerParams["subscribe_raw"]; ok && rawPayload != nil {
 		payloads, err := normalizeRawPayloads(rawPayload)
 		if err != nil {
-			log.Printf("[WebSocketCall] subscribe_raw 解析失败: %v", err)
+			logging.Warn(context.Background(), logging.EventWSSubscribeParseErr, "subscribe_raw parse failed", logging.Fields{
+				"error": err.Error(),
+			})
 		} else if len(payloads) > 0 {
 			w.useRawSubscribe = true
 			w.subscribePayloads = payloads
@@ -380,7 +390,9 @@ func (w *WebSocketCall) refreshSubscribeRequest(callerParams map[string]any) {
 				}
 			}
 			if bytes, err := json.Marshal(payload); err != nil {
-				log.Printf("[WebSocketCall] 构造 Binance 订阅请求失败: %v", err)
+				logging.Warn(context.Background(), logging.EventWSSubscribeBuildErr, "build binance subscribe request failed", logging.Fields{
+					"error": err.Error(),
+				})
 			} else {
 				w.useRawSubscribe = true
 				w.subscribePayloads = [][]byte{bytes}
@@ -432,7 +444,9 @@ func (w *WebSocketCall) buildSubscribeRequest(topic string, extra interface{}) p
 func (w *WebSocketCall) receiveMessages() {
 	for data := range w.wsClient.MessageChan() {
 		if err := w.handleIncomingMessage(data); err != nil {
-			log.Printf("[WebSocketCall] 处理 websocket 消息失败: %v", err)
+			logging.Warn(context.Background(), logging.EventWSMessageProcessErr, "process websocket message failed", logging.Fields{
+				"error": err.Error(),
+			})
 		}
 	}
 }
@@ -492,7 +506,9 @@ func (w *WebSocketCall) handleJSONRPCMessage(data []byte) error {
 		var payload interface{}
 		if len(params.Result) > 0 {
 			if err := json.Unmarshal(params.Result, &payload); err != nil {
-				log.Printf("[WebSocketCall] 解析订阅结果失败: %v", err)
+				logging.Warn(context.Background(), logging.EventWSSubscribeAckParse, "parse subscription result failed", logging.Fields{
+					"error": err.Error(),
+				})
 			}
 		}
 		w.applyResultMetadata(meta, payload)
@@ -506,7 +522,9 @@ func (w *WebSocketCall) handleJSONRPCMessage(data []byte) error {
 			w.mu.Lock()
 			w.subscribeID = subID
 			w.mu.Unlock()
-			log.Printf("[WebSocketCall] 订阅成功，ID=%s", subID)
+			logging.Info(context.Background(), logging.EventWSSubscribeAck, "subscription ack received", logging.Fields{
+				"subscription_id": subID,
+			})
 		}
 	}
 
@@ -761,7 +779,7 @@ func (w *WebSocketCall) ensureConnected() error {
 }
 
 func (w *WebSocketCall) updateSubscribeFromArgs(args map[string]any) {
-	if args == nil {
+	if args == nil || len(args) == 0 {
 		return
 	}
 	w.refreshSubscribeRequest(args)
@@ -910,7 +928,9 @@ func extractHeartbeatPayload(source map[string]any) ([]byte, bool) {
 		if bytes, err := normalizeRawJSON(payload); err == nil {
 			return append([]byte(nil), bytes...), true
 		} else {
-			log.Printf("[WebSocketCall] heartbeat_payload 解析失败: %v", err)
+			logging.Warn(context.Background(), logging.EventWSHeartbeatPayload, "heartbeat payload parse failed", logging.Fields{
+				"error": err.Error(),
+			})
 		}
 	}
 	return nil, false

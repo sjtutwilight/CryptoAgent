@@ -1,0 +1,65 @@
+# Kafka topic inventory (source of truth for manual init).
+#
+# Categories are for UI filtering / grouping only. Lines starting with "#" are ignored.
+
+## system-control
+batch.tasks
+tasks.status
+http.tasks
+data.sequence
+
+## metadata
+metadata.raw.kafka
+metadata.raw.postgres
+metadata.raw.clickhouse
+
+## quality
+quality.alerts
+
+## realtime-ods
+ods_tx_eth
+ods_tx_arb
+ods_receipt_eth
+ods_receipt_arb
+ods_dex_swap_eth
+ods_dex_swap_arb
+ods_dex_swap_full_eth
+ods_dex_swap_full_arb
+
+## realtime-dim
+dim_token_basic_snapshot
+dim_dex_pool_snapshot
+dim_account_basic_snapshot
+dim_token_price_current
+
+## realtime-dwd
+dwd_dex_swap
+
+## chain
+chain.ethereum.blocks
+
+## aggregator
+dex_transaction
+token_distribution
+kline.signal
+
+## perp-normalized
+perp.orderbook
+perp.trades
+perp.mark_index
+perp.funding_rate
+perp.open_interest
+perp.exec.1s
+perp.ctx.1m
+
+## exchange-raw
+binance.kline
+binance.perp.orderbook
+binance.perp.aggtrades
+binance.perp.mark_index
+binance.perp.funding_rate
+binance.perp.open_interest
+binance.perp.liquidations
+
+## misc
+account_balance_snapshot

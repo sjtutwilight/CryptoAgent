@@ -1,0 +1,482 @@
+status_reporter:
+  enabled: true
+  brokers:
+    - "kafka:29092"
+  topic: "tasks.status"
+
+# Prometheus metrics配置
+metrics:
+  enabled: true    # 是否启用metrics暴露
+  port: 9100       # metrics HTTP端口
+  path: "/metrics" # metrics路径
+
+api_server:
+  enabled: true
+  addr: ":8090"
+  token: ""        # 可选：如果设置则调用接口时需要在 Header X-Worker-Token 中携带同样的值
+
+logging:
+  service_name: "datainjector-worker"
+  environment: ""
+
+tracing:
+  enabled: true
+  service_name: "datainjector-worker"
+  sample_ratio: 0.01
+  force_sample_run_id: true
+  force_sample_role_ids: []
+
+rate_limit_profiles:
+  dune_low:
+    capacity: 10
+    refill_rate: 2
+  bigquery_high:
+    capacity: 100
+    refill_rate: 10
+  binance_ws:
+    capacity: 80
+    refill_rate: 30
+  hyperliquid_ws:
+    capacity: 50
+    refill_rate: 20
+  geckoterminal_low:
+    capacity: 10
+    refill_rate: 2
+
+datasources:
+  - id: "dune.sim"
+    labels: ["dune", "http"]
+    protocol: "http"
+    auth:
+      type: "api_key_env"
+      header: "X-Sim-Api-Key"
+      api_key_env: "DUNE_SIM_API_KEY"
+    rate_limit_profile: "dune_low"
+
+  - id: "bigquery.api"
+    labels: ["bigquery", "http"]
+    protocol: "http"
+    auth:
+      type: "bearer_env"
+      bearer_token_env: "GOOGLE_CLOUD_API_KEY"
+    rate_limit_profile: "bigquery_high"
+
+  - id: "binance.ws"
+    labels: ["binance", "websocket"]
+    protocol: "websocket"
+    rate_limit_profile: "binance_ws"
+
+  - id: "binance.rest"
+    labels: ["binance", "http"]
+    protocol: "http"
+
+  - id: "hyperliquid.ws"
+    labels: ["hyperliquid", "websocket"]
+    protocol: "websocket"
+    rate_limit_profile: "hyperliquid_ws"
+
+  - id: "hyperliquid.info"
+    labels: ["hyperliquid", "http"]
+    protocol: "http"
+
+  - id: "geckoterminal.api"
+    labels: ["geckoterminal", "http"]
+    protocol: "http"
+    auth:
+      type: "api_key_env"
+      header: "x-api-key"
+      api_key_env: "GECKOTERMINAL_API_KEY"
+    rate_limit_profile: "geckoterminal_low"
+
+  - id: "mockprovider.ws"
+    labels: ["mockprovider", "websocket"]
+    protocol: "websocket"
+
+  - id: "mockprovider.http"
+    labels: ["mockprovider", "http"]
+    protocol: "http"
+
+role_templates:
+  - id: "http_paged_batch_to_files"
+    emitter: "kafka_command"
+    caller: "batch_file"
+    queue:
+      mode: "none"
+    pipeline_mode: "direct"
+    caller_config:
+      timeout_ms: 30000
+      page_size: 500
+      cursor_param: "offset"
+      cursor_field: "next_offset"
+      data_field: "data"
+      output_format: "json"
+      filename_prefix: "data"
+      max_records_per_file: 10000
+  - id: "ws_stream_native_call"
+    emitter: "single"
+    caller: "native_call"
+  - id: "binance_spot_ws_stream"
+    emitter: "single"
+    caller: "native_call"
+    caller_config:
+      url: "wss://stream.binance.com:9443/ws"
+    caller_params:
+      message_format: "binance"
+      heartbeat_ms: 30000
+      reconnect:
+        backoff_base_seconds: 2
+        backoff_max_seconds: 60
+  - id: "binance_perp_ws_stream"
+    emitter: "single"
+    caller: "native_call"
+    caller_config:
+      url: "wss://fstream.binance.com/ws"
+    caller_params:
+      message_format: "binance"
+      heartbeat_ms: 30000
+      reconnect:
+        backoff_base_seconds: 2
+        backoff_max_seconds: 60
+  - id: "hyperliquid_ws_stream"
+    emitter: "single"
+    caller: "native_call"
+    caller_config:
+      url: "wss://api.hyperliquid.xyz/ws"
+    caller_params:
+      message_format: "hyperliquid"
+      heartbeat_ms: 50000
+      heartbeat_payload: '{"method":"ping"}'
+      heartbeat_opcode: "text"
+      reconnect:
+        backoff_base_seconds: 2
+        backoff_max_seconds: 60
+  - id: "mockprovider_ws_stream"
+    emitter: "single"
+    caller: "native_call"
+    caller_config:
+      url: "ws://localhost:8090/ws"
+    caller_params:
+      heartbeat_ms: 30000
+      poll_interval_ms: 500
+  - id: "http_poll_native_call"
+    emitter: "polling"
+    caller: "native_call"
+  - id: "sdk_polling"
+    emitter: "polling"
+    caller: "sdk_call"
+  - id: "kafka_command_native_call"
+    emitter: "kafka_command"
+    caller: "native_call"
+  - id: "metadata_polling"
+    emitter: "polling"
+    queue:
+      size: 2000
+
+pipeline_templates:
+  - id: "perp_orderbook_pipeline"
+    domain: "cex.perp.orderbook"
+    handlers:
+      - type: "binance"
+        with:
+          kind: "depth"
+      - type: "integrity"
+        with:
+          profile: "binance_depth"
+          sequence_field: "final_update_id"
+          range_start_field: "first_update_id"
+          stream_key_field: "binance_symbol"
+          gate_mode: "snapshot_hold"
+          eager_gap: 20
+          max_range: 5
+          max_delay_ms: 1500
+          hard_timeout_ms: 4000
+          max_gap: 200
+          sweep_interval_ms: 400
+          bucket_ttl_ms: 6000
+          max_buckets: 500
+          backfill_cooldown_ms: 15000
+          backfill:
+            http:
+              enabled: true
+              endpoint: "https://fapi.binance.com/fapi/v1/depth"
+              method: "GET"
+              query:
+                symbol: "BTCUSDT"
+                limit: "500"
+      - type: "orderbook_diff"
+        with:
+          symbol: "BTCUSDT"
+          max_depth: 200
+      - type: "orderbook_validator"
+    sink:
+      type: "kafka"
+      with:
+        topic: "perp.orderbook"
+        key_from: ["symbol", "exchange"]
+    queue:
+      size: 5000
+
+  - id: "batch_file_pipeline"
+    domain: "batch.file.pull"
+
+  - id: "binance_kline_pipeline"
+    domain: "cex.spot.kline"
+    handlers:
+      - type: "binance"
+        with:
+          kind: "kline"
+          exchange: "binance"
+          drop_unfinished: false
+    sink:
+      type: "kafka"
+      with:
+        topic: "binance.kline"
+        key_from: ["symbol", "interval", "close_time"]
+    queue:
+      size: 10000
+
+  - id: "binance_perp_aggtrades_pipeline"
+    domain: "cex.perp.trades"
+    handlers:
+      - type: "binance_aggtrade"
+        with:
+          symbol: "BTCUSDT"
+    sink:
+      type: "kafka"
+      with:
+        topic: "perp.trades"
+        key_from: ["symbol", "exchange"]
+    queue:
+      size: 3000
+
+  - id: "binance_perp_mark_index_pipeline"
+    domain: "cex.perp.mark_index"
+    handlers:
+      - type: "binance"
+        with:
+          kind: "mark_index"
+      - type: "mark_index_parser"
+        with:
+          symbol: "BTCUSDT"
+    sink:
+      type: "kafka"
+      with:
+        topic: "perp.mark_index"
+        key_from: ["symbol", "exchange"]
+    queue:
+      size: 2000
+
+  - id: "binance_perp_funding_pipeline"
+    domain: "cex.perp.funding_rate"
+    handlers:
+      - type: "funding_normalizer"
+        with:
+          symbol: "BTCUSDT"
+          interval: "8h"
+    sink:
+      type: "kafka"
+      with:
+        topic: "perp.funding_rate"
+        key_from: ["symbol", "exchange"]
+    queue:
+      size: 1000
+
+  - id: "binance_perp_open_interest_pipeline"
+    domain: "cex.perp.open_interest"
+    handlers:
+      - type: "oi_normalizer"
+        with:
+          symbol: "BTCUSDT"
+    sink:
+      type: "kafka"
+      with:
+        topic: "perp.open_interest"
+        key_from: ["symbol", "exchange"]
+    queue:
+      size: 1000
+
+  - id: "binance_perp_liquidations_pipeline"
+    domain: "cex.perp.liquidations"
+    handlers:
+      - type: "binance"
+        with:
+          kind: "liquidation"
+      - type: "liquidation_normalizer"
+        with:
+          symbol: "BTCUSDT"
+    sink:
+      type: "kafka"
+      with:
+        topic: "binance.perp.liquidations"
+        key_from: ["symbol", "exchange"]
+    queue:
+      size: 2000
+
+  - id: "hyperliquid_perp_orderbook_pipeline"
+    domain: "cex.perp.orderbook"
+    handlers:
+      - type: "hyperliquid"
+        with:
+          kind: "orderbook"
+          exchange: "hyperliquid"
+      - type: "hyperliquid_orderbook"
+        with:
+          exchange: "hyperliquid"
+          max_depth: 200
+    sink:
+      type: "kafka"
+      with:
+        topic: "perp.orderbook"
+        key_from: ["symbol", "exchange"]
+    queue:
+      size: 5000
+
+  - id: "hyperliquid_perp_trades_pipeline"
+    domain: "cex.perp.trades"
+    handlers:
+      - type: "hyperliquid"
+        with:
+          kind: "trade"
+          exchange: "hyperliquid"
+      - type: "hyperliquid_trade"
+        with:
+          exchange: "hyperliquid"
+    sink:
+      type: "kafka"
+      with:
+        topic: "perp.trades"
+        key_from: ["symbol", "exchange"]
+    queue:
+      size: 3000
+
+  - id: "hyperliquid_perp_asset_ctx_pipeline"
+    domain: "cex.perp.metrics"
+    handlers:
+      - type: "hyperliquid_asset_ctx"
+        with:
+          exchange: "hyperliquid"
+          funding_interval: "1h"
+          coins: ["BTC", "ETH", "SOL"]
+          outputs:
+            mark_index: "perp.mark_index"
+            funding_rate: "perp.funding_rate"
+            open_interest: "perp.open_interest"
+    sink:
+      type: "kafka"
+      with:
+        topic: "perp.mark_index"
+        topic_field: "sink_topic"
+        key_from: ["symbol", "exchange"]
+    queue:
+      size: 2000
+
+  - id: "localnode_block_pipeline"
+    domain: "chain.dex.transaction"
+    handlers:
+      - type: "dex"
+        with:
+          chain_id: "local"
+    sink:
+      type: "kafka"
+      with:
+        topic: "dex_transaction"
+        key_from: ["chain_id", "tx_hash"]
+    queue:
+      size: 5000
+
+  - id: "account_balance_snapshot_pipeline"
+    domain: "chain.balance.snapshot"
+    handlers:
+      - type: "balance"
+        with:
+          redis_addr: "localhost:6379"
+          redis_timeout_ms: 2000
+    sink:
+      type: "kafka"
+      with:
+        topic: "account_balance_snapshot"
+        key_from: ["chain_id", "account_id", "asset_type", "biz_id"]
+    queue:
+      size: 5000
+
+  - id: "metadata_kafka_pipeline"
+    domain: "metadata.kafka"
+    sink:
+      type: "kafka"
+      with:
+        topic: "metadata.raw.kafka"
+        key_from: ["cluster", "topic"]
+    queue:
+      size: 2000
+
+  - id: "metadata_postgres_pipeline"
+    domain: "metadata.postgres"
+    handlers:
+      - type: "metadata_envelope"
+        with:
+          platform: "postgres"
+          entity_type: "table"
+    sink:
+      type: "kafka"
+      with:
+        topic: "metadata.raw.postgres"
+        key_from: ["cluster", "schema", "table"]
+    queue:
+      size: 2000
+
+  - id: "metadata_clickhouse_pipeline"
+    domain: "metadata.clickhouse"
+    handlers:
+      - type: "metadata_envelope"
+        with:
+          platform: "clickhouse"
+          entity_type: "table"
+    sink:
+      type: "kafka"
+      with:
+        topic: "metadata.raw.clickhouse"
+        key_from: ["cluster", "database", "table"]
+    queue:
+      size: 2000
+
+  - id: "evm_block_integrity_pipeline"
+    domain: "chain.blocks.integrity"
+    handlers:
+      - type: "integrity"
+        with:
+          sequence_field: "block_number"
+          eager_gap: 3
+          max_range: 20
+          max_delay_ms: 800
+          hard_timeout_ms: 10000
+          max_gap: 8
+          sweep_interval_ms: 200
+          bucket_ttl_ms: 3000
+          max_buckets: 2000
+          backfill:
+            ws:
+              enabled: true
+              rpc_method: "eth_getBlockByNumber"
+              include_full_tx: false
+            http:
+              enabled: true
+              endpoint: "http://localhost:8545"
+              rpc_method: "eth_getBlockByNumber"
+              include_full_tx: false
+    sink:
+      type: "kafka"
+      with:
+        topic: "chain.ethereum.blocks"
+        key_from: ["chain_id", "block_number"]
+    queue:
+      size: 5000
+
+  - id: "evm_block_raw_pipeline"
+    domain: "chain.blocks.raw"
+    sink:
+      type: "kafka"
+      with:
+        topic: "chain.ethereum.blocks"
+        key_from: ["chain_id", "block_number"]
+    queue:
+      size: 5000

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -78,6 +79,9 @@ func parseKafkaConfig(cfg map[string]any) (*KafkaConfig, error) {
 		}
 	}
 	if len(kc.Brokers) == 0 {
+		kc.Brokers = brokersFromEnv()
+	}
+	if len(kc.Brokers) == 0 {
 		return nil, fmt.Errorf("kafka sink: brokers required")
 	}
 	if topic, ok := cfg["topic"].(string); ok {
@@ -135,6 +139,33 @@ func parseKafkaConfig(cfg map[string]any) (*KafkaConfig, error) {
 	return kc, nil
 }
 
+func brokersFromEnv() []string {
+	envKeys := []string{
+		"KAFKA_BROKERS",
+		"KAFKA_BOOTSTRAP_SERVERS",
+		"KAFKA_BOOTSTRAP_SERVERS_LOCAL",
+	}
+	for _, key := range envKeys {
+		raw := strings.TrimSpace(os.Getenv(key))
+		if raw == "" {
+			continue
+		}
+		parts := strings.FieldsFunc(raw, func(r rune) bool {
+			return r == ',' || r == ';' || r == ' '
+		})
+		brokers := make([]string, 0, len(parts))
+		for _, p := range parts {
+			if v := strings.TrimSpace(p); v != "" {
+				brokers = append(brokers, v)
+			}
+		}
+		if len(brokers) > 0 {
+			return brokers
+		}
+	}
+	return nil
+}
+
 func (k *Kafka) Write(msg *types.Message) error {
 	writer, _, err := k.writerForMessage(msg)
 	if err != nil {
@@ -142,8 +173,9 @@ func (k *Kafka) Write(msg *types.Message) error {
 	}
 	key := k.buildKey(msg)
 	return writer.WriteMessages(context.Background(), kafka.Message{
-		Key:   []byte(key),
-		Value: msg.Payload,
+		Key:     []byte(key),
+		Value:   msg.Payload,
+		Headers: buildHeaders(msg.Metadata),
 	})
 }
 
@@ -191,6 +223,34 @@ func (k *Kafka) buildKey(msg *types.Message) string {
 		parts = append(parts, "")
 	}
 	return strings.Join(parts, "|")
+}
+
+func buildHeaders(meta map[string]any) []kafka.Header {
+	if meta == nil {
+		return nil
+	}
+	headers := make([]kafka.Header, 0, 4)
+	if v, ok := meta["traceparent"]; ok {
+		if s := fmt.Sprint(v); s != "" {
+			headers = append(headers, kafka.Header{Key: "traceparent", Value: []byte(s)})
+		}
+	}
+	if v, ok := meta["tracestate"]; ok {
+		if s := fmt.Sprint(v); s != "" {
+			headers = append(headers, kafka.Header{Key: "tracestate", Value: []byte(s)})
+		}
+	}
+	if v, ok := meta["baggage"]; ok {
+		if s := fmt.Sprint(v); s != "" {
+			headers = append(headers, kafka.Header{Key: "baggage", Value: []byte(s)})
+		}
+	}
+	if v, ok := meta["run_id"]; ok {
+		if s := fmt.Sprint(v); s != "" {
+			headers = append(headers, kafka.Header{Key: "x-run-id", Value: []byte(s)})
+		}
+	}
+	return headers
 }
 
 func (k *Kafka) writerForMessage(msg *types.Message) (*kafka.Writer, string, error) {

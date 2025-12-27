@@ -1,0 +1,20 @@
+[
+  {
+    "stage": "observe",
+    "probe": "kafka.consumer_lag",
+    "result": "SKIP",
+    "detail": "consumer group not found: worker.binance.kline.batch"
+  },
+  {
+    "stage": "observe",
+    "probe": "worker.events",
+    "result": "FAIL",
+    "detail": "missing events: emitter.fire, caller.request, caller.response, pipeline.finish"
+  },
+  {
+    "stage": "observe",
+    "probe": "worker.errors",
+    "result": "SKIP",
+    "detail": "no structured logs for filters"
+  }
+]

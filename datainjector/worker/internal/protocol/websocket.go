@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/observability/logging"
 )
 
 // WebSocketConfig websocket连接配置
@@ -80,7 +81,9 @@ func (c *WebSocketClient) Connect() error {
 	c.conn = conn
 	c.mu.Unlock()
 
-	log.Printf("[WebSocket] 连接成功: %s", c.config.URL)
+	logging.Info(context.Background(), logging.EventWSConnect, "websocket connected", logging.Fields{
+		"ws_url": c.config.URL,
+	})
 
 	// 启动心跳
 	c.wg.Add(1)
@@ -125,7 +128,11 @@ func (c *WebSocketClient) Subscribe(req JSONRPCRequest) error {
 	c.lastSubscribeMsgs = [][]byte{payloadCopy}
 	c.subMu.Unlock()
 
-	log.Printf("[WebSocket] 发送订阅: %s", string(data))
+	logging.Info(context.Background(), logging.EventWSSubscribeSent, "websocket subscribe sent", logging.Fields{
+		"ws_url":      c.config.URL,
+		"payload":     truncateBytes(data, 256),
+		"payload_len": len(data),
+	})
 	return nil
 }
 
@@ -152,7 +159,12 @@ func (c *WebSocketClient) SendRawSubscribe(payload []byte) error {
 	c.lastSubscribeMsgs = append(c.lastSubscribeMsgs, payloadCopy)
 	c.subMu.Unlock()
 
-	log.Printf("[WebSocket] 发送订阅(raw): %s", string(payload))
+	logging.Info(context.Background(), logging.EventWSSubscribeSent, "websocket subscribe sent", logging.Fields{
+		"ws_url":      c.config.URL,
+		"payload":     truncateBytes(payload, 256),
+		"payload_len": len(payload),
+		"raw":         true,
+	})
 	return nil
 }
 
@@ -207,7 +219,11 @@ func (c *WebSocketClient) Unsubscribe(req JSONRPCRequest) error {
 	c.lastUnsubscribeMsgs = [][]byte{payloadCopy}
 	c.unsubMu.Unlock()
 
-	log.Printf("[WebSocket] 发送退订: %s", string(data))
+	logging.Info(context.Background(), logging.EventWSUnsubscribeSent, "websocket unsubscribe sent", logging.Fields{
+		"ws_url":      c.config.URL,
+		"payload":     truncateBytes(data, 256),
+		"payload_len": len(data),
+	})
 	return nil
 }
 
@@ -235,7 +251,9 @@ func (c *WebSocketClient) Close() error {
 	close(c.closeCh)
 	c.wg.Wait()
 
-	log.Printf("[WebSocket] 连接已关闭")
+	logging.Info(context.Background(), logging.EventWSClose, "websocket closed", logging.Fields{
+		"ws_url": c.config.URL,
+	})
 	return nil
 }
 
@@ -263,14 +281,20 @@ func (c *WebSocketClient) heartbeatLoop() {
 
 			if len(c.config.HeartbeatPayload) > 0 {
 				if err := conn.WriteMessage(c.config.HeartbeatOpcode, c.config.HeartbeatPayload); err != nil {
-					log.Printf("[WebSocket] 心跳失败: %v, 尝试重连", err)
+					logging.Warn(context.Background(), logging.EventWSHeartbeatError, "websocket heartbeat failed", logging.Fields{
+						"ws_url": c.config.URL,
+						"error":  err.Error(),
+					})
 					c.reconnect()
 				}
 				continue
 			}
 
 			if err := conn.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
-				log.Printf("[WebSocket] 心跳失败: %v, 尝试重连", err)
+				logging.Warn(context.Background(), logging.EventWSHeartbeatError, "websocket heartbeat failed", logging.Fields{
+					"ws_url": c.config.URL,
+					"error":  err.Error(),
+				})
 				c.reconnect()
 			}
 		}
@@ -299,7 +323,10 @@ func (c *WebSocketClient) readLoop() {
 
 			_, data, err := conn.ReadMessage()
 			if err != nil {
-				log.Printf("[WebSocket] 读取消息失败: %v, 尝试重连", err)
+				logging.Warn(context.Background(), logging.EventWSReadError, "websocket read failed", logging.Fields{
+					"ws_url": c.config.URL,
+					"error":  err.Error(),
+				})
 				c.reconnect()
 				continue
 			}
@@ -310,7 +337,10 @@ func (c *WebSocketClient) readLoop() {
 			case <-c.ctx.Done():
 				return
 			default:
-				log.Printf("[WebSocket] 消息通道已满，丢弃消息")
+				logging.Warn(context.Background(), logging.EventWSBufferDrop, "websocket message buffer full, dropping message", logging.Fields{
+					"ws_url": c.config.URL,
+					"buffer": cap(c.msgChan),
+				})
 			}
 		}
 	}
@@ -337,12 +367,19 @@ func (c *WebSocketClient) reconnect() {
 		default:
 		}
 
-		log.Printf("[WebSocket] 重连尝试 #%d，延迟 %v", attempt, backoff)
+		logging.Info(context.Background(), logging.EventWSReconnectStart, "websocket reconnect attempt", logging.Fields{
+			"ws_url":    c.config.URL,
+			"attempt":   attempt,
+			"backoff_ms": backoff.Milliseconds(),
+		})
 		time.Sleep(backoff)
 
 		conn, _, err := websocket.DefaultDialer.Dial(c.config.URL, nil)
 		if err != nil {
-			log.Printf("[WebSocket] 重连失败: %v", err)
+			logging.Warn(context.Background(), logging.EventWSReconnectError, "websocket reconnect failed", logging.Fields{
+				"ws_url": c.config.URL,
+				"error":  err.Error(),
+			})
 			// 指数退避
 			backoff *= 2
 			if backoff > maxBackoff {
@@ -355,7 +392,9 @@ func (c *WebSocketClient) reconnect() {
 		c.conn = conn
 		c.mu.Unlock()
 
-		log.Printf("[WebSocket] 重连成功")
+		logging.Info(context.Background(), logging.EventWSReconnectSuccess, "websocket reconnected", logging.Fields{
+			"ws_url": c.config.URL,
+		})
 
 		// 重连后尝试恢复订阅
 		c.subMu.Lock()
@@ -374,13 +413,25 @@ func (c *WebSocketClient) reconnect() {
 				continue
 			}
 			if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
-				log.Printf("[WebSocket] 重发订阅失败: %v", err)
+				logging.Warn(context.Background(), logging.EventWSSubscribeRetryErr, "websocket resubscribe failed", logging.Fields{
+					"ws_url": c.config.URL,
+					"error":  err.Error(),
+				})
 			} else {
-				log.Printf("[WebSocket] 重发订阅成功")
+				logging.Info(context.Background(), logging.EventWSSubscribeRetryOK, "websocket resubscribe ok", logging.Fields{
+					"ws_url": c.config.URL,
+				})
 			}
 		}
 		return
 	}
+}
+
+func truncateBytes(data []byte, limit int) string {
+	if limit <= 0 || len(data) <= limit {
+		return string(data)
+	}
+	return string(data[:limit])
 }
 
 // IsConnected 返回当前是否有活跃连接

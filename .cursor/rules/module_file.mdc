@@ -1,0 +1,18 @@
+---
+alwaysApply: false
+---
+模块级（每个模块一个 agent 友好 README）
+对每个大模块（比如：aggregator、worker）维护严格不超过50行的短文档。包含下面内容
+## 模块角色（一句话）
+例：token-stream：负责从 Kafka 拿链上 swap / transfer 事件，做 PnL & 资产分布增量计算。
+## 目录 & 关键文件索引
+src/main/java/.../TokenStreamJob.java – Flink Job 入口
+.../enrich/EnrichFunction.java – 挂外部标签 & 汇率
+.../sink/AccountDistributionSink.java – 写入 Paimon / ClickHouse 的逻辑
+## 主要逻辑
+简单列：source -> enrich -> aggregate -> sink
+哪个类负责 glue，哪个类是纯算子
+## 对外接口 / CLI / 配置项
+这个 job 如何启动，提及使用scripts中的脚本工具如./script/dev.sh worker
+## 关键约束 & 不变量（这块我来维护）
+

@@ -1,0 +1,71 @@
+# 自动生成的元数据片段 - Binance BTCUSDT 5分钟K线
+# 生成时间: 2024-12-27T05:30:00Z
+# Role ID: binance-spot-kline-btcusdt
+
+id: "binance.spot.kline.btcusdt.5m"
+datasource: "binance"
+domain: "market_data"
+category: "kline"
+description: "Binance 现货 BTCUSDT 5分钟K线"
+
+granularity:
+  type: "time_series"
+  interval: "5m"
+  unit: "minute"
+
+coverage:
+  time_range:
+    start: "2024-12-27T00:00:00Z"
+    end: "2024-12-27T23:59:59Z"
+  symbols:
+    - "BTCUSDT"
+
+schema:
+  format: "json"
+  fields:
+    - name: "timestamp"
+      type: "int64"
+      description: "K线开始时间戳(ms)"
+    - name: "open"
+      type: "float64"
+      description: "开盘价"
+    - name: "high"
+      type: "float64"
+      description: "最高价"
+    - name: "low"
+      type: "float64"
+      description: "最低价"
+    - name: "close"
+      type: "float64"
+      description: "收盘价"
+    - name: "volume"
+      type: "float64"
+      description: "成交量"
+
+storage:
+  base_path: "binance/spot/kline/btcusdt/5m"
+  file_pattern: "kline_{date}.json"
+  compression: "none"
+
+files:
+  - path: "binance/spot/kline/btcusdt/5m/kline_20241227.json"
+    size_bytes: 2876416
+    record_count: 288
+    time_range:
+      start: "2024-12-27T00:00:00Z"
+      end: "2024-12-27T23:59:59Z"
+    checksum: "md5:1234567890abcdef1234567890abcdef"
+    created_at: "2024-12-27T05:30:00Z"
+
+metadata:
+  role_id: "binance-spot-kline-btcusdt"
+  created_at: "2024-12-27T05:30:00Z"
+  updated_at: "2024-12-27T05:30:00Z"
+  version: "1.0"
+  tags:
+    - "binance"
+    - "spot"
+    - "kline"
+    - "btc"
+    - "5m"
+

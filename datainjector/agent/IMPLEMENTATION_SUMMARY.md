@@ -88,7 +88,7 @@ DuneSim:
 - Manifest 自定义字段
 - 限流配置
 
-#### 3.2 集成测试脚本 (`test_dune_integration.sh`)
+#### 3.2 集成测试脚本 (`scripts/app/datainjector-worker-test-dune.sh`)
 
 自动化测试脚本，包含：
 1. 环境检查
@@ -123,7 +123,6 @@ datainjector/
 │   │       └── batch_file_caller.go    # 新增：批量文件 Caller
 │   ├── configs/
 │   │   └── dune_token_holders.yaml     # 新增：Dune 配置
-│   ├── test_dune_integration.sh        # 新增：集成测试脚本
 │   └── DUNE_INTEGRATION.md             # 新增：集成文档
 └── control-plane-service/
     └── src/main/java/com/crypto/control/
@@ -173,14 +172,14 @@ sequenceDiagram
 
 **运行测试**：
 ```bash
-cd datainjector/worker
+cd DataPlatform
 export DUNE_SIM_API_KEY="sim_ZmoRtMDsmW0WWNeTUpFr2hjU8pIHEaAY"
-./test_dune_integration.sh
+./scripts/app/datainjector-worker-test-dune.sh
 ```
 
 **预期输出**：
 ```
-/tmp/dune/token-holders/1/0x514910771af9ca656af840dff83e8264ecf986ca/
+runtime/data/dune/token-holders/1/0x514910771af9ca656af840dff83e8264ecf986ca/
 ├── holders_000.json
 ├── holders_001.json
 ├── ...
@@ -308,4 +307,3 @@ Worker 暴露指标（端口 9100）：
 ✅ **易于扩展**：清晰的接口和抽象  
 
 已通过 Chainlink Token 测试用例验证，可投入生产使用。
-

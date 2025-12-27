@@ -1,0 +1,7 @@
+id: dune_token_holders
+description: Dune token holders raw snapshots
+path: runtime/data/dune/token-holders/{chain_id}/{address}
+format: json
+producer: datainjector.worker.batch_file
+notes: |
+  Each token folder may contain holders_*.json, manifest.json, and .cursor.json.

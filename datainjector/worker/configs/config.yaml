@@ -10,42 +10,28 @@ metrics:
   port: 9100       # metrics HTTP端口
   path: "/metrics" # metrics路径
 
+# Role registry only (not loaded by worker at runtime)
 roles:
   # Dune Token Holders 批量拉取任务
   - role_id: "dune-token-holders-batch"
-    emitter: "kafka_command"
+    datasource_id: "dune.sim"
+    template: "http_paged_batch_to_files"
+    pipeline: "batch_file_pipeline"
     emitter_config:
       brokers: ["localhost:9092"]
       topic: "batch.tasks"
       group_id: "worker.dune.batch"
-    
-    caller: "batch_file"
     caller_config:
-      # API 配置
       endpoint: "https://api.sim.dune.com"
       path_template: "/v1/evm/token-holders/{chain_id}/{address}"
-      headers:
-        X-Sim-Api-Key: "${DUNE_SIM_API_KEY}"
-      timeout_ms: 30000
-      
-      # 分页配置
       page_size: 500
       cursor_param: "offset"
       cursor_field: "next_offset"
       data_field: "holders"
-      
-      # 输出配置
       output_dir: "/tmp/dune/token-holders/{chain_id}/{address}"
       output_format: "json"
       filename_prefix: "holders"
       max_records_per_file: 10000
-      
-      # 限流配置
-      rate_limit:
-        capacity: 10
-        refill_rate: 2
-      
-      # Manifest 配置
       manifest:
         version: "1.0"
         checksum_algorithm: "md5"
@@ -62,594 +48,465 @@ roles:
             source: "last_record.wallet_address"
           - name: "last_holder_balance"
             source: "last_record.balance"
-    
     queue: { size: 100 }
 
-  # - role_id: "localnode-block"
-  #   emitter: "polling"
-  #   polling_interval: 2  # 秒
-  #   caller: "sdk_call"
-  #   caller_class: "LocalGetBlock"
-  #   caller_params:
-  #     rpc_endpoint: "http://localhost:8545"
-  #     chain_id: "local"
-  #     confirmations: 0
-  #     max_blocks_per_poll: 5
-  #     block_delay: 0
-  #   handlers:
-  #     - type: "dex"
-  #       with:
-  #         chain_id: "local"
-  #   sink:
-  #     type: "kafka"
-  #     with:
-  #       brokers:
-  #         - "localhost:9092"
-  #       topic: "dex_transaction"
-  #       key_from: ["chain_id", "tx_hash"]
-  #   queue: { size: 5000 }
+  # GeckoTerminal LINK liquidity (token metrics)
+  - role_id: "geckoterminal-link-token-ethereum"
+    datasource_id: "geckoterminal.api"
+    template: "kafka_command_native_call"
+    pipeline: "batch_file_pipeline"
+    pipeline_mode: "direct"
+    queue:
+      mode: "none"
+    emitter_config:
+      brokers: ["localhost:9092"]
+      topic: "batch.tasks"
+      group_id: "worker.geckoterminal.liquidity"
+    caller_config:
+      transport: "rest"
+      method: "GET"
+      endpoint: "https://api.geckoterminal.com/api/v2/networks/eth/tokens/0x514910771af9ca656af840dff83e8264ecf986ca"
+    sink:
+      type: "file"
+      with:
+        output_dir: "runtime/data/geckoterminal/liquidity/ethereum/0x514910771af9ca656af840dff83e8264ecf986ca/token"
+        output_format: "json"
+        filename_prefix: "token"
+        max_records_per_file: 10000
+        raw_payload: true
 
-#   - role_id: "account-balance-snapshot"
-#     emitter: "polling"
-#     polling_interval: 60
-#     caller: "sdk_call"
-#     caller_class: "balance_snapshot"
-#     caller_params:
-#       rpc_endpoint: "http://localhost:8545"
-#       chain_id: "31337"
-#       deployment_path: "../deployment.json"
-#     handlers:
-#       - type: "balance"
-#         with:
-#           redis_addr: "localhost:6379"
-#           redis_timeout_ms: 2000
-#     sink:
-#       type: "kafka"
-#       with:
-#         brokers:
-#           - "localhost:9092"
-#         topic: "account_balance_snapshot"
-#         key_from: ["chain_id", "account_id", "asset_type", "biz_id"]
-#     queue: { size: 5000 }
+  # TODO: fill LINK token address on base.
+  - role_id: "geckoterminal-link-token-base"
+    datasource_id: "geckoterminal.api"
+    template: "kafka_command_native_call"
+    pipeline: "batch_file_pipeline"
+    pipeline_mode: "direct"
+    queue:
+      mode: "none"
+    emitter_config:
+      brokers: ["localhost:9092"]
+      topic: "batch.tasks"
+      group_id: "worker.geckoterminal.liquidity"
+    caller_config:
+      transport: "rest"
+      method: "GET"
+      endpoint: "https://api.geckoterminal.com/api/v2/networks/base/tokens/<fill_me>"
+    sink:
+      type: "file"
+      with:
+        output_dir: "runtime/data/geckoterminal/liquidity/base/<fill_me>/token"
+        output_format: "json"
+        filename_prefix: "token"
+        max_records_per_file: 10000
+        raw_payload: true
 
-  # - role_id: "binance-kline"
-  #   emitter: "single"
-  #   caller: "native_call"
-  #   caller_config:
-  #     protocol: "websocket"
-  #     url: "wss://stream.binance.com:9443/ws"
-  #   caller_params:
-  #     message_format: "binance"
-  #     streams:
-  #       - "btcusdt@kline_1m"
-  #       - "btcusdt@kline_5m"
-  #       # - "ethusdt@kline_1m"
-  #       # - "ethusdt@kline_5m"
+  # TODO: fill LINK token address on arbitrum.
+  - role_id: "geckoterminal-link-token-arbitrum"
+    datasource_id: "geckoterminal.api"
+    template: "kafka_command_native_call"
+    pipeline: "batch_file_pipeline"
+    pipeline_mode: "direct"
+    queue:
+      mode: "none"
+    emitter_config:
+      brokers: ["localhost:9092"]
+      topic: "batch.tasks"
+      group_id: "worker.geckoterminal.liquidity"
+    caller_config:
+      transport: "rest"
+      method: "GET"
+      endpoint: "https://api.geckoterminal.com/api/v2/networks/arbitrum/tokens/<fill_me>"
+    sink:
+      type: "file"
+      with:
+        output_dir: "runtime/data/geckoterminal/liquidity/arbitrum/<fill_me>/token"
+        output_format: "json"
+        filename_prefix: "token"
+        max_records_per_file: 10000
+        raw_payload: true
 
-  #     metadata_fields:
-  #       symbol: "data.s"
-  #       interval: "data.k.i"
-  #       open_time: "data.k.t"
-  #       close_time: "data.k.T"
-  #       is_final: "data.k.x"
-  #     static_metadata:
-  #       datasource_id: "binance.spot"
-  #     reconnect:
-  #       backoff_base_seconds: 2
-  #       backoff_max_seconds: 60
-  #     auth:
-  #       api_key_env: "BINANCE_API_KEY"
-  #       secret_env: "BINANCE_API_SECRET"
-  #   handlers:
-  #     - type: "binance"
-  #       with:
-  #         kind: "kline"
-  #         exchange: "binance"
-  #         drop_unfinished: false
-  #   sink:
-  #     type: "kafka"
-  #     with:
-  #       brokers:
-  #         - "localhost:9092"
-  #       topic: "binance.kline"
-  #       key_from: ["symbol", "interval", "close_time"]
-  #   queue: { size: 10000 }
+  # GeckoTerminal LINK liquidity (top pools)
+  - role_id: "geckoterminal-link-pools-ethereum"
+    datasource_id: "geckoterminal.api"
+    template: "kafka_command_native_call"
+    pipeline: "batch_file_pipeline"
+    pipeline_mode: "direct"
+    queue:
+      mode: "none"
+    emitter_config:
+      brokers: ["localhost:9092"]
+      topic: "batch.tasks"
+      group_id: "worker.geckoterminal.liquidity"
+    caller_config:
+      transport: "rest"
+      method: "GET"
+      endpoint: "https://api.geckoterminal.com/api/v2/networks/eth/tokens/0x514910771af9ca656af840dff83e8264ecf986ca/pools"
+    sink:
+      type: "file"
+      with:
+        output_dir: "runtime/data/geckoterminal/liquidity/ethereum/0x514910771af9ca656af840dff83e8264ecf986ca/pools"
+        output_format: "json"
+        filename_prefix: "pools"
+        max_records_per_file: 10000
+        raw_payload: true
 
-# # Binance Perp 
-#   - role_id: "binance-perp-btc-orderbook"
-#     emitter: "single"
-#     caller: "native_call"
-#     caller_config:
-#       protocol: "websocket"
-#       url: "wss://fstream.binance.com/ws"  # 实盘数据源(默认)
-#       # url: "ws://localhost:8090/ws/binance/btcusdt@depth@100ms"  # 使用mock-data-provider时注释上一行并启用本行
-#       datasource_id: "binance.perp.depth"
-#       rate_limit:
-#         capacity: 80        # allow short bursts but stay under 2400 req/min (~40 rps)
-#         refill_rate: 30     # conservative vs Binance 40 rps limit
-#       backfill:
-#         http:
-#           enabled: true
-#           transport: "rest"
-#           endpoint: "https://fapi.binance.com/fapi/v1/depth"  # 实盘快照
-#           # endpoint: "http://localhost:8090/fapi/v1/depth"   # mock 快照
-#           method: "GET"
-#           datasource_id: "binance.perp.depth"
-#           query:
-#             symbol: "BTCUSDT"
-#             limit: "500"
-#     caller_params:
-#       message_format: "binance"
-#       streams:
-#         - "btcusdt@depth@100ms"
-#       metadata_fields:
-#         symbol: "data.s"
-#         event_time: "data.E"
-#     handlers:
-#       - type: "binance"
-#         with:
-#           kind: "depth"
-#       - type: "integrity"
-#         with:
-#           profile: "binance_depth"
-#           sequence_field: "final_update_id"
-#           range_start_field: "first_update_id"
-#           stream_key_field: "binance_symbol"
-#           gate_mode: "snapshot_hold"
-#           eager_gap: 20
-#           max_range: 5
-#           max_delay_ms: 1500
-#           hard_timeout_ms: 4000
-#           max_gap: 200
-#           sweep_interval_ms: 400
-#           bucket_ttl_ms: 6000
-#           max_buckets: 500
-#           backfill_cooldown_ms: 15000
-#           backfill:
-#             http:
-#               enabled: true
-#               endpoint: "https://fapi.binance.com/fapi/v1/depth"  # 实盘补数
-#               # endpoint: "http://localhost:8090/fapi/v1/depth"   # mock 补数
-#               method: "GET"
-#               query:
-#                 symbol: "BTCUSDT"
-#                 limit: "500"
-#       - type: "orderbook_diff"
-#         with:
-#           symbol: "BTCUSDT"
-#           max_depth: 200
-#       - type: "orderbook_validator"
-#     # sink:
-#     #   type: "console"
-#     sink:
-#       type: "kafka"
-#       with:
-#         brokers:
-#           - "localhost:9092"
-#         topic: "perp.orderbook"
-#         key_from: ["symbol", "exchange"]
-#     queue: { size: 5000 }
+  # TODO: fill LINK token address on base.
+  - role_id: "geckoterminal-link-pools-base"
+    datasource_id: "geckoterminal.api"
+    template: "kafka_command_native_call"
+    pipeline: "batch_file_pipeline"
+    pipeline_mode: "direct"
+    queue:
+      mode: "none"
+    emitter_config:
+      brokers: ["localhost:9092"]
+      topic: "batch.tasks"
+      group_id: "worker.geckoterminal.liquidity"
+    caller_config:
+      transport: "rest"
+      method: "GET"
+      endpoint: "https://api.geckoterminal.com/api/v2/networks/base/tokens/<fill_me>/pools"
+    sink:
+      type: "file"
+      with:
+        output_dir: "runtime/data/geckoterminal/liquidity/base/<fill_me>/pools"
+        output_format: "json"
+        filename_prefix: "pools"
+        max_records_per_file: 10000
+        raw_payload: true
 
-  # # Binance Perp BTC AggTrade Stream (使用Aggregate Trade替代普通Trade)
-  # - role_id: "binance-perp-btc-aggtrades"
-  #   emitter: "single"
-  #   caller: "native_call"
-  #   caller_config:
-  #     protocol: "websocket"
-  #     # url: "ws://localhost:8090/ws/binance/btcusdt@aggTrade"
-  #     url: "wss://fstream.binance.com/ws"
-  #   caller_params:
-  #     message_format: "binance"  # 使用Binance消息格式，直接处理原始JSON
-  #   handlers:
-  #     - type: "binance_aggtrade"
-  #       with:
-  #         symbol: "BTCUSDT"
-  #   sink:
-  #     type: "kafka"
-  #     with:
-  #       brokers:
-  #         - "localhost:9092"
-  #       topic: "perp.trades"
-  #       key_from: ["symbol", "exchange"]
-  #   queue: { size: 3000 }
+  # TODO: fill LINK token address on arbitrum.
+  - role_id: "geckoterminal-link-pools-arbitrum"
+    datasource_id: "geckoterminal.api"
+    template: "kafka_command_native_call"
+    pipeline: "batch_file_pipeline"
+    pipeline_mode: "direct"
+    queue:
+      mode: "none"
+    emitter_config:
+      brokers: ["localhost:9092"]
+      topic: "batch.tasks"
+      group_id: "worker.geckoterminal.liquidity"
+    caller_config:
+      transport: "rest"
+      method: "GET"
+      endpoint: "https://api.geckoterminal.com/api/v2/networks/arbitrum/tokens/<fill_me>/pools"
+    sink:
+      type: "file"
+      with:
+        output_dir: "runtime/data/geckoterminal/liquidity/arbitrum/<fill_me>/pools"
+        output_format: "json"
+        filename_prefix: "pools"
+        max_records_per_file: 10000
+        raw_payload: true
 
-  # - role_id: "binance-perp-btc-mark-index"
-  #   emitter: "single"
-  #   caller: "native_call"
-  #   caller_config:
-  #     protocol: "websocket"
-  #     url: "wss://fstream.binance.com/ws"
-  #     metadata:
-  #       exchange: "BINANCE"
-  #       channel: "mark_index"
-  #       instrument: "perp"
-  #   caller_params:
-  #     message_format: "binance"
-  #     subscribe: "btcusdt@markPrice@1s"
-  #     heartbeat_ms: 30000
-  #     reconnect:
-  #       backoff_base_seconds: 2
-  #       backoff_max_seconds: 60
-  #     static_metadata:
-  #       symbol: "BTCUSDT"
-  #   handlers:
-  #     - type: "binance"
-  #       with:
-  #         kind: "mark_index"
-  #     - type: "mark_index_parser"
-  #       with:
-  #         symbol: "BTCUSDT"
-  #   # sink:
-  #   #   type: "console"
-  #   sink:
-  #     type: "kafka"
-  #     with:
-  #       brokers:
-  #         - "localhost:9092"
-  #       topic: "perp.mark_index"
-  #       key_from: ["symbol", "exchange"]
-  #   queue: { size: 2000 }
+  # Binance LINK 现货 K线拉取 (kafka_command 触发批量拉取)
+  - role_id: "binance-spot-link-kline-batch"
+    datasource_id: "binance.rest"
+    template: "kafka_command_native_call"
+    pipeline: "binance_kline_pipeline"
+    pipeline_mode: "direct"
+    queue:
+      mode: "none"
+    emitter_config:
+      brokers: ["localhost:9092"]
+      # brokers 配置由代码从环境变量自动获取，不在此处硬编码
+      topic: "batch.tasks"
+      group_id: "worker.binance.kline.batch"
+    caller_config:
+      transport: "rest"
+      method: "GET"
+      endpoint: "https://api.binance.com/api/v3/klines"
+      query:
+        symbol: "LINKUSDT"
+        interval: "1m"
+        limit: "1000"
+        # startTime 和 endTime 由 kafka 消息动态传入
+    sink:
+      type: "file"
+      with:
+        output_dir: "runtime/data/binance/spot/kline/LINKUSDT"
+        output_format: "json"
+        filename_prefix: "kline_1m"
+        max_records_per_file: 10000
 
-  # - role_id: "binance-perp-btc-funding"
-  #   emitter: "polling"
-  #   polling_interval: 60
-  #   caller: "native_call"
-  #   caller_config:
-  #     protocol: "http"
-  #     endpoint: "https://fapi.binance.com/fapi/v1/fundingRate"
-  #     timeout_ms: 3000
-  #     request:
-  #       transport: "rest"
-  #       method: "GET"
-  #       query:
-  #         symbol: "BTCUSDT"
-  #         limit: "1"
-  #     metadata:
-  #       exchange: "BINANCE"
-  #       channel: "funding_rate"
-  #       instrument: "perp"
-  #       symbol: "BTCUSDT"
-  #   handlers:
-  #     - type: "funding_normalizer"
-  #       with:
-  #         symbol: "BTCUSDT"
-  #         interval: "8h"
-  #   # sink:
-  #   #   type: "console"
-  #   sink:
-  #     type: "kafka"
-  #     with:
-  #       brokers:
-  #         - "localhost:9092"
-  #       topic: "perp.funding_rate"
-  #       key_from: ["symbol", "exchange"]
-  #   queue: { size: 1000 }
+  - role_id: "localnode-block"
+    template: "sdk_polling"
+    pipeline: "localnode_block_pipeline"
+    polling_interval: 2  # 秒
+    caller_class: "LocalGetBlock"
+    caller_params:
+      rpc_endpoint: "http://localhost:8545"
+      chain_id: "local"
+      confirmations: 0
+      max_blocks_per_poll: 5
+      block_delay: 0
+    queue: { size: 5000 }
 
-  # - role_id: "binance-perp-btc-openinterest"
-  #   emitter: "polling"
-  #   polling_interval: 60
-  #   caller: "native_call"
-  #   caller_config:
-  #     protocol: "http"
-  #     endpoint: "https://fapi.binance.com/futures/data/openInterestHist"
-  #     timeout_ms: 3000
-  #     request:
-  #       transport: "rest"
-  #       method: "GET"
-  #       query:
-  #         symbol: "BTCUSDT"
-  #         period: "5m"
-  #         limit: "1"
-  #     metadata:
-  #       exchange: "BINANCE"
-  #       channel: "open_interest"
-  #       instrument: "perp"
-  #       symbol: "BTCUSDT"
-  #   handlers:
-  #     - type: "oi_normalizer"
-  #       with:
-  #         symbol: "BTCUSDT"
-  #   # sink:
-  #   #   type: "console"
-  #   sink:
-  #     type: "kafka"
-  #     with:
-  #       brokers:
-  #         - "localhost:9092"
-  #       topic: "perp.open_interest"
-  #       key_from: ["symbol", "exchange"]
-  #   queue: { size: 1000 }
+  - role_id: "account-balance-snapshot"
+    template: "sdk_polling"
+    pipeline: "account_balance_snapshot_pipeline"
+    polling_interval: 60
+    caller_class: "balance_snapshot"
+    caller_params:
+      rpc_endpoint: "http://localhost:8545"
+      chain_id: "31337"
+      deployment_path: "../deployment.json"
+    queue: { size: 5000 }
 
-  # - role_id: "hyperliquid-perp-orderbook"
-  #   emitter: "single"
-  #   caller: "native_call"
-  #   caller_config:
-  #     protocol: "websocket"
-  #     url: "wss://api.hyperliquid.xyz/ws"
-  #     datasource_id: "hyperliquid.ws"
-  #     metadata:
-  #       exchange: "HYPERLIQUID"
-  #       channel: "orderbook"
-  #       instrument: "perp"
-  #   caller_params:
-  #     message_format: "hyperliquid"
-  #     subscribe_raw:
-  #       - '{"method":"subscribe","subscription":{"type":"l2Book","coin":"BTC"}}'
-  #     heartbeat_ms: 50000
-  #     heartbeat_payload: '{"method":"ping"}'
-  #     heartbeat_opcode: "text"
-  #     reconnect:
-  #       backoff_base_seconds: 2
-  #       backoff_max_seconds: 60
-  #     static_metadata:
-  #       exchange: "HYPERLIQUID"
-  #   handlers:
-  #     - type: "hyperliquid"
-  #       with:
-  #         kind: "orderbook"
-  #         exchange: "hyperliquid"
-  #     - type: "hyperliquid_orderbook"
-  #       with:
-  #         exchange: "hyperliquid"
-  #         max_depth: 200
-  #   sink:
-  #     type: "kafka"
-  #     with:
-  #       brokers:
-  #         - "localhost:9092"
-  #       topic: "perp.orderbook"
-  #       key_from: ["symbol", "exchange"]
-  #   queue: { size: 5000 }
+  - role_id: "binance-kline"
+    datasource_id: "binance.ws"
+    template: "binance_spot_ws_stream"
+    pipeline: "binance_kline_pipeline"
+    caller_params:
+      streams:
+        - "btcusdt@kline_1m"
+        - "btcusdt@kline_5m"
+      metadata_fields:
+        symbol: "data.s"
+        interval: "data.k.i"
+        open_time: "data.k.t"
+        close_time: "data.k.T"
+        is_final: "data.k.x"
+      static_metadata:
+        datasource_id: "binance.spot"
+      auth:
+        api_key_env: "BINANCE_API_KEY"
+        secret_env: "BINANCE_API_SECRET"
+    queue: { size: 10000 }
 
-  # - role_id: "hyperliquid-perp-trades"
-  #   emitter: "single"
-  #   caller: "native_call"
-  #   caller_config:
-  #     protocol: "websocket"
-  #     url: "wss://api.hyperliquid.xyz/ws"
-  #     datasource_id: "hyperliquid.ws"
-  #     metadata:
-  #       exchange: "HYPERLIQUID"
-  #       channel: "trades"
-  #       instrument: "perp"
-  #   caller_params:
-  #     message_format: "hyperliquid"
-  #     subscribe_raw:
-  #       - '{"method":"subscribe","subscription":{"type":"trades","coin":"BTC"}}'
-  #     heartbeat_ms: 50000
-  #     heartbeat_payload: '{"method":"ping"}'
-  #     heartbeat_opcode: "text"
-  #     reconnect:
-  #       backoff_base_seconds: 2
-  #       backoff_max_seconds: 60
-  #     static_metadata:
-  #       exchange: "HYPERLIQUID"
-  #   handlers:
-  #     - type: "hyperliquid"
-  #       with:
-  #         kind: "trade"
-  #         exchange: "hyperliquid"
-  #     - type: "hyperliquid_trade"
-  #       with:
-  #         exchange: "hyperliquid"
-  #   sink:
-  #     type: "kafka"
-  #     with:
-  #       brokers:
-  #         - "localhost:9092"
-  #       topic: "perp.trades"
-  #       key_from: ["symbol", "exchange"]
-  #   queue: { size: 3000 }
+  # Binance Perp
+  - role_id: "binance-perp-btc-orderbook"
+    datasource_id: "binance.ws"
+    template: "binance_perp_ws_stream"
+    pipeline: "perp_orderbook_pipeline"
+    caller_config:
+      datasource_id: "binance.perp.depth"
+      rate_limit:
+        capacity: 80
+        refill_rate: 30
+      backfill:
+        http:
+          enabled: true
+          transport: "rest"
+          endpoint: "https://fapi.binance.com/fapi/v1/depth"
+          method: "GET"
+          datasource_id: "binance.perp.depth"
+          query:
+            symbol: "BTCUSDT"
+            limit: "500"
+    caller_params:
+      streams:
+        - "btcusdt@depth@100ms"
+      metadata_fields:
+        symbol: "data.s"
+        event_time: "data.E"
+    queue: { size: 5000 }
 
-  # - role_id: "hyperliquid-perp-asset-ctx"
-  #   emitter: "polling"
-  #   polling_interval: 10
-  #   caller: "native_call"
-  #   caller_config:
-  #     protocol: "http"
-  #     endpoint: "https://api.hyperliquid.xyz/info"
-  #     datasource_id: "hyperliquid.info"
-  #     timeout_ms: 4000
-  #     request:
-  #       transport: "rest"
-  #       method: "POST"
-  #       headers:
-  #         Content-Type: "application/json"
-  #       body: '{"type":"metaAndAssetCtxs"}'
-  #     metadata:
-  #       exchange: "HYPERLIQUID"
-  #       channel: "asset_ctx"
-  #       instrument: "perp"
-  #   handlers:
-  #     - type: "hyperliquid_asset_ctx"
-  #       with:
-  #         exchange: "hyperliquid"
-  #         funding_interval: "1h"
-  #         coins: ["BTC", "ETH", "SOL"]
-  #         outputs:
-  #           mark_index: "perp.mark_index"
-  #           funding_rate: "perp.funding_rate"
-  #           open_interest: "perp.open_interest"
-  #   sink:
-  #     type: "kafka"
-  #     with:
-  #       brokers:
-  #         - "localhost:9092"
-  #       topic: "perp.mark_index"
-  #       topic_field: "sink_topic"
-  #       key_from: ["symbol", "exchange"]
-  #   queue: { size: 2000 }
+  - role_id: "binance-perp-btc-aggtrades"
+    datasource_id: "binance.ws"
+    template: "binance_perp_ws_stream"
+    pipeline: "binance_perp_aggtrades_pipeline"
+    caller_params:
+      streams:
+        - "btcusdt@aggTrade"
+      static_metadata:
+        symbol: "BTCUSDT"
+        exchange: "binance"
+    queue: { size: 3000 }
 
-  # - role_id: "binance-perp-btc-liquidations"
-  #   emitter: "single"
-  #   caller: "native_call"
-  #   caller_config:
-  #     protocol: "websocket"
-  #     url: "wss://fstream.binance.com/ws"
-  #   caller_params:
-  #     message_format: "binance"
-  #     streams:
-  #       - "btcusdt@forceOrder"
-  #   handlers:
-  #     - type: "binance"
-  #       with:
-  #         kind: "liquidation"
-  #     - type: "liquidation_normalizer"
-  #       with:
-  #         symbol: "BTCUSDT"
-  #   # sink:
-  #   #   type: "console"
-  #   sink:
-  #     type: "kafka"
-  #     with:
-  #       brokers:
-  #         - "localhost:9092"
-  #       topic: "binance.perp.liquidations"
-  #       key_from: ["symbol", "exchange"]
-  #   queue: { size: 2000 }
+  - role_id: "binance-perp-btc-mark-index"
+    datasource_id: "binance.ws"
+    template: "binance_perp_ws_stream"
+    pipeline: "binance_perp_mark_index_pipeline"
+    caller_config:
+      metadata:
+        exchange: "BINANCE"
+        channel: "mark_index"
+        instrument: "perp"
+    caller_params:
+      subscribe: "btcusdt@markPrice@1s"
+      static_metadata:
+        symbol: "BTCUSDT"
+    queue: { size: 2000 }
 
-# Metadata采集任务示例
-  # - role_id: "metadata-kafka"
-  #   emitter: "polling"
-  #   polling_interval: 60
-  #   caller: "metadata_kafka"
-  #   caller_params:
-  #     brokers:
-  #       - "localhost:9092"
-  #     cluster: "local-dev"
-  #     domain: "kafka"
-  #     include_internal: false
-  #     fetch_offsets: false      # 设为true则会读取每个partition的最早/最新offset
-  #   sink:
-  #     type: "kafka"
-  #     with:
-  #       brokers:
-  #         - "localhost:9092"
-  #       topic: "metadata.raw.kafka"
-  #       key_from: ["cluster", "topic"]
-  #   queue: { size: 2000 }
+  - role_id: "binance-perp-btc-funding"
+    datasource_id: "binance.rest"
+    template: "http_poll_native_call"
+    pipeline: "binance_perp_funding_pipeline"
+    polling_interval: 60
+    caller_config:
+      endpoint: "https://fapi.binance.com/fapi/v1/fundingRate"
+      timeout_ms: 3000
+      request:
+        transport: "rest"
+        method: "GET"
+        query:
+          symbol: "BTCUSDT"
+          limit: "1"
+      metadata:
+        exchange: "BINANCE"
+        channel: "funding_rate"
+        instrument: "perp"
+        symbol: "BTCUSDT"
+    queue: { size: 1000 }
 
-  # - role_id: "metadata-postgres"
-  #   emitter: "polling"
-  #   polling_interval: 300
-  #   caller: "metadata_postgres"
-  #   caller_params:
-  #     schemas: ["public"]
-  #     cluster: "analytics-cluster"
-  #     domain: "postgres"
-  #   handlers:
-  #     - type: "metadata_envelope"
-  #       with:
-  #         platform: "postgres"
-  #         entity_type: "table"
-  #   sink:
-  #     type: "kafka"
-  #     with:
-  #       brokers:
-  #         - "localhost:9092"
-  #       topic: "metadata.raw.postgres"
-  #       key_from: ["cluster", "schema", "table"]
-  #   queue: { size: 2000 }
+  - role_id: "binance-perp-btc-openinterest"
+    datasource_id: "binance.rest"
+    template: "http_poll_native_call"
+    pipeline: "binance_perp_open_interest_pipeline"
+    polling_interval: 60
+    caller_config:
+      endpoint: "https://fapi.binance.com/futures/data/openInterestHist"
+      timeout_ms: 3000
+      request:
+        transport: "rest"
+        method: "GET"
+        query:
+          symbol: "BTCUSDT"
+          period: "5m"
+          limit: "1"
+      metadata:
+        exchange: "BINANCE"
+        channel: "open_interest"
+        instrument: "perp"
+        symbol: "BTCUSDT"
+    queue: { size: 1000 }
 
-  # - role_id: "metadata-clickhouse"
-  #   emitter: "polling"
-  #   polling_interval: 300
-  #   caller: "metadata_clickhouse"
-  #   caller_params:
-  #     databases: ["default"]
-  #     cluster: "ch-local"
-  #     domain: "clickhouse"
-  #   handlers:
-  #     - type: "metadata_envelope"
-  #       with:
-  #         platform: "clickhouse"
-  #         entity_type: "table"
-  #   sink:
-  #     type: "kafka"
-  #     with:
-  #       brokers:
-  #         - "localhost:9092"
-  #       topic: "metadata.raw.clickhouse"
-  #       key_from: ["cluster", "database", "table"]
-  #   queue: { size: 2000 }
-  # - role_id: "mockprovider-websocket"
-  #   emitter: "single"
-  #   caller: "native_call"
-  #   caller_config:
-  #     protocol: "websocket"
-  #     url: "ws://localhost:8090/ws"
-  #     backfill:
-  #       ws:
-  #         enabled: true
-  #         rpc_method: "eth_getBlockByNumber"
-  #         include_full_tx: false
-  #       http:
-  #         enabled: true
-  #         endpoint: "http://localhost:8090/eth"
-  #         rpc_method: "eth_getBlockByNumber"
-  #         include_full_tx: false
-  #   caller_params:
-  #     subscribe: "newHeads"
-  #     heartbeat_ms: 30000
-  #     poll_interval_ms: 500
-  #   handlers:
-  #     - type: "integrity"
-  #       with:
-  #         sequence_field: "block_number"
-  #         eager_gap: 3
-  #         max_range: 20
-  #         max_delay_ms: 800
-  #         hard_timeout_ms: 10000
-  #         max_gap: 8
-  #         sweep_interval_ms: 200
-  #         bucket_ttl_ms: 3000
-  #         max_buckets: 2000
-  #         backfill:
-  #           ws:
-  #             enabled: true
-  #             rpc_method: "eth_getBlockByNumber"
-  #             include_full_tx: false
-  #           http:
-  #             enabled: true
-  #             endpoint: "http://localhost:8545"
-  #             rpc_method: "eth_getBlockByNumber"
-  #             include_full_tx: false
-  #   sink:
-  #     type: "kafka"
-  #     with:
-  #       brokers:
-  #         - "localhost:9092"
-  #       topic: "chain.ethereum.blocks"
-  #       key_from: ["chain_id", "block_number"]
-  #   queue: { size: 5000 }
-    
-  # - role_id: "mockprovider-http-backfill"
-  #   emitter: "kafka_command"
-  #   emitter_config:
-  #     brokers: ["localhost:9092"]
-  #     topic: "http.tasks"
-  #     group_id: "worker.mockprovider.http"
-  #   caller: "native_call"
-  #   caller_config:
-  #     protocol: "http"
-  #     endpoint: "http://localhost:8090"  # MockDataProvider的基础URL
-  #     datasource_id: "mockprovider"
-  #     timeout_ms: 5000
-  #     # 限流配置：按数据源 mockprovider 限流
-  #     rate_limit:
-  #       capacity: 2        # 令牌桶容量
-  #       refill_rate: 0.1    # 每秒补充0.1个令牌
-  #     # HTTP 连接池配置
-  #     http_pool:
-  #       max_conns: 50                # 最大并发连接数
-  #       max_idle: 10                 # 最大空闲连接数
-  #       idle_timeout_ms: 90000       # 空闲连接超时 90s
-  #       connect_timeout_ms: 10000    # 连接超时 10s
-  #       request_timeout_ms: 30000    # 请求超时 30s
-  #   sink:
-  #     type: "kafka"
-  #     with:
-  #       brokers: ["localhost:9092"]
-  #       topic: "chain.ethereum.blocks"
-  #       key_from: ["chain_id", "block_number"]
-  #   queue: { size: 5000 }
+  - role_id: "binance-perp-btc-liquidations"
+    datasource_id: "binance.ws"
+    template: "binance_perp_ws_stream"
+    pipeline: "binance_perp_liquidations_pipeline"
+    caller_params:
+      streams:
+        - "btcusdt@forceOrder"
+    queue: { size: 2000 }
+
+  - role_id: "hyperliquid-perp-orderbook"
+    datasource_id: "hyperliquid.ws"
+    template: "hyperliquid_ws_stream"
+    pipeline: "hyperliquid_perp_orderbook_pipeline"
+    caller_config:
+      metadata:
+        exchange: "HYPERLIQUID"
+        channel: "orderbook"
+        instrument: "perp"
+    caller_params:
+      subscribe_raw:
+        - '{"method":"subscribe","subscription":{"type":"l2Book","coin":"BTC"}}'
+      static_metadata:
+        exchange: "HYPERLIQUID"
+    queue: { size: 5000 }
+
+  - role_id: "hyperliquid-perp-trades"
+    datasource_id: "hyperliquid.ws"
+    template: "hyperliquid_ws_stream"
+    pipeline: "hyperliquid_perp_trades_pipeline"
+    caller_config:
+      metadata:
+        exchange: "HYPERLIQUID"
+        channel: "trades"
+        instrument: "perp"
+    caller_params:
+      subscribe_raw:
+        - '{"method":"subscribe","subscription":{"type":"trades","coin":"BTC"}}'
+      static_metadata:
+        exchange: "HYPERLIQUID"
+    queue: { size: 3000 }
+
+  - role_id: "hyperliquid-perp-asset-ctx"
+    datasource_id: "hyperliquid.info"
+    template: "http_poll_native_call"
+    pipeline: "hyperliquid_perp_asset_ctx_pipeline"
+    polling_interval: 10
+    caller_config:
+      endpoint: "https://api.hyperliquid.xyz/info"
+      timeout_ms: 4000
+      request:
+        transport: "rest"
+        method: "POST"
+        headers:
+          Content-Type: "application/json"
+        body: '{"type":"metaAndAssetCtxs"}'
+      metadata:
+        exchange: "HYPERLIQUID"
+        channel: "asset_ctx"
+        instrument: "perp"
+    queue: { size: 2000 }
+
+  # Metadata采集任务示例
+  - role_id: "metadata-kafka"
+    template: "metadata_polling"
+    pipeline: "metadata_kafka_pipeline"
+    polling_interval: 60
+    caller: "metadata_kafka"
+    caller_params:
+      brokers:
+        - "localhost:9092"
+      cluster: "local-dev"
+      domain: "kafka"
+      include_internal: false
+      fetch_offsets: false
+
+  - role_id: "metadata-postgres"
+    template: "metadata_polling"
+    pipeline: "metadata_postgres_pipeline"
+    polling_interval: 300
+    caller: "metadata_postgres"
+    caller_params:
+      schemas: ["public"]
+      cluster: "analytics-cluster"
+      domain: "postgres"
+
+  - role_id: "metadata-clickhouse"
+    template: "metadata_polling"
+    pipeline: "metadata_clickhouse_pipeline"
+    polling_interval: 300
+    caller: "metadata_clickhouse"
+    caller_params:
+      databases: ["default"]
+      cluster: "ch-local"
+      domain: "clickhouse"
+
+  - role_id: "mockprovider-websocket"
+    datasource_id: "mockprovider.ws"
+    template: "mockprovider_ws_stream"
+    pipeline: "evm_block_integrity_pipeline"
+    caller_config:
+      backfill:
+        ws:
+          enabled: true
+          rpc_method: "eth_getBlockByNumber"
+          include_full_tx: false
+        http:
+          enabled: true
+          endpoint: "http://localhost:8090/eth"
+          rpc_method: "eth_getBlockByNumber"
+          include_full_tx: false
+    caller_params:
+      subscribe: "newHeads"
+      heartbeat_ms: 30000
+      poll_interval_ms: 500
+    queue: { size: 5000 }
+
+  - role_id: "mockprovider-http-backfill"
+    datasource_id: "mockprovider.http"
+    template: "kafka_command_native_call"
+    pipeline: "evm_block_raw_pipeline"
+    emitter_config:
+      brokers: ["localhost:9092"]
+      topic: "http.tasks"
+      group_id: "worker.mockprovider.http"
+    caller_config:
+      endpoint: "http://localhost:8090"
+      timeout_ms: 5000
+      rate_limit:
+        capacity: 2
+        refill_rate: 0.1
+      http_pool:
+        max_conns: 50
+        max_idle: 10
+        idle_timeout_ms: 90000
+        connect_timeout_ms: 10000
+        request_timeout_ms: 30000
+    queue: { size: 5000 }

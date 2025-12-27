@@ -1,0 +1,7 @@
+./api.go
+./errors.go
+./fiatshamir.go
+./prove.go
+./serialization.go
+./trusted_setup.go
+./verify.go

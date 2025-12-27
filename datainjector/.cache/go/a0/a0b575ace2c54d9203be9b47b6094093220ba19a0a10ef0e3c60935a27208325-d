@@ -1,0 +1,9 @@
+./doc.go
+./hashes.go
+./hashes_noasm.go
+./keccakf.go
+./register.go
+./sha3.go
+./shake.go
+./shake_noasm.go
+./xor.go

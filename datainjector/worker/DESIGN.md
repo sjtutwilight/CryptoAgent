@@ -1,450 +1,895 @@
-# Worker 设计文档（最小可用版）
+# Worker 架构设计文档
 
-本设计实现一个与“Input → Queue → Handlers → Sink”思想一致的最小可用 Worker，当前内置示例 role：
+## 1. 概述
 
-- role_id: `localnode-block`
-  - emitter: `polling`（基于定时器）
-  - caller: `sdk_call(LocalGetBlock)` → 拉取区块与交易
-  - handler: `dex_parser` → 组装 `transaction + events[]`
-  - sink: `kafka`(`dex_transaction`)
-- role_id: `account-balance-snapshot`
-  - emitter: `polling`
-  - caller: `balance_snapshot` → 批量查询账户 Token/LP 余额（单次 batch 返回）
-  - handler: `balance_parser` → Redis 价格补全 + 数值归一化
-  - sink: `kafka`(`account_balance_snapshot`)
-- role_id: `mockprovider-websocket`
-  - emitter: `single` → 维护订阅链路并周期拉取缓存
-  - caller: `native_call(websocket)` → 长连订阅 + 支持本地/HTTP 补数
-  - handler: `integrity` → 统一处理乱序、缺失、幂等与补数
-  - sink: `kafka`(`chain.ethereum.blocks`)
+Worker 是 DataInjector 的核心数据接入层，采用**配置驱动 + 插件化**架构实现统一的数据拉取框架。通过组件解耦和注册机制，新增数据源只需修改配置文件和实现标准接口，无需修改主链路代码。
 
-目标：以最少概念实现“配置驱动 + 可扩展”的骨架，使后续能平滑扩展 Source/Handler/Sink，而本次仅实现 Pull（Trigger+Caller）路径中的 `polling` + `sdk_call` 调用。
+### 1.1 核心设计理念
 
-## 核心抽象
+| 设计原则 | 实现方式 | 收益 |
+|---------|---------|------|
+| **配置驱动** | YAML 定义任务，支持模板复用 | 降低接入成本，支持热更新 |
+| **插件化架构** | 工厂注册表 + 标准接口 | 组件独立扩展，解耦主框架 |
+| **责任链模式** | Handler 链式处理 | 数据处理流程可组合 |
+| **协议抽象** | Caller 统一封装 | HTTP/WebSocket/SDK 调用透明 |
+| **数据完整性** | Integrity 模块内置 | 自动处理乱序/缺失/重复 |
 
-- Message：内部统一消息结构，承载 caller 返回的 0~N 条数据（支持 JSON/bytes）。
-- Emitter：输入端（Push 或 Pull）。当前支持 `polling` 与 `single`（一次订阅 + 周期拉取）。
-- Caller：一次性调用（HTTP/SDK/WebSocket）。当前支持 `sdk_call`、`balance_snapshot`、`native_call(websocket)`。
-- Queue：有界通道（隔离取数与处理）。
-- Handler：责任链（可选），当前提供 `dex_parser`（交易事件解析）、`balance_parser`（余额快照归一化）。
-- Sink：数据下沉接口，支持 `kafka`（默认写入 `dex_transaction` topic），保留 `console` 作为调试选项。
-- Role：一个独立任务单元，持有各组件并管理生命周期。
+### 1.2 适用场景
 
-## 运行流程
+- **区块链数据**: 实时区块、交易、事件拉取（Ethereum、BSC）
+- **交易所行情**: WebSocket 订阅 K线、深度、成交（Binance、Hyperliquid）
+- **批量文件拉取**: REST API 分页拉取并落盘（Dune Token Holders、BigQuery Results）
+- **元数据采集**: 定期采集数据库/消息队列元数据（ClickHouse、Kafka、Postgres）
 
-1) Emitter（polling）使用 `time.Ticker` 每隔 `polling_interval` 触发一次 `Caller.CallOnce(ctx, args)`。
-2) Caller 返回 0~N 条 Message，写入有界 Queue（丢弃策略：阻塞等待；后续可配置 drop/timeout）。
-3) Worker 从 Queue 消费，依次经过 Handler 链（本次空实现），最终交给 Sink（console 打印）。
-4) Role 可平滑停机（context 取消、goroutine 退出）。
+---
 
-## 扩展点与约束
+## 2. 整体架构
 
-- Emitter：后续可新增 `source`（websocket/webhook）实现 `Start(ctx, out)`，与 `polling` 并行存在。
-- Caller：注册表模式（name → factory），当前支持 `sdk_call(LocalGetBlock)`、`balance_snapshot`（批量余额查询），后续可加 `http`（模板化请求）。
-- Handler：保持无状态/幂等，可扩展 `sequence_detector`、`validator_schema` 等，本次提供 `dex_parser`。
-- Sink：注册表模式，本次提供 `kafka` 实现，后续扩展 Kafka 配置（acks、DLQ 等）。
-- 配置：最小 YAML，与上层更完整模板兼容（可扩展 input/handlers/sink 结构，支持多 Role 并行）。
+### 2.1 分层架构
 
-## 配置（本次最小版）
-
-```yaml
-roles:
-  - role_id: "localnode-block"
-    emitter: "polling"
-    polling_interval: 2   # 秒
-    caller: "sdk_call"
-    caller_class: "LocalGetBlock"
-    caller_params:
-      rpc_endpoint: "http://localhost:8545"
-      chain_id: "local"
-      confirmations: 0
-      max_blocks_per_poll: 5
-    handlers:
-      - type: "dex_parser"
-        with:
-          chain_id: "local"
-    sink:
-      type: "kafka"
-      with:
-        brokers: ["localhost:9092"]
-        topic: "dex_transaction"
-        key_from: ["chain_id", "tx_hash"]
-    queue: { size: 5000 }
-
-  - role_id: "account-balance-snapshot"
-    emitter: "polling"
-    polling_interval: 60
-    caller: "balance_snapshot"
-    caller_params:
-      rpc_endpoint: "http://localhost:8545"
-      chain_id: "31337"
-      deployment_path: "./datainjector/deployment.json"
-    handlers:
-      - type: "balance_parser"
-        with:
-          redis_addr: "localhost:6379"
-    sink:
-      type: "kafka"
-      with:
-        brokers: ["localhost:9092"]
-        topic: "account_balance_snapshot"
-        key_from: ["chain_id", "account_id", "asset_type", "biz_id"]
-    queue: { size: 5000 }
-
-  - role_id: "mockprovider-websocket"
-    emitter: "single"
-    caller: "native_call"
-    caller_config:
-      protocol: "websocket"
-      url: "ws://localhost:8090/ws"
-    caller_params:
-      subscribe: "newHeads"
-      heartbeat_ms: 30000
-      reconnect:
-        backoff_base_seconds: 2
-        backoff_max_seconds: 60
-      poll_interval_ms: 500
-    sink:
-      type: "kafka"
-      with:
-        brokers: ["localhost:9092"]
-        topic: "chain.ethereum.blocks"
-        key_from: ["chain_id", "block_number"]
-    queue: { size: 5000 }
-
-  - role_id: "mockprovider-http-backfill"
-    emitter: "kafka_command"
-    emitter_config:
-      brokers: ["localhost:9092"]
-      topic: "command.mockprovider.block"
-      group_id: "worker.mockprovider.http"
-    caller: "native_call"
-    caller_config:
-      protocol: "http"
-      datasource_id: "mockprovider"
-      timeout_ms: 5000
-    sink:
-      type: "kafka"
-      with:
-        brokers: ["localhost:9092"]
-        topic: "chain.ethereum.blocks"
-        key_from: ["chain_id", "block_number"]
-    queue: { size: 5000 }
+```mermaid
+graph TB
+    subgraph "配置层 Configuration"
+        CFG[YAML配置文件]
+        TPL[模板 Templates]
+        DS[数据源注册表 DataSources]
+    end
+    
+    subgraph "控制层 Control Plane"
+        MGR[Manager<br/>生命周期管理]
+        API[Control API<br/>动态管理]
+    end
+    
+    subgraph "执行层 Execution"
+        ROLE[Role<br/>任务执行单元]
+    end
+    
+    subgraph "触发层 Trigger"
+        E1[Polling<br/>定时触发]
+        E2[Single<br/>订阅触发]
+        E3[KafkaCommand<br/>事件驱动]
+    end
+    
+    subgraph "数据层 Data Pipeline"
+        CALLER[Caller<br/>数据源调用]
+        Q[Queue<br/>缓冲队列]
+        HANDLER[Handler Chain<br/>处理器链]
+        SINK[Sink<br/>数据下沉]
+    end
+    
+    subgraph "插件注册表 Plugin Registry"
+        REG_C[Caller Factory]
+        REG_H[Handler Factory]
+        REG_S[Sink Factory]
+    end
+    
+    CFG --> MGR
+    TPL --> MGR
+    DS --> MGR
+    API --> MGR
+    MGR --> ROLE
+    
+    ROLE --> E1
+    ROLE --> E2
+    ROLE --> E3
+    
+    E1 --> CALLER
+    E2 --> CALLER
+    E3 --> CALLER
+    
+    CALLER --> Q
+    Q --> HANDLER
+    HANDLER --> SINK
+    
+    REG_C -.注册.-> CALLER
+    REG_H -.注册.-> HANDLER
+    REG_S -.注册.-> SINK
+    
+    style CFG fill:#e1f5ff
+    style ROLE fill:#fff9c4
+    style HANDLER fill:#ffccbc
 ```
 
-## 数据模型（简化）
+### 2.2 核心组件职责
 
-- Message
-  - Metadata：map[string]any（例如 `chain_id`、`block_number`、`tx_hash` 或 `account_id`）。
-  - Payload：
-    - 交易链路：与历史 listener 对齐（`transaction + events[]`）。
-    - 余额链路：`{account_id, observed_time, block_id, asset_type, biz_id, amount, price_usd, value_usd, ...}`。
+| 组件 | 职责 | 生命周期 | 线程模型 |
+|------|------|---------|---------|
+| **Manager** | 管理所有 Role 的创建/销毁/重载 | 进程级单例 | 主协程 |
+| **Role** | 任务执行单元，协调各组件完成数据接入 | 配置动态创建 | 每个 Role 独立协程池 |
+| **Emitter** | 控制任务触发时机 | Role 启动时创建 | 独立协程 |
+| **Caller** | 封装底层协议调用，返回统一消息 | Role 构建时创建 | 同步调用 |
+| **Queue** | 解耦拉取与处理，提供背压控制 | Role 启动时创建 | 基于 channel |
+| **Handler** | 责任链处理消息（解析/完整性/业务） | Role 构建时链式创建 | 消费者协程 |
+| **Sink** | 数据下沉到目标系统 | Role 构建时创建 | 批量写入 |
 
-```json
-{
-  "transaction": {
-    "blockNumber": 151,
-    "blockHash": "0x...",
-    "timestamp": 1759461369211,
-    "transactionHash": "0x...",
-    "transactionIndex": 0,
-    "transactionStatus": "success",
-    "gasUsed": 103260,
-    "gasPrice": "1000000010",
-    "nonce": 4,
-    "fromAddress": "0x...",
-    "toAddress": "0x...",
-    "transactionValue": "0",
-    "inputData": "0x...",
-    "chainID": "31337"
-  },
-  "events": [
-    {
-      "eventName": "Transfer",
-      "contractAddress": "0x...",
-      "logIndex": 0,
-      "blockNumber": 151,
-      "topics": ["0x..."],
-      "eventData": "0x...",
-      "decodedArgs": {"from": "0x...", "to": "0x...", "value": "..."}
+---
+
+## 3. 插件化架构
+
+### 3.1 工厂注册模式
+
+```mermaid
+classDiagram
+    class PluginInterface {
+        <<interface>>
     }
-  ]
+    
+    class Factory {
+        <<function>>
+        +func(class, params) Plugin
+    }
+    
+    class Registry {
+        -map[string]Factory
+        +Register(name, factory)
+        +New(name, class, params) Plugin
+    }
+    
+    class Caller {
+        <<interface>>
+        +CallOnce(ctx, args) Messages
+    }
+    
+    class Handler {
+        <<interface>>
+        +Handle(msg) Messages
+    }
+    
+    class Sink {
+        <<interface>>
+        +Write(msgs)
+    }
+    
+    PluginInterface <|-- Caller
+    PluginInterface <|-- Handler
+    PluginInterface <|-- Sink
+    
+    Registry --> Factory
+    Factory --> PluginInterface
+    
+    Caller <|.. NativeCall
+    Caller <|.. SDKCall
+    Caller <|.. BatchFile
+    Caller <|.. MetadataCaller
+    
+    Handler <|.. IntegrityHandler
+    Handler <|.. ParserHandler
+    Handler <|.. OrderbookHandler
+    
+    Sink <|.. KafkaSink
+    Sink <|.. FileSink
+    Sink <|.. ConsoleSink
+```
+
+### 3.2 注册机制实现
+
+**Caller 注册**:
+```go
+// 在 init() 中注册
+func init() {
+    caller.Register("native_call", func(class string, params map[string]any) (Caller, error) {
+        return NewNativeCall(params)
+    })
+}
+
+// Role 构建时动态创建
+caller, err := caller.New(config.Caller, config.CallerClass, params)
+```
+
+**Handler 注册**:
+```go
+func init() {
+    handler.Register("integrity", func(cfg map[string]any) (Handler, error) {
+        return NewIntegrityHandler(cfg)
+    })
 }
 ```
 
-## 目录结构
+**Sink 注册**:
+```go
+func init() {
+    sink.Register("kafka", func(cfg map[string]any) (Sink, error) {
+        return NewKafkaSink(cfg)
+    })
+}
+```
+
+### 3.3 扩展点设计
+
+通过实现标准接口扩展功能，无需修改框架代码：
+
+| 扩展点 | 接口 | 典型实现 |
+|-------|------|---------|
+| **触发策略** | `Emitter.Start(ctx, fire)` | Polling, Single, KafkaCommand |
+| **数据源调用** | `Caller.CallOnce(ctx, args)` | NativeCall, SDKCall, BatchFile |
+| **数据处理** | `Handler.Handle(msg)` | Parser, Integrity, Business |
+| **数据下沉** | `Sink.Write(msgs)` | Kafka, File, Console |
+| **补数感知** | `BackfillCommandAware` | IntegrityHandler |
+| **快照监听** | `SnapshotListener` | OrderbookHandler |
+
+---
+
+## 4. 数据流转全链路
+
+### 4.1 完整流程
+
+```mermaid
+sequenceDiagram
+    participant M as Manager
+    participant R as Role
+    participant E as Emitter
+    participant C as Caller
+    participant Q as Queue
+    participant H as Handler Chain
+    participant S as Sink
+    
+    Note over M,S: 阶段1: 启动初始化
+    M->>R: Build(config)
+    R->>R: 构建 Emitter/Caller/Handler/Sink
+    M->>R: Start(ctx)
+    R->>E: Start(ctx, fire)
+    R->>R: 启动消费者协程
+    
+    Note over M,S: 阶段2: 任务触发
+    E->>R: fire(args)
+    R->>C: CallOnce(ctx, args)
+    C-->>R: []*Message
+    
+    Note over M,S: 阶段3: 消息入队
+    loop 每条消息
+        R->>Q: Enqueue(msg)
+    end
+    
+    Note over M,S: 阶段4: 数据处理
+    loop 消费循环
+        Q->>H: Dequeue()
+        H->>H: Handler1.Handle(msg)
+        H->>H: Handler2.Handle(msg)
+        H->>H: HandlerN.Handle(msg)
+        H-->>S: 处理后的消息
+    end
+    
+    Note over M,S: 阶段5: 数据下沉
+    S->>S: Write to Kafka/File/Console
+    
+    Note over M,S: 阶段6: 优雅退出
+    M->>R: Shutdown()
+    R->>E: Cancel context
+    R->>Q: Drain & Close
+    R->>S: Flush & Close
+```
+
+### 4.2 Pipeline 模式
+
+支持两种数据流转模式：
+
+**Queue 模式** (默认):
+```
+Caller → Queue(缓冲) → Handler → Sink
+         ↓ 解耦
+    背压控制 + 异步处理
+```
+
+**Direct 模式**:
+```
+Caller → Handler → Sink
+    ↓ 同步处理
+  适用于批量文件拉取场景
+```
+
+配置方式：
+```yaml
+pipeline_mode: "direct"  # 或 "queue"
+queue:
+  mode: "none"           # 或 "bounded"
+  size: 5000             # queue 模式下的容量
+```
+
+---
+
+## 5. 配置驱动设计
+
+### 5.1 三层配置复用
+
+```mermaid
+graph LR
+    subgraph "第1层: 数据源注册表"
+        DS[DataSources<br/>协议/鉴权/限流]
+    end
+    
+    subgraph "第2层: 连接模板"
+        RT[RoleTemplates<br/>Emitter+Caller组合]
+    end
+    
+    subgraph "第3层: Pipeline模板"
+        PT[PipelineTemplates<br/>Handler+Sink组合]
+    end
+    
+    subgraph "最终: Role实例"
+        ROLE[Role<br/>引用模板+参数覆盖]
+    end
+    
+    DS -.引用.-> ROLE
+    RT -.引用.-> ROLE
+    PT -.引用.-> ROLE
+    
+    style DS fill:#e3f2fd
+    style RT fill:#f3e5f5
+    style PT fill:#fff3e0
+    style ROLE fill:#c8e6c9
+```
+
+### 5.2 配置示例
+
+**数据源注册表**（复用协议和鉴权配置）:
+```yaml
+datasources:
+  - id: "dune.sim"
+    protocol: "http"
+    auth:
+      type: "api_key_env"
+      header: "X-Sim-Api-Key"
+      api_key_env: "DUNE_SIM_API_KEY"
+    rate_limit_profile: "dune_low"
+```
+
+**连接模板**（复用 Emitter+Caller 组合）:
+```yaml
+role_templates:
+  - id: "http_paged_batch_to_files"
+    emitter: "kafka_command"
+    caller: "batch_file"
+    pipeline_mode: "direct"
+    caller_config:
+      page_size: 500
+      output_format: "json"
+```
+
+**Pipeline 模板**（复用 Handler+Sink 组合）:
+```yaml
+pipeline_templates:
+  - id: "perp_orderbook_pipeline"
+    domain: "cex.perp.orderbook"
+    handlers:
+      - type: "binance"
+        with:
+          kind: "depth"
+      - type: "integrity"
+        with:
+          profile: "binance_depth"
+    sink:
+      type: "kafka"
+      with:
+        topic: "perp.orderbook"
+```
+
+**最终 Role**（引用模板 + 参数覆盖）:
+```yaml
+roles:
+  - role_id: "binance-btc-orderbook"
+    datasource_id: "binance.perp.depth"  # 引用数据源
+    pipeline: "perp_orderbook_pipeline"   # 引用 Pipeline 模板
+    caller_params:
+      streams: ["btcusdt@depth@100ms"]    # 覆盖参数
+```
+
+### 5.3 配置解析流程
+
+```mermaid
+flowchart TD
+    Load[加载 YAML] --> Apply1[应用 RoleTemplate]
+    Apply1 --> Apply2[应用 PipelineTemplate]
+    Apply2 --> Apply3[应用 DataSource]
+    Apply3 --> Validate[校验 Role 配置]
+    Validate --> Build[构建 Role 实例]
+    
+    Apply1 -.合并 Emitter/Caller 配置.-> Apply1
+    Apply2 -.合并 Handler/Sink 配置.-> Apply2
+    Apply3 -.注入协议/鉴权/限流.-> Apply3
+```
+
+---
+
+## 6. Integrity 模块（数据完整性保障）
+
+### 6.1 核心能力
+
+```mermaid
+graph TB
+    subgraph "Integrity Handler"
+        INPUT[消息输入] --> SEQ[序列控制引擎]
+        
+        subgraph "核心引擎"
+            SEQ --> MATCH{序列匹配}
+            MATCH -->|相等| DELIVER[立即下发]
+            MATCH -->|小于| DROP[丢弃重复]
+            MATCH -->|大于| GAP[检测缺口]
+            
+            GAP --> BUFFER[乱序缓冲区]
+            GAP --> SCHEDULE[补数调度]
+            
+            BUFFER --> SWEEP[定期扫描]
+            SWEEP -->|软超时| SCHEDULE
+            SWEEP -->|硬超时| FORCE[强制跳过]
+            SWEEP -->|TTL过期| CLEAN[清理]
+        end
+        
+        subgraph "辅助模块"
+            DEDUPE[去重器]
+            GATE[门控策略]
+        end
+        
+        DELIVER --> DEDUPE
+        DEDUPE --> GATE
+        GATE --> OUTPUT[消息输出]
+        
+        SCHEDULE -.补数命令.-> BACKFILL[BackfillChannel]
+    end
+    
+    style SEQ fill:#ffccbc
+    style BUFFER fill:#fff9c4
+    style GATE fill:#c8e6c9
+```
+
+### 6.2 补数触发策略
+
+| 触发条件 | 检测方式 | 行为 |
+|---------|---------|------|
+| **急切补数** | gap ≤ eagerGap | 立即发送补数命令 |
+| **软超时补数** | 等待时间 > maxDelay | 发送补数命令 |
+| **硬超时强制** | 等待时间 > hardTimeout | 强制跳过缺口，释放后续消息 |
+| **缓冲清理** | 消息 TTL 过期 | 清理过期缓冲 |
+
+### 6.3 Profile 预设
+
+通过 Profile 简化常见场景配置：
+
+| Profile | 适用场景 | 序列匹配规则 | 门控模式 |
+|---------|----------|--------------|----------|
+| **generic** | 通用单调序列 | seq == expected | none |
+| **chain_blocks** | 区块链区块流 | seq == expected | finality |
+| **binance_depth** | Binance 订单簿 | 范围覆盖 | snapshot_hold |
+
+配置示例：
+```yaml
+handlers:
+  - type: "integrity"
+    with:
+      profile: "binance_depth"          # 引用预设
+      sequence_field: "final_update_id"
+      stream_key_field: "binance_symbol"
+      eager_gap: 20                     # 覆盖预设参数
+```
+
+### 6.4 门控策略 (Gate)
+
+**Snapshot Hold**: Binance 订单簿场景
+- 缓冲所有 diff 消息，等待快照到达
+- 快照应用后释放所有后续 diff
+
+**Finality**: 区块链场景
+- 缓冲最近 N 个区块
+- 只下发确认深度之前的区块
+
+**Noop**: 默认无门控
+
+---
+
+## 7. 典型场景实现
+
+### 7.1 Binance 订单簿维护
+
+**工作流程**:
+```mermaid
+sequenceDiagram
+    participant WS as WebSocket Caller
+    participant I as Integrity Handler
+    participant OH as Orderbook Handler
+    participant K as Kafka Sink
+    
+    Note over WS,K: 场景1: 正常增量
+    WS->>I: diff(U=100, u=100)
+    I->>OH: 立即下发
+    OH->>K: 订单簿快照
+    
+    Note over WS,K: 场景2: 检测到缺口
+    WS->>I: diff(U=105, u=105)
+    I->>I: gap=4, 触发快照补数
+    I->>I: 缓冲 diff(105)
+    
+    Note over WS,K: 场景3: 应用快照
+    I->>OH: snapshot(lastUpdateId=110)
+    OH->>OH: 清空并重建订单簿
+    OH->>I: OnSnapshotApplied(110)
+    
+    Note over WS,K: 场景4: 释放缓冲
+    I->>OH: diff(U=111, u=111)
+    OH->>K: 订单簿快照
+```
+
+**配置**:
+```yaml
+role_id: "binance-perp-btc-orderbook"
+emitter: "single"
+caller: "native_call"
+caller_config:
+  protocol: "websocket"
+  url: "wss://fstream.binance.com/ws"
+  backfill:
+    http:
+      endpoint: "https://fapi.binance.com/fapi/v1/depth"
+      query:
+        symbol: "BTCUSDT"
+        limit: "500"
+caller_params:
+  streams: ["btcusdt@depth@100ms"]
+handlers:
+  - type: "binance"
+    with:
+      kind: "depth"
+  - type: "integrity"
+    with:
+      profile: "binance_depth"
+      sequence_field: "final_update_id"
+      gate_mode: "snapshot_hold"
+  - type: "orderbook_diff"
+    with:
+      symbol: "BTCUSDT"
+sink:
+  type: "kafka"
+  with:
+    topic: "perp.orderbook"
+```
+
+### 7.2 批量文件拉取（Dune/BigQuery）
+
+**工作流程**:
+```mermaid
+flowchart TD
+    Start[接收任务] --> Check{检查游标}
+    Check -->|存在| Load[加载断点]
+    Check -->|不存在| Init[初始化]
+    
+    Load --> Fetch[拉取分页]
+    Init --> Fetch
+    
+    Fetch --> Parse{解析响应}
+    Parse -->|成功| Write[写入文件]
+    Write --> Update[更新游标]
+    Update --> HasNext{有下一页?}
+    
+    HasNext -->|是| Fetch
+    HasNext -->|否| Manifest[生成 Manifest]
+    Manifest --> DelCursor[删除游标]
+    DelCursor --> End[完成]
+    
+    Parse -->|失败| SaveCursor[保存游标]
+    SaveCursor --> Error[返回错误]
+```
+
+**BigQuery 查询结果拉取配置**:
+```yaml
+role_id: "bigquery-results-batch"
+emitter: "kafka_command"
+emitter_config:
+  brokers: ["localhost:9092"]
+  topic: "batch.tasks"
+  group_id: "worker.bigquery.batch"
+
+caller: "batch_file"
+caller_config:
+  endpoint: "https://bigquery.googleapis.com/bigquery/v2"
+  path_template: "/projects/{project_id}/queries/{job_id}"
+  headers:
+    Authorization: "Bearer ${GOOGLE_CLOUD_API_KEY}"
+  
+  # BigQuery 特定配置
+  page_size: 10000
+  cursor_param: "pageToken"
+  cursor_field: "pageToken"
+  data_field: "rows"
+  
+  output_dir: "runtime/data/bigquery/results/{project_id}/{job_id}"
+  output_format: "json"
+  max_records_per_file: 50000
+  
+  rate_limit:
+    capacity: 100
+    refill_rate: 10
+
+pipeline_mode: "direct"
+queue:
+  mode: "none"
+```
+
+**任务参数**（通过 Kafka 发送）:
+```json
+{
+  "task_id": "bq-test-001",
+  "project_id": "ethereal-cache-481306-e5",
+  "job_id": "US.bquxjob_2a1e2f66_19b2be99427"
+}
+```
+
+**输出文件结构**:
+```
+runtime/data/bigquery/results/{project_id}/{job_id}/
+├── results_0000.json    # 数据文件 (JSON Lines)
+├── results_0001.json
+├── .cursor.json         # 游标文件 (任务完成后删除)
+└── manifest.json        # 完整性清单
+```
+
+### 7.3 元数据采集
+
+**配置**:
+```yaml
+role_id: "metadata-clickhouse"
+emitter: "polling"
+polling_interval: 300  # 5分钟
+
+caller: "metadata_clickhouse"
+caller_params:
+  endpoint: "http://localhost:8123"
+  cluster: "ch-local"
+  databases: ["default"]
+
+handlers:
+  - type: "metadata_envelope"
+    with:
+      platform: "clickhouse"
+      entity_type: "table"
+
+sink:
+  type: "kafka"
+  with:
+    topic: "metadata.raw.clickhouse"
+    key_from: ["cluster", "database", "table"]
+```
+
+---
+
+## 8. 扩展指南
+
+### 8.1 新增 Caller
+
+**步骤**:
+1. 实现 `Caller` 接口
+2. 注册到 Registry
+3. 配置使用
+
+**示例**:
+```go
+// 1. 实现接口
+type MyCaller struct {
+    endpoint string
+}
+
+func (c *MyCaller) CallOnce(ctx context.Context, args map[string]any) ([]*types.Message, error) {
+    // 实现数据拉取逻辑
+    return msgs, nil
+}
+
+// 2. 注册
+func init() {
+    caller.Register("my_caller", func(class string, params map[string]any) (caller.Caller, error) {
+        return &MyCaller{
+            endpoint: util.GetString(params, "endpoint"),
+        }, nil
+    })
+}
+```
+
+**配置**:
+```yaml
+caller: "my_caller"
+caller_params:
+  endpoint: "https://api.example.com"
+```
+
+### 8.2 新增 Handler
+
+**示例**:
+```go
+type MyHandler struct {
+    config map[string]any
+}
+
+func (h *MyHandler) Handle(msg *types.Message) ([]*types.Message, error) {
+    // 实现处理逻辑
+    return []*types.Message{msg}, nil
+}
+
+func init() {
+    handler.Register("my_handler", func(cfg map[string]any) (handler.Handler, error) {
+        return &MyHandler{config: cfg}, nil
+    })
+}
+```
+
+**配置**:
+```yaml
+handlers:
+  - type: "my_handler"
+    with:
+      custom_param: "value"
+```
+
+### 8.3 新增 Integrity Profile
+
+在 `integrity/config_parser.go` 中添加预设：
+
+```go
+func getProfileDefaults(profile string) Config {
+    switch profile {
+    case "my_profile":
+        return Config{
+            Sequence: SequenceConfig{
+                EagerGap:    5,
+                MaxDelay:    time.Second,
+                HardTimeout: 10 * time.Second,
+            },
+            Gate: GateConfig{
+                Mode: "none",
+            },
+        }
+    }
+}
+```
+
+---
+
+## 9. 监控与可观测性
+
+### 9.1 Prometheus 指标
+
+暴露在端口 9100（可配置）：
+
+| 指标 | 类型 | 说明 |
+|------|------|------|
+| `worker_messages_total` | Counter | 消息处理总数 |
+| `worker_messages_failed_total` | Counter | 消息处理失败数 |
+| `worker_queue_size` | Gauge | 队列当前大小 |
+| `worker_handler_duration_seconds` | Histogram | Handler 处理耗时 |
+| `worker_backfill_triggered_total` | Counter | 补数触发次数 |
+| `worker_integrity_buffer_size` | Gauge | Integrity 缓冲区大小 |
+
+### 9.2 分布式追踪
+
+支持 OpenTelemetry 追踪，配置示例：
+
+```yaml
+tracing:
+  enabled: true
+  service_name: "datainjector-worker"
+  sample_ratio: 0.01              # 采样率 1%
+  force_sample_run_id: true       # 强制采样包含 run_id 的任务
+  force_sample_role_ids:          # 强制采样特定 Role
+    - "binance-btc-orderbook"
+```
+
+### 9.3 关键日志
+
+| 日志 | 级别 | 说明 |
+|------|------|------|
+| `role.starting` | INFO | Role 启动 |
+| `caller.error` | ERROR | Caller 调用失败 |
+| `integrity.gap_detected` | WARN | 检测到序列间隙 |
+| `integrity.backfill_triggered` | INFO | 触发补数 |
+| `integrity.hard_timeout` | ERROR | 硬超时强制跳过 |
+| `orderbook.snapshot_applied` | INFO | 订单簿快照应用成功 |
+
+---
+
+## 10. 目录结构
 
 ```
 datainjector/worker/
-  cmd/worker/main.go        # 入口
-  internal/
-    config/config.go        # YAML 解析 + 校验
-    emitter/polling.go      # 定时触发器
-    caller/
-      caller.go             # 接口 + 注册表
-      sdk_local_get_block.go# LocalGetBlock 示例实现
-      balance_snapshot.go   # 批量余额查询 caller
-      native_call.go        # WebSocket 原生协议 caller
-      native_call_http.go   # JSON-RPC / REST 通用 HTTP caller
-    orderbook/              # Binance 订单簿本地状态
-    binance/                # Binance 消息定义与解码
-    protocol/jsonrpc.go     # JSON-RPC 通用结构体
-    protocol/websocket.go   # WebSocket 连接/心跳/重连管理
-    protocol/http_client.go # HTTP JSON-RPC 客户端 + 连接池
-    queue/queue.go          # 有界队列（基于 chan）
-    handler/handler.go      # 责任链接口 + registry
-    handler/dex_parser.go   # DEX 交易解析
-    handler/balance_parser.go # 余额补价解析
-    sink/console.go         # 控制台下沉
-    sink/kafka.go           # Kafka sink
-    role/role.go            # Role 装配与生命周期管理
-  configs/config.yaml       # 示例配置（多 role 并行）
+├── cmd/worker/main.go              # 入口
+├── configs/
+│   ├── base.yaml                   # 主配置
+│   └── dune_token_holders.yaml     # 专用配置
+├── internal/
+│   ├── config/                     # 配置解析
+│   │   └── config.go
+│   ├── role/                       # Role 管理
+│   │   ├── role.go                 # Role 实现
+│   │   └── manager.go              # 生命周期管理
+│   ├── emitter/                    # 触发器
+│   │   ├── polling.go
+│   │   ├── single.go
+│   │   └── kafka_command.go
+│   ├── caller/                     # 数据源调用
+│   │   ├── caller.go               # 接口定义
+│   │   ├── native_call_*.go
+│   │   ├── sdk_*.go
+│   │   ├── batch_file_caller.go
+│   │   └── metadata_*.go
+│   ├── protocol/                   # 底层协议
+│   │   ├── websocket.go
+│   │   ├── http_client.go
+│   │   └── jsonrpc.go
+│   ├── queue/queue.go              # 有界队列
+│   ├── handler/                    # 处理器
+│   │   ├── handler.go              # 接口定义
+│   │   ├── registry.go             # 注册表
+│   │   ├── integrity_handler.go    # Integrity 适配器
+│   │   ├── integrity/              # Integrity 核心
+│   │   │   ├── handler.go
+│   │   │   ├── sequence_engine.go
+│   │   │   ├── buffer.go
+│   │   │   ├── dedupe.go
+│   │   │   ├── gate.go
+│   │   │   ├── scheduler.go
+│   │   │   └── config_parser.go
+│   │   ├── parser/                 # 解析器
+│   │   │   ├── binance_parser.go
+│   │   │   └── hyperliquid_parser.go
+│   │   ├── orderbook_handlers.go
+│   │   └── binance_handlers.go
+│   ├── sink/                       # 数据下沉
+│   │   ├── registry.go
+│   │   ├── kafka.go
+│   │   ├── file.go
+│   │   └── console.go
+│   ├── manifest/                   # Manifest 生成
+│   │   ├── types.go
+│   │   └── generator.go
+│   ├── observability/              # 可观测性
+│   │   ├── metrics/
+│   │   ├── logging/
+│   │   ├── tracing/
+│   │   └── status/
+│   ├── types/                      # 核心类型
+│   │   ├── message.go
+│   │   └── backfill.go
+│   └── util/                       # 工具函数
+└── DESIGN.md                       # 本文档
 ```
 
-## Binance 永续 BTC 最小接入方案
+---
 
-- `binance-perp-btc-orderbook`
-  - emitter: `single`
-  - caller: `native_call(websocket)` 订阅 `btcusdt@depth@100ms`（handler 内置 HTTP 快照初始化）
-  - handlers: `orderbook_snapshot` → `binance_parser(depth)` → `orderbook_diff` → `orderbook_validator`
-  - sink: `console`（调试阶段，可切换至 Kafka `binance.perp.orderbook.btcusdt`）
-- `binance-perp-btc-trades`
-  - emitter: `single`
-  - caller: `native_call(websocket)` 订阅 `/btcusdt@trade`
-  - handlers: `binance_parser(trade)` → `trade_normalizer`
-  - sink: `kafka(topic=binance.perp.trades.btcusdt)`
-- `binance-perp-btc-mark-index`
-  - emitter: `single`
-  - caller: `native_call(websocket)` 订阅 `/btcusdt@markPrice@1s`
-  - handlers: `binance_parser(mark_index)` → `mark_index_parser`
-  - sink: `kafka(topic=binance.perp.mark_index.btcusdt)`
-- `binance-perp-btc-funding`
-  - emitter: `polling`（默认 5 分钟，可调）
-  - caller: `native_call(http, transport=rest)` 调用 `/fapi/v1/fundingRate?symbol=BTCUSDT&limit=1`
-  - handlers: `funding_normalizer`
-  - sink: `kafka(topic=binance.perp.funding.btcusdt)`
-- `binance-perp-btc-openinterest`
-  - emitter: `polling`（1m）
-  - caller: `native_call(http, transport=rest)` 调用 `/futures/data/openInterestHist?symbol=BTCUSDT&period=5m&limit=1`
-  - handlers: `oi_normalizer`
-  - sink: `kafka(topic=binance.perp.oi.btcusdt)`
-- `binance-perp-btc-liquidations`
-  - emitter: `single`
-  - caller: `native_call(websocket)` 订阅 `/btcusdt@forceOrder`
-  - handlers: `binance_parser(liquidation)` → `liquidation_normalizer`
-  - sink: `kafka(topic=binance.perp.liquidations.btcusdt)`
+## 11. 核心概念总结
 
-### 本地订单簿状态管理
+### 11.1 设计模式应用
 
-- 独立包 `internal/resource/orderbook` 管理快照与 diff 合并，暴露 `BookState`（缓存 `lastUpdateID`、`bids/asks`、待应用 diff 队列）。
-- `orderbook_snapshot` handler 通过 `native_call_http` 的 REST transport 拉取快照并写入 `BookState`。
-- `orderbook_diff` handler 逐条校验 `U/u` 与本地 `lastUpdateID`，应用成功后返回标准化结构给后续 handler。
-- `orderbook_validator` handler 进行 level 裁剪、深度统计等轻量校验，并附带 `ingest_ts`。
+| 模式 | 应用场景 | 收益 |
+|------|---------|------|
+| **工厂模式** | 插件注册与创建 | 解耦框架与实现 |
+| **责任链模式** | Handler 链式处理 | 处理流程可组合 |
+| **策略模式** | Emitter/Gate/Profile | 行为可切换 |
+| **适配器模式** | Caller 协议封装 | 统一接口抽象 |
+| **观察者模式** | BackfillCommandAware/SnapshotListener | 事件驱动 |
+| **模板方法模式** | 配置模板复用 | 减少重复配置 |
 
-### Sink 数据格式（BTC）
+### 11.2 关键抽象
 
-```jsonc
-// OrderBook: binance.perp.orderbook.btcusdt
-{
-  "symbol": "BTCUSDT",
-  "exchange": "binance",
-  "snapshot": false,
-  "depth": {
-    "bids": [["64231.1", "0.521"], ["64230.9", "0.342"]],
-    "asks": [["64232.0", "0.410"], ["64232.1", "0.225"]]
-  },
-  "seq": 1234567890,
-  "exchange_ts": 1712209123456,
-  "ingest_ts": 1712209123470
-}
+1. **Message**: 统一的数据载体，包含 Payload + Metadata
+2. **Caller**: 数据源调用抽象，屏蔽底层协议差异
+3. **Handler**: 处理逻辑抽象，支持责任链组合
+4. **Integrity**: 数据完整性保障，内置序列控制/补数/去重
+5. **Role**: 任务执行单元，协调各组件完成数据接入
 
-// Trades: binance.perp.trades.btcusdt
-{
-  "symbol": "BTCUSDT",
-  "price": "64231.1",
-  "size": "0.021",
-  "side": "buy",
-  "buyer_maker": false,
-  "exchange_ts": 1712209123400,
-  "ingest_ts": 1712209123415,
-  "trade_id": 1234567890123
-}
+### 11.3 架构优势
 
-// Mark/Index: binance.perp.mark_index.btcusdt
-{
-  "symbol": "BTCUSDT",
-  "mark_price": "64225.5",
-  "index_price": "64220.8",
-  "fair_basis": "0.0007",
-  "next_funding_time": 1712227200000,
-  "last_funding_rate": "0.00010",
-  "exchange_ts": 1712209123000,
-  "ingest_ts": 1712209123015
-}
+- **低耦合**: 插件化架构，组件独立扩展
+- **高内聚**: 每个组件职责单一，易于维护
+- **可扩展**: 通过实现接口即可扩展功能
+- **可配置**: 配置驱动，无需修改代码
+- **可测试**: 组件独立，易于单元测试
+- **可观测**: 内置 Metrics/Tracing/Logging
 
-// Funding: binance.perp.funding.btcusdt
-{
-  "symbol": "BTCUSDT",
-  "funding_rate": "0.00010",
-  "funding_time": 1712208000000,
-  "funding_interval": "8h",
-  "exchange_ts": 1712208000000,
-  "ingest_ts": 1712209125000
-}
+---
 
-// Open Interest: binance.perp.oi.btcusdt
-{
-  "symbol": "BTCUSDT",
-  "oi": "98765.432",
-  "oi_usd": "634210000.12",
-  "exchange_ts": 1712209080000,
-  "ingest_ts": 1712209081000
-}
+## 12. 变更历史
 
-// Liquidations: binance.perp.liquidations.btcusdt
-{
-  "symbol": "BTCUSDT",
-  "side": "sell",
-  "qty": "12.5",
-  "price": "64010.0",
-  "exchange_ts": 1712209123600,
-  "ingest_ts": 1712209123620,
-  "order_id": "9876543210"
-}
-```
+| 日期 | 版本 | 变更说明 |
+|------|------|----------|
+| 2025-12-27 | 3.0 | 重构文档，聚焦架构设计，合并最新变更（BigQuery 支持） |
+| 2025-12-17 | 2.1 | 新增 BigQuery 结果拉取 Role |
+| 2025-12-17 | 2.0 | 重构文档，删除冗余内容 |
+| 2025-12-16 | 1.5 | 新增 BatchFile Caller 和 Manifest 支持 |
+| 2025-12-15 | 1.4 | Integrity 模块重构，引入 Profile 机制 |
+| 2025-12-10 | 1.3 | 新增订单簿维护逻辑 |
+| 2025-12-01 | 1.0 | 初始版本 |
 
-### 对实时分析能力的支撑
-
-- 行情微观：OrderBook 提供深度快照 + 增量序列，支撑盘口重建、价差监控、滑点估计。
-- 成交流：Trades 包含方向、主动方，满足成交密度、买卖差、逐笔回放等指标。
-- 永续要素：Mark/Index/Funding/OI/Liquidations 分别覆盖风险控制、资金费率、杠杆热度、风险事件，满足大多数策略与风险看板需求。
-- 时间一致性：所有 topic 均输出 `exchange_ts` 与 `ingest_ts`，方便计算延迟、对齐多源数据。
-- 单 Symbol：初期仅 BTCUSDT，配置与 handler 复用能力完备，可按需横向扩展其它币对。
-
-## 缺失检测与补数据设计（唯一共识）
-
-本节定义在 datainjector/worker 内部落地的“数据缺失检测 + 补数据”方案，不依赖 unified-worker 代码，实现目标是在仅考虑严格递增的单序列场景（如区块 `block_number` 连续 +1）下，实现自动检测缺口、触发补拉、与主数据流闭环合并，确保下游只看到严格有序的数据。
-
-### 范围与约束
-- 实现范围：仅在 datainjector/worker 模块内实现，不依赖 unified-worker。
-- 序列假设：严格递增的单序列，下一条为 `last+1`。
-- 补数据通道：
-  - WebSocket（快速补数）：用于本地快速检测到的小范围缺口，采用多次 `eth_getBlockByNumber` 请求补齐。
-  - HTTP（控制面下发）：用于较大范围的批量补数任务，同样采用多次 `eth_getBlockByNumber`。
-- 不做分区：不按 `chain_id` 等字段分区，整个 handler 维护单一序列与缓冲。
-- 去重策略：临时以 `block_number` 为唯一键进行简单去重。
-- 最大 gap：配置最大缺口跨度 `max_gap`，超过阈值直接报错（防止无限补数）。
-- 标记策略：快速补数（WS）路径下，sink 不依赖 `is_backfill` 标记；是否带标记不影响快速补数正确性与下游逻辑。
-
-### 组件与数据契约
-- 关键字段：
-  - `sequence_field`: 通过 role 配置显式指定（现阶段示例设置为 `block_number`，类型为 int64）。
-  - `id_field`: 可选，用于未来增强 dedupe，目前不使用。
-- 数据封装：
-  - 实时 WS 订阅：JSON-RPC `eth_subscription`，区块头放在 `params.result`。
-  - HTTP/WS 补数：仍使用 `eth_getBlockByNumber`，多次单 block 拉取，封装对齐实时格式（`params.result`）。
-  - 标记建议：HTTP 路径可打 `is_backfill=true` 用于观测；WS 快速补数对 sink 不要求依赖该标记。
-
-### Handler：MissingDetector（缺失检测 + 缓冲）
-- 核心状态：
-  - `expectedNext`：当前最小可接受序号；每次成功下游后自增。
-  - `buffer[seq][]`：乱序暂存桶，保留同高度的多变体。
-  - `firstSeen[seq]`：序号首见时间，用于软/硬超时判断。
-- 核心规则：
-  1. **等于** `seq == expectedNext`：立即下游，`expectedNext++`，之后持续冲刷 `buffer[expectedNext]` 直至缺口消失。
-  2. **更大** `seq > expectedNext`：追加到对应桶并记录 `firstSeen`；若 `seq - expectedNext > eagerGap` 则触发本地回补（范围不超过 `maxRange`）。
-  3. **更小** `seq < expectedNext`：认为是重复或旧变体，直接丢弃（如需保留，可调整策略）。
-  4. **软超时** `now - firstSeen[expectedNext] > maxDelay`：对 `[expectedNext, expectedNext+maxRange]` 触发补数（优先 WS，失败可降级 HTTP）。
-  5. **实时预算**：若 `seenMax - expectedNext > maxGap` 或 `now - firstSeen[expectedNext] > hardTimeout`，提升 `expectedNext` 至 `max(expectedNext+1, seenMax - maxGap)`，同时丢弃被跨越区间（交由控制面后补）。
-- 周期清理（每 `sweepInterval`）：
-  - 删除 `now - firstSeen[seq] > bucketTTL` 的过期桶。
-  - 若 `len(buffer) > maxBuckets`，从最小序号起依次尝试单点回补，再清理多余桶。
-- BackfillCmd 会携带有序的 `Options`（WS → HTTP），确保角色侧可按照优先级尝试。
-
-### Role 集成：命令通道与调用
-- 构建时注入 `cmdCh chan BackfillCmd` 至 MissingDetector。
-- Role 监听命令后，按 `Options` 顺序依次尝试回补：
-  - WebSocket 本地快速补数：逐块调用 `eth_getBlockByNumber`，维持与订阅一致的 envelope。
-  - HTTP 回补：同样逐块 JSON-RPC 请求，与 WS 输出结构完全对齐。
-- 任一方案成功后回写主队列；失败则自动尝试下一传输层，全部失败会记录日志并等待外部控制面补齐。
-
-### Caller 要求与封装对齐
-- WebSocket 订阅与 pull：保持 `eth_subscription` envelope，补数消息与实时流一致。
-- HTTP 回补：重用 `eth_getBlockByNumber`，输出封装与 WS 完全一致；补数元数据通过 `is_backfill`、`source` 等字段标识。
-
-### 观测与保护
-- 通过日志/指标记录缺口检测、触发窗口、补数成功率、跳过区间（hardTimeout）等关键事件。
-- 乱序桶超限/老化会主动清理并尝试补数，避免内存与延迟基线被拖垮。
-
-### 配置示例（草案）
-```yaml
-roles:
-  - role_id: "mockprovider-websocket"
-    emitter: "single"
-    caller: "native_call"
-    caller_config:
-      protocol: "websocket"
-      url: "ws://localhost:8090/ws"
-    caller_params:
-      subscribe: "newHeads"
-      heartbeat_ms: 30000
-      poll_interval_ms: 500
-    handlers:
-      - type: "integrity"
-        with:
-          profile: "chain_blocks"
-          sequence_field: "block_number"
-          stream_key_field: "chain_id"
-          eager_gap: 3
-          max_range: 20
-          max_delay_ms: 800
-          hard_timeout_ms: 3000
-          max_gap: 8
-          sweep_interval_ms: 200
-          bucket_ttl_ms: 3000
-          max_buckets: 2000
-          gate_mode: "finality"
-          finality_blocks: 12
-          backfill:
-            ws:
-              enabled: true
-              rpc_method: "eth_getBlockByNumber"
-            http:
-              enabled: true
-              endpoint: "http://localhost:8545"
-              rpc_method: "eth_getBlockByNumber"
-    sink:
-      type: "kafka"
-      with:
-        brokers: ["localhost:9092"]
-        topic: "chain.ethereum.blocks"
-        key_from: ["block_number"]
-    queue: { size: 5000 }
-```
-
-### 时序闭环
-1) 实时数据通过 WS 到达 → MissingDetector → 若连续则转下游。
-2) 发现缺口 → MissingDetector 推送 BackfillCmd(start,end) 到 `cmdCh`。
-3) Role 监听到 cmd → 选择 WS 或 HTTP 逐块补数（`eth_getBlockByNumber`）。
-4) Caller 返回补数消息，封装与实时一致 → 回写 Role 队列。
-5) MissingDetector 从 buffer 中与新到补数一起拼接连续段 → 出队。
-6) 下游只看到严格有序的输出；快速补数路径对 sink 不要求依赖 `is_backfill`。
-
-以上设计即为当前唯一共识，后续改动请先更新本节文档再推进实现。
-
-## 关闭语义
-
-- 使用 `context.Context` 贯穿：ticker stop、调用超时、消费者退出。
-- main 捕获 `SIGINT/SIGTERM`，触发优雅关闭。
-
-## 误差与边界
-
-- 首版不包含乱序/缺失检测与回补；后续以 Handler 形式补充。
-- Caller 失败重试策略：本版简单日志 + 下轮重试；后续加入退避与熔断。
-- 队列满：先阻塞等待（避免丢数），后续可引入 backpressure/metrics。
-
-## 运行方式
-
-```
-go run ./datainjector/worker/cmd/worker --config ./datainjector/worker/configs/config.yaml
-```

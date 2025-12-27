@@ -1,0 +1,41 @@
+{
+  "status": "failed",
+  "counts": {
+    "SUCCESS": 8,
+    "FAIL": 6
+  },
+  "failures": [
+    {
+      "stage": "ingress",
+      "probe": "ingress.kafka.perp.orderbook",
+      "detail": "run_id not found in perp.orderbook"
+    },
+    {
+      "stage": "ingress",
+      "probe": "ingress.kafka.perp.trades",
+      "detail": "run_id not found in perp.trades"
+    },
+    {
+      "stage": "ingress",
+      "probe": "ingress.kafka.perp.mark_index",
+      "detail": "run_id not found in perp.mark_index"
+    },
+    {
+      "stage": "process",
+      "probe": "process.verify.dws_exec_1s",
+      "detail": "dws_exec_1s rows < 1"
+    },
+    {
+      "stage": "process",
+      "probe": "process.verify.dws_perps_ctx_1m",
+      "detail": "dws_perps_ctx_1m rows < 1"
+    },
+    {
+      "stage": "process",
+      "probe": "process.verify.dws_perps_panel_1m",
+      "detail": "dws_perps_panel_1m rows < 1"
+    }
+  ],
+  "run_id": "20251227-045645-kkcrfs",
+  "scenario": "binance_perp"
+}
