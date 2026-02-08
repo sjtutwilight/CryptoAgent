@@ -24,15 +24,11 @@ def get_default_config() -> Dict[str, Any]:
         
         # Flink 配置
         "flink_rest": f"http://localhost:{flink_port}",
-        "flink_container": os.getenv("FLINK_JOBMANAGER_CONTAINER", "flink-jobmanager"),
         "flink_wait_timeout": 60,
-        "require_flink_rest": False,
-        "skip_flink_docker": False,
         
         # DataInjector 配置
         "datainjector_api": None,
         "datainjector_container": os.getenv("DATAINJECTOR_CONTAINER", "datainjector-worker"),
-        "skip_datainjector_docker": False,
         
         # 构建配置
         "build_jar": False,

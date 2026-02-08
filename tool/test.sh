@@ -8,22 +8,11 @@ usage() {
 Usage: ./tool/test.sh <command> [args...]
 
 Commands:
-  list
-    列出所有可用的测试场景
-
-  scenario:run <name> [--stages=stage1,stage2] [--env=local]
-    运行指定场景
-    --stages: 可选，只运行指定的 stages（逗号分隔）
-    --env: 环境，默认 local
-
-  scenario:all [--env=local]
-    运行所有场景
-
-  stage:list <scenario>
-    列出指定场景的所有 stages
-
-  stage:run <scenario> <stage_name> [--env=local]
-    单独运行某个场景的某个 stage
+  list              列出所有可用的测试场景
+  scenario:run      运行指定场景 [--stages=stage1,stage2] [--env=local]
+  scenario:all      运行所有场景 [--env=local]
+  stage:list        列出指定场景的所有 stages
+  stage:run         单独运行某个场景的某个 stage [--env=local]
 
 Examples:
   # 列出所有场景
@@ -44,6 +33,12 @@ Examples:
   # 运行所有场景
   ./tool/test.sh scenario:all
 USAGE
+}
+
+mcp_meta() {
+  cat <<'JSON'
+{"tool_name":"test_execute","description":"DataPlatform Test Entrypoint (tool/test.sh): scenarios/stages","supports_output_json":true}
+JSON
 }
 
 require_cmd() {
@@ -91,6 +86,11 @@ run_stage() {
 }
 
 main() {
+  if [[ "${1:-}" == "--mcp" ]]; then
+    mcp_meta
+    exit 0
+  fi
+
   require_cmd docker
   require_cmd python3
 

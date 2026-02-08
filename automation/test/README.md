@@ -37,8 +37,8 @@ python3 automation/test/tools/probe_cli.py kafka topic-check --topic binance.kli
 - `automation/test/shared/core/config.py` 里提供默认键值：
   - ClickHouse：`clickhouse_http` / `clickhouse_user` / `clickhouse_password`
   - Kafka：`kafka_broker` / `kafka_wait_timeout` / `kafka_wait_interval` / `kafka_max_messages`
-  - Flink：`flink_rest` / `flink_container` / `require_flink_rest` / `skip_flink_docker`
-  - DataInjector：`datainjector_api` / `datainjector_container` / `skip_datainjector_docker`
+  - Flink：`flink_rest`
+  - DataInjector：`datainjector_api` / `datainjector_container`
   - Build/Cleanup：`build_jar` / `jar_path` / `clean_clickhouse` / `skip_clean_clickhouse` / `cancel_job` / `keep_job`
 
 ## Artifacts

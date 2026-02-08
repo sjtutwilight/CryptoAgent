@@ -128,26 +128,7 @@ scrape_configs:
           service: twilight-backend
           __path__: /var/log/app/backend/*.log
 
-  # 直接采集backend/logs目录
-  - job_name: backend-logs-direct
-    pipeline_stages:
-      - regex:
-          expression: '^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\s+\[(?P<thread>[^\]]+)\]\s+(?P<level>\w+)\s+(?P<logger>[\w.]+)\s+-\s+(?P<message>.*)$'
-      - labels:
-          level:
-          logger:
-          thread:
-      - timestamp:
-          source: timestamp
-          format: '2006-01-02 15:04:05.000'
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: backend
-          component: backend
-          service: twilight-backend
-          __path__: /var/log/app/twilight-backend*.log
+
 
   # ==================== 应用 JSON 格式日志 ====================
   - job_name: app-json-logs

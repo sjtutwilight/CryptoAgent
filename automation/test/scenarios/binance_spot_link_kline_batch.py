@@ -4,7 +4,7 @@ import os
 import time
 from typing import Dict
 
-from automation.test.probes import file_probe, kafka_probe, worker_probe
+from automation.test.probes import file_probe, worker_probe
 from automation.test.shared.core.context import RunContext
 from automation.test.shared.core.result import ProbeResult, ProbeStatus
 from automation.test.shared.core.scenario import ProbeCall, Scenario, Stage
@@ -32,7 +32,6 @@ def _default_config() -> Dict:
         "wait_interval": 5,
         "datainjector_container": os.getenv("DATAINJECTOR_CONTAINER", "datainjector-worker"),
         "datainjector_api": None,
-        "skip_datainjector_docker": False,
         "kafka_broker": os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092"),
     }
 
@@ -75,7 +74,6 @@ def _probe_apply_role(ctx: RunContext, state: Dict) -> ProbeResult:
         api=cfg.get("datainjector_api"),
         container=cfg["datainjector_container"],
         token=cfg.get("datainjector_token"),
-        skip_docker=cfg.get("skip_datainjector_docker", False),
     )
     
     if result.status == ProbeStatus.SUCCESS:
@@ -95,40 +93,26 @@ def _probe_role_status(ctx: RunContext, state: Dict) -> ProbeResult:
     
     return worker_probe.check_role_status(ctx, role_id, cfg["datainjector_container"])
 
-
 def _probe_send_task(ctx: RunContext, state: Dict) -> ProbeResult:
     """发送任务到 Kafka"""
     cfg = _get_config(ctx)
-    now_ms = int(time.time() * 1000)
-    start_ms = now_ms - 60 * 60 * 1000  # 1小时前的数据
-    task_id = f"{cfg['role_id']}-{ctx.run_id}"
-    
-    payload = {
-        "task_id": task_id,
-        "taskId": task_id,
-        "run_id": ctx.run_id,
-        "metadata": {
-            "symbol": "LINKUSDT",
-            "interval": "1m",
-            "run_id": ctx.run_id,
-        },
-        "query": {
-            "symbol": "LINKUSDT",
-            "interval": "1m",
-            "limit": 1000,
-            "startTime": start_ms,
-            "endTime": now_ms,
-        },
-    }
-    
     state["started_at"] = time.time()
     state["output_dir"] = cfg["output_dir"]
+    from automation.ops.role.task import send_task_programmatic
+
+    try:
+        payload, method = send_task_programmatic(cfg["role_id"], run_id=ctx.run_id, topic=cfg["topic"])
+    except Exception as exc:
+        return ProbeResult(status=ProbeStatus.FAIL, detail=f"send task failed: {exc}")
+
+    task_id = payload.get("task_id") or payload.get("taskId")
     state["task_id"] = task_id
-    
-    result = kafka_probe.send_json_message(ctx, cfg["topic"], payload)
-    if result.status == ProbeStatus.SUCCESS:
-        result.metrics["task_id"] = task_id
-    return result
+    return ProbeResult(
+        status=ProbeStatus.SUCCESS,
+        detail=f"message sent via {method}",
+        metrics={"topic": cfg["topic"], "task_id": task_id},
+        payload={"message": payload},
+    )
 
 
 def _probe_consumer_lag(ctx: RunContext, state: Dict) -> ProbeResult:
@@ -237,7 +221,6 @@ def _probe_cleanup(ctx: RunContext, state: Dict) -> ProbeResult:
         api=cfg.get("datainjector_api"),
         container=cfg["datainjector_container"],
         token=cfg.get("datainjector_token"),
-        skip_docker=cfg.get("skip_datainjector_docker", False),
     )
 
 

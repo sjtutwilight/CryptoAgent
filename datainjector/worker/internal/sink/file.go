@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/types"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/util"
-	"gopkg.in/yaml.v3"
 )
 
 type FileConfig struct {
@@ -369,7 +369,7 @@ func (s *FileSink) calculateChecksum(filePath string) (string, error) {
 	return "md5:" + hex.EncodeToString(hash.Sum(nil)), nil
 }
 
-// writeMetadataFragment 写入元数据片段到 pending 目录
+// writeMetadataFragment 写入元数据并导入到SQLite
 func (s *FileSink) writeMetadataFragment() error {
 	if len(s.filesMetadata) == 0 {
 		return nil
@@ -422,30 +422,31 @@ func (s *FileSink) writeMetadataFragment() error {
 		}
 	}
 
-	// 确定 pending 目录路径（runtime/data/.metadata/pending）
-	pendingDir := filepath.Join("runtime", "data", ".metadata", "pending")
-	if err := os.MkdirAll(pendingDir, 0755); err != nil {
-		return fmt.Errorf("create pending dir: %w", err)
-	}
+	// 生成临时JSON文件
+	tempFile := filepath.Join(os.TempDir(), fmt.Sprintf("metadata-%s-%d.json",
+		s.metadataConfig.Datasource, time.Now().UnixNano()))
 
-	// 生成文件名：{datasource}-{category}-{timestamp}.yaml
-	timestamp := time.Now().Format("20060102-150405")
-	filename := fmt.Sprintf("%s-%s-%s.yaml", s.metadataConfig.Datasource, s.metadataConfig.Category, timestamp)
-	fragmentPath := filepath.Join(pendingDir, filename)
-
-	// 序列化并写入
-	data, err := yaml.Marshal(fragment)
+	// 序列化为JSON
+	data, err := json.Marshal(fragment)
 	if err != nil {
 		return fmt.Errorf("marshal metadata: %w", err)
 	}
 
-	// 添加注释头
-	header := fmt.Sprintf("# 自动生成的元数据片段\n# 生成时间: %s\n# 数据集: %s\n\n",
-		time.Now().UTC().Format(time.RFC3339),
-		fragment.ID)
+	if err := os.WriteFile(tempFile, data, 0644); err != nil {
+		return fmt.Errorf("write temp file: %w", err)
+	}
+	defer os.Remove(tempFile)
 
-	if err := os.WriteFile(fragmentPath, []byte(header+string(data)), 0644); err != nil {
-		return fmt.Errorf("write metadata file: %w", err)
+	// 调用Python脚本导入到SQLite
+	// 构造脚本路径：相对于项目根目录
+	scriptPath := "automation/ops/sqlite/query.py"
+
+	// 使用exec.Command执行
+	cmd := exec.Command("python3", scriptPath, "ingest", "--json-file", tempFile)
+	output, err := cmd.CombinedOutput()
+
+	if err != nil {
+		return fmt.Errorf("ingest metadata: %w (output: %s)", err, string(output))
 	}
 
 	return nil

@@ -16,13 +16,32 @@
 
 ## Scripts
 
-- `tool/orchestration.sh`   - 编排与开发场景入口（调用 docker-compose、服务启停脚本）
-- `tool/data.sh`            - 数据初始化与批处理作业入口（调用 init-load 与 Spark 作业）
-- `tool/test.sh`            - 测试入口（调用 automation/test 下的 Scenario）
+- `tool/orchestration.sh` - 编排与开发场景入口（调用 docker-compose、服务启停脚本）
+- `tool/ops.sh`           - 数据初始化与操作脚本统一入口
+- `tool/test.sh`          - 测试入口（调用 automation/test 下的 Scenario）
+
+Ops spec: `tool/OPS.md`
+
+## MCP 集成
+
+提供 MCP (Model Context Protocol) 接口，使 Cursor AI 能够直接调用这些运维工具。
+
+详见：[tool/mcp/README.md](mcp/README.md)
 
 ## Examples
 ```bash
-./tool/data.sh spark:upload-test-data
-./tool/data.sh spark:token-holders --input-path s3a://paimon-warehouse/test-data/token-holders/1/0x514910771af9ca656af840dff83e8264ecf986ca/
-./tool/test.sh scenario:spark_token_holders --config-json '{"chain_id":1,"token_address":"0x514910771af9ca656af840dff83e8264ecf986ca"}'
+./tool/ops.sh init:schema
+./tool/ops.sh role:task binance-spot-link-kline-batch
+./tool/ops.sh flink:list
+./tool/ops.sh flink:upload
+./tool/ops.sh flink:run --entry-class com.twilight.aggregator.KlineSignalJob
+./tool/ops.sh flink:job kline
+./tool/ops.sh flink:job perp
+./tool/ops.sh flink:cancel kline
+./tool/test.sh scenario:run binance_kline --stages=infra,ingress
 ```
+
+Notes:
+- `flink:upload` / `flink:run` 默认使用最新构建的 jar。
+- `flink:status` 默认展示全部 job（可传 job id 查看单个）。
+- `flink:cancel` 默认取消全部运行中的 job；关键词按 Flink job 名称匹配。

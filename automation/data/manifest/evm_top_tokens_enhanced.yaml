@@ -1,5 +1,0 @@
-id: evm_top_tokens_enhanced
-description: Curated top EVM tokens list
-path: runtime/data/evm_top_tokens_enhanced.json
-format: json
-producer: manual

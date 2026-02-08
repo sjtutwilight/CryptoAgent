@@ -193,6 +193,10 @@ func Build(rc config.RoleConfig) (*Role, error) {
 			cfg.MinBytes = toInt(rc.EmitterConfig["min_bytes"], 0)
 			cfg.MaxBytes = toInt(rc.EmitterConfig["max_bytes"], 0)
 		}
+		// 如果没有配置 group_id，使用 worker.<role_id> 作为默认值
+		if cfg.GroupID == "" {
+			cfg.GroupID = fmt.Sprintf("worker.%s", rc.RoleID)
+		}
 		kEmitter, err := emitter.NewKafkaCommand(cfg)
 		if err != nil {
 			return nil, err

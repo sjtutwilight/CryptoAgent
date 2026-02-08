@@ -1,1 +1,0 @@
-await ethers.provider.getBlock("latest").then(block => console.log(block.timestamp, new Date(block.timestamp * 1000)))

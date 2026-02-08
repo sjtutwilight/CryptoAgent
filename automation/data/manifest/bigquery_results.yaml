@@ -1,7 +1,0 @@
-id: bigquery_results
-description: BigQuery query results fetched by worker
-path: runtime/data/bigquery/results/{project_id}/{job_id}
-format: json
-producer: datainjector.worker.batch_file
-notes: |
-  Output includes data_*.json, manifest.json, schema.json, and cursor state.

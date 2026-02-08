@@ -123,3 +123,6 @@ def clickhouse_truncate(http_url: str, table: str, user: str = "", password: str
     """清空 ClickHouse 表"""
     clickhouse_query(http_url, f"TRUNCATE TABLE {table}", user, password)
 
+
+
+

@@ -1,7 +1,0 @@
-id: bigquery_chainlink_transfers
-description: Chainlink transfer sample pulled from BigQuery
-path: runtime/data/bigquery/chainlink-transfers
-format: json
-producer: automation.data.app.bigquery-chainlink-fetch
-notes: |
-  Output includes data_*.json, manifest.json, and schema.json.

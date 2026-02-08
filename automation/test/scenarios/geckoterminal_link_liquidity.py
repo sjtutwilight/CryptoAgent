@@ -29,7 +29,6 @@ def _default_config() -> Dict:
     return {
         "datainjector_api": None,
         "datainjector_container": os.getenv("DATAINJECTOR_CONTAINER", "datainjector-worker"),
-        "skip_datainjector_docker": False,
         "polling_interval": 30,
         "output_root": "runtime/data/geckoterminal/liquidity",
         "wait_timeout": 60,
@@ -66,7 +65,6 @@ def _probe_apply_roles(ctx: RunContext, state: Dict) -> ProbeResult:
         api=cfg.get("datainjector_api"),
         container=cfg["datainjector_container"],
         token=cfg.get("datainjector_token"),
-        skip_docker=cfg.get("skip_datainjector_docker", False),
     )
     
     if result.status == ProbeStatus.SUCCESS:
@@ -113,7 +111,6 @@ def _probe_cleanup(ctx: RunContext, state: Dict) -> ProbeResult:
         api=cfg.get("datainjector_api"),
         container=cfg["datainjector_container"],
         token=cfg.get("datainjector_token"),
-        skip_docker=cfg.get("skip_datainjector_docker", False),
     )
 
 

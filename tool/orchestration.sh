@@ -8,25 +8,31 @@ usage() {
   cat <<'USAGE'
 Usage: ./tool/orchestration.sh <keywords...>
 
-Keywords:
-  ingest  - redis, kafka, worker
-  stream  - redis, kafka, postgres, clickhouse, worker, flink (jm/tm)
-  batch   - spark (master/worker/client)
-  s       - starrocks (allin1 + init)
-  m       - minio (server + mc init)
-  o       - observability (loki/grafana/promtail/prometheus/kafka-exporter)
-  a       - airflow (postgres/init/webserver/scheduler)
-  w       - worker (datainjector/worker)
-  cp      - control-plane (datainjector/control-plane-service)
-  bd      - build selected services before start
-  k       - kafka (zk/kafka/ui)
-  c       - clickhouse
+Commands:
+  ingest            启动 redis, kafka, worker
+  stream            启动 redis, kafka, postgres, clickhouse, worker, flink (jm/tm)
+  batch             启动 spark (master/worker/client)
+  s                 启动 starrocks (allin1 + init)
+  m                 启动 minio (server + mc init)
+  o                 启动 observability (loki/grafana/promtail/prometheus/kafka-exporter)
+  a                 启动 airflow (postgres/init/webserver/scheduler)
+  w                 启动 worker (datainjector/worker)
+  cp                启动 control-plane (datainjector/control-plane-service)
+  bd                在启动前构建选定的服务
+  k                 启动 kafka (zk/kafka/ui)
+  c                 启动 clickhouse
 
 Examples:
   ./tool/orchestration.sh ingest
   ./tool/orchestration.sh stream o bd
   ./tool/orchestration.sh k c w
 USAGE
+}
+
+mcp_meta() {
+  cat <<'JSON'
+{"tool_name":"orchestration_execute","description":"DataPlatform Orchestration Entrypoint (tool/orchestration.sh): docker-compose services","supports_output_json":false}
+JSON
 }
 
 compose_cmd() {
@@ -112,6 +118,11 @@ has_service() {
 }
 
 main() {
+  if [[ "${1:-}" == "--mcp" ]]; then
+    mcp_meta
+    exit 0
+  fi
+
   if [[ $# -eq 0 ]]; then
     usage
     exit 1

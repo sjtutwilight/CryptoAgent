@@ -453,7 +453,6 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ../../runtime/logs:/var/log/app/runtime:ro
-      - ../../backend/logs:/var/log/app/backend:ro
       - ../../process/aggregator/logs:/var/log/app/aggregator:ro
     networks:
       - infra
