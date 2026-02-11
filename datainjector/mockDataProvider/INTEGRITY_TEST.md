@@ -27,7 +27,14 @@ go run . configs/integrity_gap.yaml
 
 这样可以稳定复现序列缺口，便于验证完整性处理链。
 
-## 3. 让 worker 用 mock 源（基于 /tmp/roles_aave_full_stable.json）
+## 3. 让 worker 用 mock 源（基于 datainjector/worker/configs/aave/roles_aave_full_stable.json）
+
+建议先复制一份用于测试，避免污染主配置：
+
+```bash
+cd DataPlatform
+cp datainjector/worker/configs/aave/roles_aave_full_stable.json /tmp/roles_aave_mock_test.json
+```
 
 把 4 个 role 的 websocket URL 改为：
 
@@ -37,6 +44,8 @@ go run . configs/integrity_gap.yaml
 
 - Perp: `http://localhost:8090/fapi/v1/depth`
 - Spot: `http://localhost:8090/api/v3/depth`
+
+然后把修改后的 `/tmp/roles_aave_mock_test.json` 通过 `/api/roles/apply` 下发即可。
 
 ## 4. 建议：给 aggTrade role 也加 integrity handler
 
