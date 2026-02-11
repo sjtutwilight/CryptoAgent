@@ -40,6 +40,7 @@ func NewServer(cfg config.APIServerConfig, mgr *role.Manager, dataSources []conf
 	mux.Handle("/api/roles/apply", s.requireAuth(http.HandlerFunc(s.handleApplyRoles)))
 	mux.Handle("/api/roles/stop", s.requireAuth(http.HandlerFunc(s.handleStopRoles)))
 	mux.Handle("/api/roles/validate", s.requireAuth(http.HandlerFunc(s.handleValidateRoles)))
+	mux.Handle("/api/roles/resolve", s.requireAuth(http.HandlerFunc(s.handleResolveRoles)))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
@@ -188,6 +189,57 @@ func (s *Server) handleValidateRoles(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeJSON(w, map[string]any{
 		"status": "ok",
+	})
+}
+
+type resolveRolesRequest struct {
+	Roles []config.RoleConfig `json:"roles"`
+}
+
+func (s *Server) handleResolveRoles(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req resolveRolesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf("invalid request: %v", err), http.StatusBadRequest)
+		return
+	}
+	if len(req.Roles) == 0 {
+		http.Error(w, "roles payload required", http.StatusBadRequest)
+		return
+	}
+
+	roles := make([]config.RoleConfig, len(req.Roles))
+	copy(roles, req.Roles)
+
+	if err := config.ApplyRoleTemplates(roles, s.roleTemplates); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := config.ApplyPipelineTemplates(roles, s.pipelineTpls); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := config.ApplyDataSourcesToRoles(roles, s.dataSources, s.rateLimit); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	errs := config.ValidateRoles(roles)
+	if len(errs) > 0 {
+		s.writeJSON(w, map[string]any{
+			"status": "invalid",
+			"errors": errs,
+			"roles":  roles,
+		})
+		return
+	}
+
+	s.writeJSON(w, map[string]any{
+		"status": "ok",
+		"roles":  roles,
 	})
 }
 

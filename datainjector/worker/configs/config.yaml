@@ -97,6 +97,59 @@ roles:
         exchange: "binance"
     queue: { size: 3000 }
 
+  - role_id: "binance-perp-aave-orderbook"
+    datasource_id: "binance.futures.ws"
+    template: "binance_perp_ws_stream"
+    pipeline: "perp_orderbook_pipeline"
+    caller_config:
+      datasource_id: "binance.futures.ws"
+      rate_limit:
+        capacity: 80
+        refill_rate: 30
+      backfill:
+        http:
+          enabled: true
+          transport: "rest"
+          endpoint: "https://fapi.binance.com/fapi/v1/depth"
+          method: "GET"
+          datasource_id: "binance.futures.rest"
+          query:
+            symbol: "AAVEUSDT"
+            limit: "500"
+    caller_params:
+      streams:
+        - "aaveusdt@depth@100ms"
+      heartbeat_ms: 15000
+      reconnect:
+        backoff_base_seconds: 1
+        backoff_max_seconds: 30
+      metadata_fields:
+        symbol: "s"
+        event_time: "E"
+    queue: { size: 5000 }
+
+  - role_id: "binance-perp-aave-aggtrades"
+    datasource_id: "binance.futures.ws"
+    template: "binance_perp_ws_stream"
+    pipeline: "binance_perp_aggtrades_pipeline"
+    caller_params:
+      streams:
+        - "aaveusdt@aggTrade"
+      heartbeat_ms: 15000
+      reconnect:
+        backoff_base_seconds: 1
+        backoff_max_seconds: 30
+      metadata_fields:
+        symbol: "s"
+        event_time: "E"
+        agg_trade_id: "a"
+        first_trade_id: "f"
+        last_trade_id: "l"
+      static_metadata:
+        symbol: "AAVEUSDT"
+        exchange: "binance"
+    queue: { size: 3000 }
+
   - role_id: "binance-perp-btc-mark-index"
     datasource_id: "binance.futures.ws"
     template: "binance_perp_ws_stream"

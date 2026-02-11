@@ -27,6 +27,7 @@ type WebSocketClient struct {
 	config WebSocketConfig
 	conn   *websocket.Conn
 	mu     sync.RWMutex
+	writeMu sync.Mutex
 
 	msgChan chan []byte   // 接收到的消息通道
 	errChan chan error    // 错误通道
@@ -99,14 +100,6 @@ func (c *WebSocketClient) Connect() error {
 // JSONRPCRequest 通用 JSON-RPC 请求结构
 // Subscribe 发送订阅消息（JSON-RPC）
 func (c *WebSocketClient) Subscribe(req JSONRPCRequest) error {
-	c.mu.RLock()
-	conn := c.conn
-	c.mu.RUnlock()
-
-	if conn == nil {
-		return fmt.Errorf("websocket未连接")
-	}
-
 	if req.JSONRPC == "" {
 		req.JSONRPC = "2.0"
 	}
@@ -119,7 +112,7 @@ func (c *WebSocketClient) Subscribe(req JSONRPCRequest) error {
 		return fmt.Errorf("序列化订阅消息失败: %w", err)
 	}
 
-	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+	if err := c.writeMessage(websocket.TextMessage, data); err != nil {
 		return fmt.Errorf("发送订阅消息失败: %w", err)
 	}
 	payloadCopy := make([]byte, len(data))
@@ -138,18 +131,11 @@ func (c *WebSocketClient) Subscribe(req JSONRPCRequest) error {
 
 // SendRawSubscribe 发送原生订阅payload，并记录用于重连
 func (c *WebSocketClient) SendRawSubscribe(payload []byte) error {
-	c.mu.RLock()
-	conn := c.conn
-	c.mu.RUnlock()
-
-	if conn == nil {
-		return fmt.Errorf("websocket未连接")
-	}
 	if len(payload) == 0 {
 		return fmt.Errorf("订阅消息为空")
 	}
 
-	if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+	if err := c.writeMessage(websocket.TextMessage, payload); err != nil {
 		return fmt.Errorf("发送订阅消息失败: %w", err)
 	}
 
@@ -189,14 +175,6 @@ func (c *WebSocketClient) SendRawSubscribes(payloads [][]byte) error {
 
 // Unsubscribe 发送退订消息（JSON-RPC）
 func (c *WebSocketClient) Unsubscribe(req JSONRPCRequest) error {
-	c.mu.RLock()
-	conn := c.conn
-	c.mu.RUnlock()
-
-	if conn == nil {
-		return fmt.Errorf("websocket未连接")
-	}
-
 	if req.JSONRPC == "" {
 		req.JSONRPC = "2.0"
 	}
@@ -209,7 +187,7 @@ func (c *WebSocketClient) Unsubscribe(req JSONRPCRequest) error {
 		return fmt.Errorf("序列化退订消息失败: %w", err)
 	}
 
-	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+	if err := c.writeMessage(websocket.TextMessage, data); err != nil {
 		return fmt.Errorf("发送退订消息失败: %w", err)
 	}
 
@@ -241,12 +219,14 @@ func (c *WebSocketClient) ErrorChan() <-chan error {
 func (c *WebSocketClient) Close() error {
 	c.cancel()
 
+	c.writeMu.Lock()
 	c.mu.Lock()
 	if c.conn != nil {
 		_ = c.conn.Close()
 		c.conn = nil
 	}
 	c.mu.Unlock()
+	c.writeMu.Unlock()
 
 	close(c.closeCh)
 	c.wg.Wait()
@@ -271,16 +251,8 @@ func (c *WebSocketClient) heartbeatLoop() {
 		case <-c.closeCh:
 			return
 		case <-ticker.C:
-			c.mu.RLock()
-			conn := c.conn
-			c.mu.RUnlock()
-
-			if conn == nil {
-				continue
-			}
-
 			if len(c.config.HeartbeatPayload) > 0 {
-				if err := conn.WriteMessage(c.config.HeartbeatOpcode, c.config.HeartbeatPayload); err != nil {
+				if err := c.writeMessage(c.config.HeartbeatOpcode, c.config.HeartbeatPayload); err != nil {
 					logging.Warn(context.Background(), logging.EventWSHeartbeatError, "websocket heartbeat failed", logging.Fields{
 						"ws_url": c.config.URL,
 						"error":  err.Error(),
@@ -290,7 +262,7 @@ func (c *WebSocketClient) heartbeatLoop() {
 				continue
 			}
 
-			if err := conn.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
+			if err := c.writeMessage(websocket.PingMessage, []byte{}); err != nil {
 				logging.Warn(context.Background(), logging.EventWSHeartbeatError, "websocket heartbeat failed", logging.Fields{
 					"ws_url": c.config.URL,
 					"error":  err.Error(),
@@ -348,12 +320,14 @@ func (c *WebSocketClient) readLoop() {
 
 // reconnect 重连逻辑，带指数退避
 func (c *WebSocketClient) reconnect() {
+	c.writeMu.Lock()
 	c.mu.Lock()
 	if c.conn != nil {
 		_ = c.conn.Close()
 		c.conn = nil
 	}
 	c.mu.Unlock()
+	c.writeMu.Unlock()
 
 	backoff := time.Duration(c.config.BackoffBaseSeconds) * time.Second
 	maxBackoff := time.Duration(c.config.BackoffMaxSeconds) * time.Second
@@ -412,7 +386,7 @@ func (c *WebSocketClient) reconnect() {
 			if len(payload) == 0 {
 				continue
 			}
-			if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+			if err := c.writeMessage(websocket.TextMessage, payload); err != nil {
 				logging.Warn(context.Background(), logging.EventWSSubscribeRetryErr, "websocket resubscribe failed", logging.Fields{
 					"ws_url": c.config.URL,
 					"error":  err.Error(),
@@ -443,6 +417,13 @@ func (c *WebSocketClient) IsConnected() bool {
 
 // WriteMessage 发送消息到websocket连接
 func (c *WebSocketClient) WriteMessage(data []byte) error {
+	return c.writeMessage(websocket.TextMessage, data)
+}
+
+func (c *WebSocketClient) writeMessage(messageType int, data []byte) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+
 	c.mu.RLock()
 	conn := c.conn
 	c.mu.RUnlock()
@@ -451,5 +432,5 @@ func (c *WebSocketClient) WriteMessage(data []byte) error {
 		return fmt.Errorf("websocket未连接")
 	}
 
-	return conn.WriteMessage(websocket.TextMessage, data)
+	return conn.WriteMessage(messageType, data)
 }

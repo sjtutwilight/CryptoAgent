@@ -150,7 +150,17 @@ func (e *SequenceEngine) OnSnapshotApplied(lastSeq uint64) Decision {
 
 func (e *SequenceEngine) bootstrap(evt *Event) {
 	e.state.Initialized = true
-	e.state.ExpectedNext = evt.Seq
+	if e.cfg.Backfill.SnapshotBased || strings.EqualFold(e.cfg.Gate.Mode, "snapshot_hold") {
+		// For snapshot-gated streams (e.g. Binance depth), keep ExpectedNext at current seq
+		// so the next out-of-order observation naturally triggers snapshot backfill flow.
+		e.state.ExpectedNext = evt.Seq
+	} else {
+		if evt.Seq == math.MaxUint64 {
+			e.state.ExpectedNext = math.MaxUint64
+		} else {
+			e.state.ExpectedNext = evt.Seq + 1
+		}
+	}
 	e.state.SeenMax = evt.Seq
 	e.state.WaitStart = evt.Arrival
 }

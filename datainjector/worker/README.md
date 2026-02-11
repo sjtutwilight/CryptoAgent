@@ -20,3 +20,19 @@ Role 负责 glue；Caller/Handler/Sink 为可插拔组件。
 控制面: /api/roles, /api/roles/apply, /api/roles/stop, /api/roles/validate
 
 ## 关键约束 & 不变量（这块我来维护）
+
+## 录制数据转 ODS
+将 websocket 录制目录（`recording_run*`）转换为 `python_experiment/data/ods` 目录规范：
+
+```bash
+python3 DataPlatform/datainjector/worker/tools/recording_to_ods.py \
+  --input-dir DataPlatform/runtime/data/recording \
+  --output-root python_experiment/data/ods \
+  --datasource-id binance.usdm.ws
+```
+
+默认会生成：
+- `response_0000.json`（分片响应文件）
+- `metadata.json`（ODS 语义元数据）
+- `manifest.json`（转换运行信息）
+- 并自动追加到 `_catalog/ods_dataset_registry.jsonl`

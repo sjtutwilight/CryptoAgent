@@ -779,13 +779,40 @@ func (w *WebSocketCall) ensureConnected() error {
 }
 
 func (w *WebSocketCall) updateSubscribeFromArgs(args map[string]any) {
-	if args == nil || len(args) == 0 {
+	if !hasSubscribeOverrides(args) {
 		return
 	}
 	w.refreshSubscribeRequest(args)
 	w.mu.Lock()
 	w.subscribed = false
 	w.mu.Unlock()
+}
+
+func hasSubscribeOverrides(args map[string]any) bool {
+	if args == nil || len(args) == 0 {
+		return false
+	}
+	keys := []string{
+		"subscribe",
+		"subscribe_raw",
+		"subscribe_method",
+		"subscribe_jsonrpc",
+		"subscribe_params",
+		"subscribe_id",
+		"subscribe_extra",
+		"streams",
+		"listen_key",
+		"message_format",
+		"notify_method",
+		"metadata_fields",
+		"static_metadata",
+	}
+	for _, k := range keys {
+		if _, ok := args[k]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func (w *WebSocketCall) callWebSocket(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {

@@ -1,0 +1,44 @@
+server:
+  host: "localhost"
+  port: 8090
+
+fault:
+  http:
+    enabled: false
+    failure_probability: 0.0
+    rate_limit_probability: 0.0
+    server_error_probability: 0.0
+  websocket:
+    enabled: true
+    disconnection_probability: 0.0
+    data_loss_probability: 0.0
+    heartbeat_anomaly_probability: 0.0
+    disconnection_every_n: 0
+    data_loss_every_n: 4
+  chain_reorg:
+    enabled: false
+    probability: 0.0
+    reorg_depth_min: 1
+    reorg_depth_max: 1
+
+data:
+  ethereum:
+    block_interval: 2
+    start_block_number: 1000000
+    persistence:
+      enabled: false
+      state_file: "./data/block_state.json"
+      save_interval: 10
+    crash_simulation:
+      enabled: false
+      lost_blocks: 0
+  binance:
+    enabled: true
+    interval_ms: 100
+    snapshot_depth: 200
+    symbols:
+      - symbol: "AAVEUSDT"
+        base_price: 110
+        price_tick: 0.01
+        quantity_tick: 0.1
+        levels: 80
