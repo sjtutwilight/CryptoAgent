@@ -25,9 +25,21 @@ type RoleConfig struct {
 	PipelineMode string `yaml:"pipeline_mode" json:"pipeline_mode"` // "queue" | "direct"
 
 	Queue struct {
-		Mode string `yaml:"mode" json:"mode"` // "bounded" | "none"
-		Size int    `yaml:"size" json:"size"`
+		Mode             string `yaml:"mode" json:"mode"` // "bounded" | "none"
+		Size             int    `yaml:"size" json:"size"`
+		TaskTTLSeconds   int    `yaml:"task_ttl_seconds" json:"task_ttl_seconds"`
+		MaxTrackedTasks  int    `yaml:"max_tracked_tasks" json:"max_tracked_tasks"`
+		BackfillQueueCap int    `yaml:"backfill_queue_cap" json:"backfill_queue_cap"`
 	} `yaml:"queue" json:"queue"`
+
+	StrictTaskFinalization      *bool  `yaml:"strict_task_finalization" json:"strict_task_finalization"`
+	WSBoundedBuffer             *bool  `yaml:"ws_bounded_buffer" json:"ws_bounded_buffer"`
+	BackfillResultDriven        *bool  `yaml:"backfill_result_driven_enabled" json:"backfill_result_driven_enabled"`
+	BackfillEnqueueTimeoutMs    int    `yaml:"backfill_enqueue_timeout_ms" json:"backfill_enqueue_timeout_ms"`
+	BackfillPersistentComp      *bool  `yaml:"backfill_persistent_compensation" json:"backfill_persistent_compensation"`
+	BackfillCompensationFile    string `yaml:"backfill_compensation_file" json:"backfill_compensation_file"`
+	BackfillReplayIntervalMs    int    `yaml:"backfill_replay_interval_ms" json:"backfill_replay_interval_ms"`
+	BackfillCompensationMaxPend int    `yaml:"backfill_compensation_max_pending" json:"backfill_compensation_max_pending"`
 
 	Handlers []HandlerConfig `yaml:"handlers" json:"handlers"`
 	Sink     SinkConfig      `yaml:"sink" json:"sink"`
@@ -227,6 +239,15 @@ func (r *RoleConfig) Validate() error {
 	if r.Queue.Size <= 0 {
 		r.Queue.Size = 1000
 	}
+	if r.Queue.TaskTTLSeconds <= 0 {
+		r.Queue.TaskTTLSeconds = 1800
+	}
+	if r.Queue.MaxTrackedTasks <= 0 {
+		r.Queue.MaxTrackedTasks = 10000
+	}
+	if r.Queue.BackfillQueueCap <= 0 {
+		r.Queue.BackfillQueueCap = 256
+	}
 	if r.Queue.Mode == "" {
 		r.Queue.Mode = "bounded"
 	}
@@ -253,10 +274,42 @@ func (r *RoleConfig) Validate() error {
 	if r.Queue.Mode == "none" {
 		r.Queue.Size = 0
 	}
+	if r.BackfillEnqueueTimeoutMs <= 0 {
+		r.BackfillEnqueueTimeoutMs = 200
+	}
+	if r.BackfillReplayIntervalMs <= 0 {
+		r.BackfillReplayIntervalMs = 2000
+	}
+	if r.BackfillCompensationMaxPend <= 0 {
+		r.BackfillCompensationMaxPend = 2000
+	}
 	if r.Sink.Type == "" {
 		r.Sink.Type = "console"
 	}
 	return nil
+}
+
+func (r RoleConfig) StrictTaskFinalizationEnabled() bool {
+	return boolPtrValue(r.StrictTaskFinalization, true)
+}
+
+func (r RoleConfig) WSBoundedBufferEnabled() bool {
+	return boolPtrValue(r.WSBoundedBuffer, true)
+}
+
+func (r RoleConfig) BackfillResultDrivenEnabled() bool {
+	return boolPtrValue(r.BackfillResultDriven, false)
+}
+
+func (r RoleConfig) BackfillPersistentCompEnabled() bool {
+	return boolPtrValue(r.BackfillPersistentComp, false)
+}
+
+func boolPtrValue(v *bool, def bool) bool {
+	if v == nil {
+		return def
+	}
+	return *v
 }
 
 func (r RoleConfig) PollingDuration() time.Duration {
@@ -303,10 +356,21 @@ type RoleTemplateConfig struct {
 	CallerConfig    map[string]any `yaml:"caller_config" json:"caller_config"`
 	CallerParams    map[string]any `yaml:"caller_params" json:"caller_params"`
 	Queue           struct {
-		Mode string `yaml:"mode" json:"mode"`
-		Size int    `yaml:"size" json:"size"`
+		Mode             string `yaml:"mode" json:"mode"`
+		Size             int    `yaml:"size" json:"size"`
+		TaskTTLSeconds   int    `yaml:"task_ttl_seconds" json:"task_ttl_seconds"`
+		MaxTrackedTasks  int    `yaml:"max_tracked_tasks" json:"max_tracked_tasks"`
+		BackfillQueueCap int    `yaml:"backfill_queue_cap" json:"backfill_queue_cap"`
 	} `yaml:"queue" json:"queue"`
-	PipelineMode string `yaml:"pipeline_mode" json:"pipeline_mode"`
+	PipelineMode                string `yaml:"pipeline_mode" json:"pipeline_mode"`
+	StrictTaskFinalization      *bool  `yaml:"strict_task_finalization" json:"strict_task_finalization"`
+	WSBoundedBuffer             *bool  `yaml:"ws_bounded_buffer" json:"ws_bounded_buffer"`
+	BackfillResultDriven        *bool  `yaml:"backfill_result_driven_enabled" json:"backfill_result_driven_enabled"`
+	BackfillEnqueueTimeoutMs    int    `yaml:"backfill_enqueue_timeout_ms" json:"backfill_enqueue_timeout_ms"`
+	BackfillPersistentComp      *bool  `yaml:"backfill_persistent_compensation" json:"backfill_persistent_compensation"`
+	BackfillCompensationFile    string `yaml:"backfill_compensation_file" json:"backfill_compensation_file"`
+	BackfillReplayIntervalMs    int    `yaml:"backfill_replay_interval_ms" json:"backfill_replay_interval_ms"`
+	BackfillCompensationMaxPend int    `yaml:"backfill_compensation_max_pending" json:"backfill_compensation_max_pending"`
 }
 
 type PipelineConfig struct {
@@ -315,10 +379,21 @@ type PipelineConfig struct {
 	Handlers []HandlerConfig `yaml:"handlers" json:"handlers"`
 	Sink     SinkConfig      `yaml:"sink" json:"sink"`
 	Queue    struct {
-		Mode string `yaml:"mode" json:"mode"`
-		Size int    `yaml:"size" json:"size"`
+		Mode             string `yaml:"mode" json:"mode"`
+		Size             int    `yaml:"size" json:"size"`
+		TaskTTLSeconds   int    `yaml:"task_ttl_seconds" json:"task_ttl_seconds"`
+		MaxTrackedTasks  int    `yaml:"max_tracked_tasks" json:"max_tracked_tasks"`
+		BackfillQueueCap int    `yaml:"backfill_queue_cap" json:"backfill_queue_cap"`
 	} `yaml:"queue" json:"queue"`
-	PipelineMode string `yaml:"pipeline_mode" json:"pipeline_mode"`
+	PipelineMode                string `yaml:"pipeline_mode" json:"pipeline_mode"`
+	StrictTaskFinalization      *bool  `yaml:"strict_task_finalization" json:"strict_task_finalization"`
+	WSBoundedBuffer             *bool  `yaml:"ws_bounded_buffer" json:"ws_bounded_buffer"`
+	BackfillResultDriven        *bool  `yaml:"backfill_result_driven_enabled" json:"backfill_result_driven_enabled"`
+	BackfillEnqueueTimeoutMs    int    `yaml:"backfill_enqueue_timeout_ms" json:"backfill_enqueue_timeout_ms"`
+	BackfillPersistentComp      *bool  `yaml:"backfill_persistent_compensation" json:"backfill_persistent_compensation"`
+	BackfillCompensationFile    string `yaml:"backfill_compensation_file" json:"backfill_compensation_file"`
+	BackfillReplayIntervalMs    int    `yaml:"backfill_replay_interval_ms" json:"backfill_replay_interval_ms"`
+	BackfillCompensationMaxPend int    `yaml:"backfill_compensation_max_pending" json:"backfill_compensation_max_pending"`
 }
 
 func ApplyRoleTemplates(roles []RoleConfig, templates []RoleTemplateConfig) error {
@@ -407,8 +482,41 @@ func applyRoleTemplate(role *RoleConfig, tpl RoleTemplateConfig) {
 	if role.Queue.Size == 0 && tpl.Queue.Size > 0 {
 		role.Queue.Size = tpl.Queue.Size
 	}
+	if role.Queue.TaskTTLSeconds == 0 && tpl.Queue.TaskTTLSeconds > 0 {
+		role.Queue.TaskTTLSeconds = tpl.Queue.TaskTTLSeconds
+	}
+	if role.Queue.MaxTrackedTasks == 0 && tpl.Queue.MaxTrackedTasks > 0 {
+		role.Queue.MaxTrackedTasks = tpl.Queue.MaxTrackedTasks
+	}
+	if role.Queue.BackfillQueueCap == 0 && tpl.Queue.BackfillQueueCap > 0 {
+		role.Queue.BackfillQueueCap = tpl.Queue.BackfillQueueCap
+	}
 	if role.PipelineMode == "" && tpl.PipelineMode != "" {
 		role.PipelineMode = tpl.PipelineMode
+	}
+	if role.StrictTaskFinalization == nil && tpl.StrictTaskFinalization != nil {
+		role.StrictTaskFinalization = tpl.StrictTaskFinalization
+	}
+	if role.WSBoundedBuffer == nil && tpl.WSBoundedBuffer != nil {
+		role.WSBoundedBuffer = tpl.WSBoundedBuffer
+	}
+	if role.BackfillResultDriven == nil && tpl.BackfillResultDriven != nil {
+		role.BackfillResultDriven = tpl.BackfillResultDriven
+	}
+	if role.BackfillEnqueueTimeoutMs == 0 && tpl.BackfillEnqueueTimeoutMs > 0 {
+		role.BackfillEnqueueTimeoutMs = tpl.BackfillEnqueueTimeoutMs
+	}
+	if role.BackfillPersistentComp == nil && tpl.BackfillPersistentComp != nil {
+		role.BackfillPersistentComp = tpl.BackfillPersistentComp
+	}
+	if role.BackfillCompensationFile == "" && tpl.BackfillCompensationFile != "" {
+		role.BackfillCompensationFile = tpl.BackfillCompensationFile
+	}
+	if role.BackfillReplayIntervalMs == 0 && tpl.BackfillReplayIntervalMs > 0 {
+		role.BackfillReplayIntervalMs = tpl.BackfillReplayIntervalMs
+	}
+	if role.BackfillCompensationMaxPend == 0 && tpl.BackfillCompensationMaxPend > 0 {
+		role.BackfillCompensationMaxPend = tpl.BackfillCompensationMaxPend
 	}
 }
 
@@ -428,8 +536,41 @@ func applyPipelineTemplate(role *RoleConfig, tpl PipelineConfig) {
 	if role.Queue.Size == 0 && tpl.Queue.Size > 0 {
 		role.Queue.Size = tpl.Queue.Size
 	}
+	if role.Queue.TaskTTLSeconds == 0 && tpl.Queue.TaskTTLSeconds > 0 {
+		role.Queue.TaskTTLSeconds = tpl.Queue.TaskTTLSeconds
+	}
+	if role.Queue.MaxTrackedTasks == 0 && tpl.Queue.MaxTrackedTasks > 0 {
+		role.Queue.MaxTrackedTasks = tpl.Queue.MaxTrackedTasks
+	}
+	if role.Queue.BackfillQueueCap == 0 && tpl.Queue.BackfillQueueCap > 0 {
+		role.Queue.BackfillQueueCap = tpl.Queue.BackfillQueueCap
+	}
 	if role.PipelineMode == "" && tpl.PipelineMode != "" {
 		role.PipelineMode = tpl.PipelineMode
+	}
+	if role.StrictTaskFinalization == nil && tpl.StrictTaskFinalization != nil {
+		role.StrictTaskFinalization = tpl.StrictTaskFinalization
+	}
+	if role.WSBoundedBuffer == nil && tpl.WSBoundedBuffer != nil {
+		role.WSBoundedBuffer = tpl.WSBoundedBuffer
+	}
+	if role.BackfillResultDriven == nil && tpl.BackfillResultDriven != nil {
+		role.BackfillResultDriven = tpl.BackfillResultDriven
+	}
+	if role.BackfillEnqueueTimeoutMs == 0 && tpl.BackfillEnqueueTimeoutMs > 0 {
+		role.BackfillEnqueueTimeoutMs = tpl.BackfillEnqueueTimeoutMs
+	}
+	if role.BackfillPersistentComp == nil && tpl.BackfillPersistentComp != nil {
+		role.BackfillPersistentComp = tpl.BackfillPersistentComp
+	}
+	if role.BackfillCompensationFile == "" && tpl.BackfillCompensationFile != "" {
+		role.BackfillCompensationFile = tpl.BackfillCompensationFile
+	}
+	if role.BackfillReplayIntervalMs == 0 && tpl.BackfillReplayIntervalMs > 0 {
+		role.BackfillReplayIntervalMs = tpl.BackfillReplayIntervalMs
+	}
+	if role.BackfillCompensationMaxPend == 0 && tpl.BackfillCompensationMaxPend > 0 {
+		role.BackfillCompensationMaxPend = tpl.BackfillCompensationMaxPend
 	}
 }
 
@@ -547,8 +688,7 @@ func validateRoleRequirements(role RoleConfig) []string {
 
 func requiresSymbol(handlerType string) bool {
 	switch handlerType {
-	case "orderbook_diff",
-		"mark_index_parser",
+	case "mark_index_parser",
 		"funding_normalizer",
 		"oi_normalizer",
 		"liquidation_normalizer",

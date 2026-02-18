@@ -1,0 +1,9 @@
+run_id: 20260215-074041-jn24wm
+scenario: datainjector_fault_regression
+overall_status: FAIL
+failed_roles: rec-binance-perp-aave-orderbook-full
+
+role_results:
+- rec-binance-perp-aave-orderbook-full: FAIL
+  missing_events: ws.reconnect.start, ws.reconnect.success
+  failed_events: none

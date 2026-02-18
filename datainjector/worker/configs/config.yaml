@@ -12,6 +12,22 @@ metrics:
 # File sink roles 已移至 roles_localfile.yaml
 roles:
 
+  # 可靠性治理开关（可加在任意 role 下）：
+  # strict_task_finalization: true
+  # ws_bounded_buffer: true
+  # backfill_result_driven_enabled: false
+  # backfill_enqueue_timeout_ms: 200
+  # backfill_persistent_compensation: false
+  # backfill_compensation_file: "runtime/data/backfill_compensation_<role_id>.json"
+  # backfill_replay_interval_ms: 2000
+  # backfill_compensation_max_pending: 2000
+  # queue:
+  #   mode: bounded
+  #   size: 5000
+  #   task_ttl_seconds: 1800
+  #   max_tracked_tasks: 10000
+  #   backfill_queue_cap: 256
+
   - role_id: "localnode-block"
     template: "sdk_polling"
     pipeline: "localnode_block_pipeline"

@@ -19,6 +19,13 @@ Role 负责 glue；Caller/Handler/Sink 为可插拔组件。
 ## 对外接口 / CLI / 配置项
 控制面: /api/roles, /api/roles/apply, /api/roles/stop, /api/roles/validate
 
+## AAVE 微观结构默认路径
+- AAVE orderbook 默认链路为 `diff + snapshot` 双 topic：`*.orderbook.diff`、`*.orderbook.snapshot`。
+- AAVE aggtrades 保持独立 topic（`*.aggtrades`）不回退。
+- 角色工件: `configs/aave/roles_aave_full_stable.json`
+- 回滚工件: `configs/aave/roles_aave_full_stable_file_rollback.json`
+- 发布与回滚说明: `doc/aave_microstructure_kafka_rollout.md`
+
 ## 关键约束 & 不变量（这块我来维护）
 
 ## 录制数据转 ODS

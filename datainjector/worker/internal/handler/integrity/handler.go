@@ -44,7 +44,11 @@ func NewIntegrityHandler(cfg Config) (*IntegrityHandler, error) {
 }
 
 func (h *IntegrityHandler) SetBackfillTarget(name string, ch chan<- types.BackfillCmd) {
-	h.scheduler.RegisterTarget(name, &ChannelTarget{Ch: ch})
+	timeout := h.cfg.Backfill.EnqueueTimeout
+	if timeout <= 0 {
+		timeout = 200 * time.Millisecond
+	}
+	h.scheduler.RegisterTarget(name, &ChannelTarget{Ch: ch, EnqueueTimeout: timeout})
 }
 
 func (h *IntegrityHandler) Handle(msg *types.Message) ([]*types.Message, error) {
@@ -65,6 +69,13 @@ func (h *IntegrityHandler) OnSnapshotApplied(lastSeq uint64) []*types.Message {
 	// 所有消息释放由 engine.OnSnapshotApplied 处理
 	decision := h.engine.OnSnapshotApplied(lastSeq)
 	return decision.Deliver
+}
+
+func (h *IntegrityHandler) OnBackfillResult(result types.BackfillResult) {
+	if h == nil || h.engine == nil {
+		return
+	}
+	h.engine.OnBackfillResult(result)
 }
 
 func (h *IntegrityHandler) buildEvent(msg *types.Message) (*Event, error) {
@@ -116,10 +127,27 @@ func buildRangeEvaluator(profile, rangeField string) RangeEvaluator {
 	switch strings.ToLower(profile) {
 	case "binance_depth":
 		return rangeEvalFunc(func(expected uint64, evt *Event) bool {
-			if evt == nil || !evt.HasRange {
+			if evt == nil {
 				return false
 			}
-			return evt.RangeStart <= expected && evt.Seq >= expected
+			// Primary path: standard U/u range covers expected sequence.
+			if evt.HasRange && evt.RangeStart <= expected && evt.Seq >= expected {
+				return true
+			}
+			// Fallback path for streams where U may not be contiguous:
+			// trust pu continuity when it matches previous expected boundary.
+			if evt.Message == nil || evt.Message.Metadata == nil {
+				return false
+			}
+			prevRaw, ok := evt.Message.Metadata["prev_final_update_id"]
+			if !ok {
+				return false
+			}
+			prev, err := toUint64(prevRaw)
+			if err != nil || prev == ^uint64(0) {
+				return false
+			}
+			return prev+1 == expected
 		})
 	default:
 		return rangeEvalFunc(func(expected uint64, evt *Event) bool {

@@ -1,13 +1,14 @@
 {
+  "__comment_governed_startup": "Run with --config datainjector/worker/configs/base.yaml --roles datainjector/worker/configs/aave/roles_aave_full_stable.json. Orderbook uses diff/snapshot dual-topic pipeline.",
   "roles": [
     {
-      "role_id": "rec-binance-perp-aave-orderbook-full",
+      "role_id": "rec-binance-perp-aave-orderbook-diff",
       "emitter": "single",
       "caller": "native_call",
       "caller_config": {
         "protocol": "websocket",
         "__comment_real_url": "wss://fstream.binance.com/ws",
-        "url": "ws://localhost:8090/ws/binance",
+        "url": "wss://fstream.binance.com/ws",
         "message_format": "binance",
         "streams": [
           "aaveusdt@depth@100ms"
@@ -28,7 +29,13 @@
           "refill_rate": 30
         }
       },
+      "caller_params": {
+        "reconnect": {
+          "share_by_endpoint": false
+        }
+      },
       "pipeline_mode": "queue",
+      "backfill_result_driven_enabled": true,
       "queue": {
         "mode": "bounded",
         "size": 20000
@@ -44,19 +51,20 @@
           "type": "integrity",
           "with": {
             "profile": "binance_depth",
+            "orderbook_mode": "snapshot_sidechannel",
             "sequence_field": "final_update_id",
             "stream_key_field": "binance_symbol",
-            "eager_gap": 5,
-            "max_gap": 30,
-            "max_delay_ms": 500,
-            "hard_timeout_ms": 2000,
-            "backfill_cooldown_ms": 1000,
+            "eager_gap": 0,
+            "max_gap": 1000,
+            "max_delay_ms": 5000,
+            "hard_timeout_ms": 60000,
+            "backfill_cooldown_ms": 30000,
             "backfill": {
               "http": {
                 "enabled": true,
                 "transport": "rest",
                 "__comment_real_endpoint": "https://fapi.binance.com/fapi/v1/depth",
-                "endpoint": "http://localhost:8090/fapi/v1/depth",
+                "endpoint": "https://fapi.binance.com/fapi/v1/depth",
                 "method": "GET",
                 "query": {
                   "symbol": "AAVEUSDT",
@@ -67,25 +75,92 @@
           }
         },
         {
-          "type": "orderbook_diff",
+          "type": "orderbook_topic_router",
           "with": {
             "symbol": "AAVEUSDT",
-            "exchange": "binance",
-            "max_depth": 200
+            "exchange": "binance"
           }
-        },
-        {
-          "type": "orderbook_validator",
-          "with": {}
         }
       ],
       "sink": {
-        "type": "file",
+        "type": "kafka",
         "with": {
-          "output_dir": "runtime/data/recording/binance/futures/orderbook/aaveusdt",
-          "output_format": "jsonl",
-          "filename_prefix": "orderbook",
-          "max_records_per_file": 20000
+          "topic": "perp.orderbook.diff",
+          "topic_field": "ob_topic",
+          "topic_map": {
+            "diff": "perp.orderbook.diff",
+            "snapshot": "perp.orderbook.snapshot"
+          },
+          "key_from": [
+            "symbol",
+            "exchange"
+          ]
+        }
+      }
+    },
+    {
+      "role_id": "rec-binance-perp-aave-orderbook-snapshot",
+      "emitter": "polling",
+      "polling_interval": 10,
+      "caller": "native_call",
+      "caller_config": {
+        "protocol": "http",
+        "endpoint": "https://fapi.binance.com/fapi/v1/depth",
+        "request": {
+          "transport": "rest",
+          "method": "GET",
+          "query": {
+            "symbol": "AAVEUSDT",
+            "limit": "500"
+          }
+        },
+        "metadata": {
+          "exchange": "binance",
+          "symbol": "AAVEUSDT",
+          "snapshot": true,
+          "snapshot_source": "periodic",
+          "snapshot_reason": "periodic"
+        },
+        "rate_limit": {
+          "capacity": 40,
+          "refill_rate": 10
+        }
+      },
+      "pipeline_mode": "queue",
+      "queue": {
+        "mode": "bounded",
+        "size": 5000
+      },
+      "handlers": [
+        {
+          "type": "binance",
+          "with": {
+            "kind": "depth"
+          }
+        },
+        {
+          "type": "orderbook_topic_router",
+          "with": {
+            "symbol": "AAVEUSDT",
+            "exchange": "binance",
+            "snapshot_source": "periodic",
+            "snapshot_reason": "periodic"
+          }
+        }
+      ],
+      "sink": {
+        "type": "kafka",
+        "with": {
+          "topic": "perp.orderbook.snapshot",
+          "topic_field": "ob_topic",
+          "topic_map": {
+            "diff": "perp.orderbook.diff",
+            "snapshot": "perp.orderbook.snapshot"
+          },
+          "key_from": [
+            "symbol",
+            "exchange"
+          ]
         }
       }
     },
@@ -96,7 +171,7 @@
       "caller_config": {
         "protocol": "websocket",
         "__comment_real_url": "wss://fstream.binance.com/ws",
-        "url": "ws://localhost:8090/ws/binance",
+        "url": "wss://fstream.binance.com/ws",
         "message_format": "binance",
         "streams": [
           "aaveusdt@aggTrade"
@@ -117,7 +192,13 @@
           "refill_rate": 30
         }
       },
+      "caller_params": {
+        "reconnect": {
+          "share_by_endpoint": true
+        }
+      },
       "pipeline_mode": "queue",
+      "backfill_result_driven_enabled": true,
       "queue": {
         "mode": "bounded",
         "size": 20000
@@ -138,28 +219,46 @@
             "eager_gap": 3,
             "max_gap": 20,
             "max_delay_ms": 500,
-            "hard_timeout_ms": 2000
+            "hard_timeout_ms": 20000,
+            "backfill_cooldown_ms": 15000,
+            "backfill": {
+              "http": {
+                "enabled": true,
+                "transport": "rest",
+                "endpoint": "https://fapi.binance.com/fapi/v1/aggTrades",
+                "method": "GET",
+                "range_window": true,
+                "range_start_param": "fromId",
+                "range_limit_param": "limit",
+                "range_max_limit": 1000,
+                "query": {
+                  "symbol": "AAVEUSDT",
+                  "limit": "1000"
+                }
+              }
+            }
           }
         }
       ],
       "sink": {
-        "type": "file",
+        "type": "kafka",
         "with": {
-          "output_dir": "runtime/data/recording/binance/futures/aggtrade/aaveusdt",
-          "output_format": "jsonl",
-          "filename_prefix": "aggtrade",
-          "max_records_per_file": 50000
+          "topic": "perp.aggtrades",
+          "key_from": [
+            "symbol",
+            "exchange"
+          ]
         }
       }
     },
     {
-      "role_id": "rec-binance-spot-aave-orderbook-full",
+      "role_id": "rec-binance-spot-aave-orderbook-diff",
       "emitter": "single",
       "caller": "native_call",
       "caller_config": {
         "protocol": "websocket",
         "__comment_real_url": "wss://stream.binance.com:9443/ws",
-        "url": "ws://localhost:8090/ws/binance",
+        "url": "wss://stream.binance.com:9443/ws",
         "message_format": "binance",
         "streams": [
           "aaveusdt@depth@100ms"
@@ -180,7 +279,13 @@
           "refill_rate": 30
         }
       },
+      "caller_params": {
+        "reconnect": {
+          "share_by_endpoint": false
+        }
+      },
       "pipeline_mode": "queue",
+      "backfill_result_driven_enabled": true,
       "queue": {
         "mode": "bounded",
         "size": 20000
@@ -196,6 +301,7 @@
           "type": "integrity",
           "with": {
             "profile": "binance_depth",
+            "orderbook_mode": "snapshot_sidechannel",
             "sequence_field": "final_update_id",
             "stream_key_field": "binance_symbol",
             "eager_gap": 5,
@@ -208,7 +314,7 @@
                 "enabled": true,
                 "transport": "rest",
                 "__comment_real_endpoint": "https://api.binance.com/api/v3/depth",
-                "endpoint": "http://localhost:8090/api/v3/depth",
+                "endpoint": "https://api.binance.com/api/v3/depth",
                 "method": "GET",
                 "query": {
                   "symbol": "AAVEUSDT",
@@ -219,25 +325,92 @@
           }
         },
         {
-          "type": "orderbook_diff",
+          "type": "orderbook_topic_router",
           "with": {
             "symbol": "AAVEUSDT",
-            "exchange": "binance",
-            "max_depth": 200
+            "exchange": "binance"
           }
-        },
-        {
-          "type": "orderbook_validator",
-          "with": {}
         }
       ],
       "sink": {
-        "type": "file",
+        "type": "kafka",
         "with": {
-          "output_dir": "runtime/data/recording/binance/spot/orderbook/aaveusdt",
-          "output_format": "jsonl",
-          "filename_prefix": "orderbook",
-          "max_records_per_file": 20000
+          "topic": "spot.orderbook.diff",
+          "topic_field": "ob_topic",
+          "topic_map": {
+            "diff": "spot.orderbook.diff",
+            "snapshot": "spot.orderbook.snapshot"
+          },
+          "key_from": [
+            "symbol",
+            "exchange"
+          ]
+        }
+      }
+    },
+    {
+      "role_id": "rec-binance-spot-aave-orderbook-snapshot",
+      "emitter": "polling",
+      "polling_interval": 10,
+      "caller": "native_call",
+      "caller_config": {
+        "protocol": "http",
+        "endpoint": "https://api.binance.com/api/v3/depth",
+        "request": {
+          "transport": "rest",
+          "method": "GET",
+          "query": {
+            "symbol": "AAVEUSDT",
+            "limit": "500"
+          }
+        },
+        "metadata": {
+          "exchange": "binance",
+          "symbol": "AAVEUSDT",
+          "snapshot": true,
+          "snapshot_source": "periodic",
+          "snapshot_reason": "periodic"
+        },
+        "rate_limit": {
+          "capacity": 40,
+          "refill_rate": 10
+        }
+      },
+      "pipeline_mode": "queue",
+      "queue": {
+        "mode": "bounded",
+        "size": 5000
+      },
+      "handlers": [
+        {
+          "type": "binance",
+          "with": {
+            "kind": "depth"
+          }
+        },
+        {
+          "type": "orderbook_topic_router",
+          "with": {
+            "symbol": "AAVEUSDT",
+            "exchange": "binance",
+            "snapshot_source": "periodic",
+            "snapshot_reason": "periodic"
+          }
+        }
+      ],
+      "sink": {
+        "type": "kafka",
+        "with": {
+          "topic": "spot.orderbook.snapshot",
+          "topic_field": "ob_topic",
+          "topic_map": {
+            "diff": "spot.orderbook.diff",
+            "snapshot": "spot.orderbook.snapshot"
+          },
+          "key_from": [
+            "symbol",
+            "exchange"
+          ]
         }
       }
     },
@@ -248,7 +421,7 @@
       "caller_config": {
         "protocol": "websocket",
         "__comment_real_url": "wss://stream.binance.com:9443/ws",
-        "url": "ws://localhost:8090/ws/binance",
+        "url": "wss://stream.binance.com:9443/ws",
         "message_format": "binance",
         "streams": [
           "aaveusdt@aggTrade"
@@ -269,7 +442,13 @@
           "refill_rate": 30
         }
       },
+      "caller_params": {
+        "reconnect": {
+          "share_by_endpoint": true
+        }
+      },
       "pipeline_mode": "queue",
+      "backfill_result_driven_enabled": true,
       "queue": {
         "mode": "bounded",
         "size": 20000
@@ -290,17 +469,35 @@
             "eager_gap": 3,
             "max_gap": 20,
             "max_delay_ms": 500,
-            "hard_timeout_ms": 2000
+            "hard_timeout_ms": 2000,
+            "backfill_cooldown_ms": 1000,
+            "backfill": {
+              "http": {
+                "enabled": true,
+                "transport": "rest",
+                "endpoint": "https://api.binance.com/api/v3/aggTrades",
+                "method": "GET",
+                "range_window": true,
+                "range_start_param": "fromId",
+                "range_limit_param": "limit",
+                "range_max_limit": 1000,
+                "query": {
+                  "symbol": "AAVEUSDT",
+                  "limit": "1000"
+                }
+              }
+            }
           }
         }
       ],
       "sink": {
-        "type": "file",
+        "type": "kafka",
         "with": {
-          "output_dir": "runtime/data/recording/binance/spot/aggtrade/aaveusdt",
-          "output_format": "jsonl",
-          "filename_prefix": "aggtrade",
-          "max_records_per_file": 50000
+          "topic": "spot.aggtrades",
+          "key_from": [
+            "symbol",
+            "exchange"
+          ]
         }
       }
     }

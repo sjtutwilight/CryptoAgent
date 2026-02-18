@@ -29,7 +29,8 @@ def get_default_config() -> Dict[str, Any]:
         # DataInjector 配置
         "datainjector_api": None,
         "datainjector_container": os.getenv("DATAINJECTOR_CONTAINER", "datainjector-worker"),
-        
+        "datainjector_token": None,
+
         # 构建配置
         "build_jar": False,
         "jar_path": "process/aggregator/target/aggregator-1.0-SNAPSHOT.jar",
@@ -39,6 +40,23 @@ def get_default_config() -> Dict[str, Any]:
         "skip_clean_clickhouse": False,
         "cancel_job": True,
         "keep_job": False,
+
+        # 故障回归默认配置
+        "role_ids": [],
+        "role_config_yaml": "datainjector/worker/configs/config.yaml",
+        "fault_mode": "mock",  # mock | real
+        "fault_case": "disconnect_reconnect",
+        "fault_action": "role_restart",  # role_restart | container_pause | noop
+        "fault_pause_seconds": 8,
+        "observe_seconds": 20,
+        "log_since_seconds": 120,
+        "fault_log_tail_lines": 5000,
+        "expect_backfill": False,
+        "fault_rules": {},
+        "mock_provider_base_url": os.getenv("MOCK_PROVIDER_BASE_URL", "http://localhost:8090"),
+        "require_mock_provider": False,
+        "fault_target_container": "",
+        "fault_worker_container": os.getenv("DATAINJECTOR_CONTAINER", "datainjector-worker"),
+        "apply_roles_before_inject": True,
+        "cleanup_stop_roles": False,
     }
-
-

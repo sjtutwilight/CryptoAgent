@@ -1,277 +1,331 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/handler/parser/binance"
-	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/resource/orderbook"
+	obslogging "github.com/twilight-labs/dataplatform/datainjector/worker/internal/observability/logging"
+	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/observability/metrics"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/types"
+	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/util"
 )
 
 const (
-	defaultSnapshotURL = "https://fapi.binance.com/fapi/v1/depth"
-	defaultExchange    = "binance"
+	defaultOrderbookExchange = "binance"
+	obTopicDiff              = "diff"
+	obTopicSnapshot          = "snapshot"
 )
 
-type orderbookDiffHandler struct {
-	symbol    string
-	exchange  string
-	engine    *orderbook.Engine
-	listeners []SnapshotListener
+type orderbookTopicRouter struct {
+	symbol         string
+	exchange       string
+	snapshotSource string
+	snapshotReason string
 }
 
-type orderbookValidator struct{}
-
-type orderbookEvent struct {
-	Symbol     string       `json:"symbol"`
-	Exchange   string       `json:"exchange"`
-	Snapshot   bool         `json:"snapshot"`
-	Depth      depthPayload `json:"depth"`
-	Seq        int64        `json:"seq"`
-	ExchangeTS int64        `json:"exchange_ts"`
-	IngestTS   int64        `json:"ingest_ts"`
+type orderbookDiffEvent struct {
+	Symbol            string     `json:"symbol"`
+	Exchange          string     `json:"exchange"`
+	Snapshot          bool       `json:"snapshot"`
+	FirstUpdateID     int64      `json:"first_update_id"`
+	FinalUpdateID     int64      `json:"final_update_id"`
+	PrevFinalUpdateID int64      `json:"prev_final_update_id"`
+	Bids              [][]string `json:"bids,omitempty"`
+	Asks              [][]string `json:"asks,omitempty"`
+	ExchangeTS        int64      `json:"exchange_ts"`
+	IngestTS          int64      `json:"ingest_ts"`
 }
 
-type depthPayload struct {
-	Bids [][]string `json:"bids"`
-	Asks [][]string `json:"asks"`
+type orderbookSnapshotEvent struct {
+	Symbol         string     `json:"symbol"`
+	Exchange       string     `json:"exchange"`
+	Snapshot       bool       `json:"snapshot"`
+	LastUpdateID   int64      `json:"lastUpdateId"`
+	SnapshotSource string     `json:"snapshot_source"`
+	SnapshotReason string     `json:"snapshot_reason"`
+	Bids           [][]string `json:"bids,omitempty"`
+	Asks           [][]string `json:"asks,omitempty"`
+	ExchangeTS     int64      `json:"exchange_ts"`
+	IngestTS       int64      `json:"ingest_ts"`
 }
 
 func init() {
-	Register("orderbook_diff", newOrderbookDiffHandler)
-	Register("orderbook_validator", newOrderbookValidator)
+	Register("orderbook_topic_router", newOrderbookTopicRouter)
 }
 
-func newOrderbookDiffHandler(cfg map[string]any) (Handler, error) {
+func newOrderbookTopicRouter(cfg map[string]any) (Handler, error) {
 	if cfg == nil {
 		cfg = map[string]any{}
 	}
-	symbol := strings.ToUpper(getString(cfg, "symbol", ""))
-	if symbol == "" {
-		return nil, fmt.Errorf("orderbook_diff: symbol required")
-	}
-	maxDepth := getInt(cfg, "max_depth", 100)
-	h := &orderbookDiffHandler{
-		symbol:   symbol,
-		exchange: getString(cfg, "exchange", defaultExchange),
-		engine:   orderbook.NewEngine(symbol, maxDepth),
-	}
-	return h, nil
+	return &orderbookTopicRouter{
+		symbol:         strings.ToUpper(getString(cfg, "symbol", "")),
+		exchange:       strings.ToLower(getString(cfg, "exchange", defaultOrderbookExchange)),
+		snapshotSource: strings.TrimSpace(getString(cfg, "snapshot_source", "")),
+		snapshotReason: strings.TrimSpace(getString(cfg, "snapshot_reason", "")),
+	}, nil
 }
 
-func newOrderbookValidator(cfg map[string]any) (Handler, error) {
-	return &orderbookValidator{}, nil
-}
-
-func (h *orderbookDiffHandler) SetSnapshotListener(listener SnapshotListener) {
-	if listener == nil {
-		return
-	}
-	h.listeners = append(h.listeners, listener)
-}
-
-func (h *orderbookDiffHandler) Handle(msg *types.Message) ([]*types.Message, error) {
+func (h *orderbookTopicRouter) Handle(msg *types.Message) ([]*types.Message, error) {
 	if msg == nil || len(msg.Payload) == 0 {
 		return nil, nil
 	}
-
-	// 检查是否为 backfill 的 snapshot 消息
-	if isBackfill, _ := msg.Metadata["is_backfill"].(bool); isBackfill {
-		if isSnapshot, _ := msg.Metadata["snapshot"].(bool); isSnapshot {
-			log.Printf("[orderbook_diff] 收到快照消息: symbol=%s", h.symbol)
-			out, lastUpdateID, err := h.applySnapshotFromMessage(msg)
-			if err != nil {
-				return nil, err
-			}
-
-			if len(h.listeners) > 0 {
-				for _, listener := range h.listeners {
-					if listener == nil {
-						continue
-					}
-					ready := listener.OnSnapshotApplied(uint64(lastUpdateID))
-					for _, readyMsg := range ready {
-						diffOut, err := h.handleDiffMessage(readyMsg)
-						if err != nil {
-							return nil, err
-						}
-						out = append(out, diffOut...)
-					}
-				}
-			}
-			return out, nil
-		}
-	}
-
-	return h.handleDiffMessage(msg)
-}
-
-// applySnapshotFromMessage 处理从 backfill 返回的快照消息
-func (h *orderbookDiffHandler) applySnapshotFromMessage(msg *types.Message) ([]*types.Message, int64, error) {
-	var snapshot binance.DepthSnapshotResponse
-	if err := json.Unmarshal(msg.Payload, &snapshot); err != nil {
-		return nil, 0, fmt.Errorf("orderbook_diff: decode snapshot failed: %w", err)
-	}
-	if snapshot.Code != 0 {
-		return nil, 0, fmt.Errorf("orderbook_diff: snapshot api error code=%d msg=%s", snapshot.Code, snapshot.Msg)
-	}
-	if snapshot.LastUpdateID == 0 {
-		return nil, 0, fmt.Errorf("orderbook_diff: snapshot missing lastUpdateId")
-	}
-
-	log.Printf("[orderbook_diff] 应用快照: symbol=%s lastUpdateID=%d bids=%d asks=%d",
-		h.symbol, snapshot.LastUpdateID, len(snapshot.Bids), len(snapshot.Asks))
-
-	book, err := h.engine.ApplySnapshot(orderbook.Snapshot{
-		LastUpdateID: snapshot.LastUpdateID,
-		Bids:         toLevels(snapshot.Bids),
-		Asks:         toLevels(snapshot.Asks),
-	})
-	if err != nil {
-		return nil, 0, err
-	}
-
-	log.Printf("[orderbook_diff] 快照应用成功: symbol=%s lastUpdateID=%d", h.symbol, h.engine.LastUpdateID())
-
-	exchangeTS := snapshot.Transaction
-	if exchangeTS == 0 {
-		exchangeTS = snapshot.EventTime
-	}
-	if exchangeTS == 0 {
-		exchangeTS = time.Now().UTC().UnixMilli()
-	}
-
-	out, err := buildOrderbookMessage(book, h.symbol, h.exchange, exchangeTS)
-	if err != nil {
-		return nil, 0, err
-	}
-	return []*types.Message{out}, snapshot.LastUpdateID, nil
-}
-
-func (h *orderbookDiffHandler) handleDiffMessage(msg *types.Message) ([]*types.Message, error) {
-	// 依赖上游 parser handler 已将数据解析并放入 metadata
-	// 确保配置中 binance_parser 在 orderbook_diff 之前执行
 	if msg.Metadata == nil {
-		return nil, fmt.Errorf("orderbook_diff: metadata 缺失，请确保上游 parser handler 已配置")
+		msg.Metadata = map[string]any{}
 	}
 
-	depth, ok := msg.Metadata["binance_depth"].(*binance.DepthMessage)
-	if !ok || depth == nil {
-		return nil, fmt.Errorf("orderbook_diff: binance_depth 未找到或类型错误，请确保上游 binance_parser 已配置")
-	}
-
-	if depth.Symbol != "" && strings.ToUpper(depth.Symbol) != h.symbol {
-		return nil, nil
-	}
-
-	book, applied, err := h.engine.ApplyDiff(orderbook.Diff{
-		FirstUpdateID: depth.FirstUpdateID,
-		FinalUpdateID: depth.FinalUpdateID,
-		PrevFinalID:   depth.PrevFinalUpdateID,
-		Bids:          toLevels(depth.Bids),
-		Asks:          toLevels(depth.Asks),
-	})
-	if err != nil {
-		switch err {
-		case orderbook.ErrNoSnapshot:
-			return nil, nil
-		case orderbook.ErrStaleUpdate:
-			return nil, nil
-		case orderbook.ErrSequenceGap:
-			log.Printf("[orderbook_diff] sequence gap for %s: U=%d u=%d pu=%d last=%d",
-				h.symbol, depth.FirstUpdateID, depth.FinalUpdateID, depth.PrevFinalUpdateID, h.engine.LastUpdateID())
-			return nil, nil
-		default:
+	if out, ok, err := h.handleDiff(msg); ok {
+		if err != nil {
 			return nil, err
 		}
+		if out == nil {
+			return nil, nil
+		}
+		return []*types.Message{out}, nil
 	}
-	if !applied {
-		log.Printf("[orderbook_diff] diff 未应用: symbol=%s U=%d u=%d last=%d",
-			h.symbol, depth.FirstUpdateID, depth.FinalUpdateID, h.engine.LastUpdateID())
-		return nil, nil
-	}
-
-	log.Printf("[orderbook_diff] diff 应用成功: symbol=%s U=%d u=%d last=%d",
-		h.symbol, depth.FirstUpdateID, depth.FinalUpdateID, h.engine.LastUpdateID())
-
-	exchangeTS := depth.TransactionTime
-	if exchangeTS == 0 {
-		exchangeTS = depth.EventTime
-	}
-	if exchangeTS == 0 {
-		exchangeTS = time.Now().UTC().UnixMilli()
-	}
-
-	out, err := buildOrderbookMessage(book, h.symbol, h.exchange, exchangeTS)
+	out, err := h.handleSnapshot(msg)
 	if err != nil {
 		return nil, err
+	}
+	if out == nil {
+		return nil, nil
 	}
 	return []*types.Message{out}, nil
 }
 
-func (v *orderbookValidator) Handle(msg *types.Message) ([]*types.Message, error) {
-	if msg == nil || len(msg.Payload) == 0 {
-		return nil, nil
+func (h *orderbookTopicRouter) handleDiff(msg *types.Message) (*types.Message, bool, error) {
+	depth, ok := msg.Metadata["binance_depth"].(*binance.DepthMessage)
+	if !ok || depth == nil {
+		return nil, false, nil
+	}
+	if isSnapshotMeta(msg.Metadata) {
+		return nil, false, nil
 	}
 
-	var payload orderbookEvent
-	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
-		return nil, fmt.Errorf("orderbook_validator: invalid payload: %w", err)
+	symbol := h.resolveSymbol(depth.Symbol, msg.Metadata)
+	if symbol == "" {
+		return nil, true, fmt.Errorf("orderbook_topic_router: diff symbol missing")
 	}
-	if payload.Symbol == "" || payload.ExchangeTS == 0 {
-		return nil, fmt.Errorf("orderbook_validator: missing symbol or exchange_ts")
+	if h.symbol != "" && symbol != h.symbol {
+		return nil, true, nil
 	}
-	return []*types.Message{msg}, nil
-}
-
-func buildOrderbookMessage(book orderbook.Book, symbol, exchange string, exchangeTS int64) (*types.Message, error) {
-	if exchange == "" {
-		exchange = defaultExchange
-	}
+	exchange := h.resolveExchange(msg.Metadata)
 	now := time.Now().UTC().UnixMilli()
-	event := orderbookEvent{
-		Symbol:     symbol,
-		Exchange:   exchange,
-		Snapshot:   book.Snapshot,
-		Depth:      depthPayload{Bids: book.Bids, Asks: book.Asks},
-		Seq:        book.Seq,
-		ExchangeTS: exchangeTS,
-		IngestTS:   now,
+	event := orderbookDiffEvent{
+		Symbol:            symbol,
+		Exchange:          exchange,
+		Snapshot:          false,
+		FirstUpdateID:     depth.FirstUpdateID,
+		FinalUpdateID:     depth.FinalUpdateID,
+		PrevFinalUpdateID: depth.PrevFinalUpdateID,
+		Bids:              depth.Bids,
+		Asks:              depth.Asks,
+		ExchangeTS:        firstNonZeroInt64(depth.TransactionTime, depth.EventTime, toInt64(msg.Metadata["event_time"]), toInt64(msg.Metadata["exchange_ts"]), now),
+		IngestTS:          now,
 	}
 	payload, err := json.Marshal(event)
 	if err != nil {
-		return nil, fmt.Errorf("orderbook: marshal payload failed: %w", err)
+		return nil, true, fmt.Errorf("orderbook_topic_router: marshal diff payload failed: %w", err)
 	}
-	meta := map[string]any{
-		"symbol":      symbol,
-		"exchange":    exchange,
-		"seq":         book.Seq,
-		"snapshot":    book.Snapshot,
-		"exchange_ts": exchangeTS,
-	}
-	return &types.Message{
-		Metadata: meta,
-		Payload:  payload,
-	}, nil
+	meta := copyMessageMetadata(msg.Metadata)
+	meta["symbol"] = symbol
+	meta["exchange"] = exchange
+	meta["snapshot"] = false
+	meta["first_update_id"] = event.FirstUpdateID
+	meta["final_update_id"] = event.FinalUpdateID
+	meta["prev_final_update_id"] = event.PrevFinalUpdateID
+	meta["exchange_ts"] = event.ExchangeTS
+	meta["ingest_ts"] = event.IngestTS
+	meta["ob_topic"] = obTopicDiff
+
+	return &types.Message{Metadata: meta, Payload: payload}, true, nil
 }
 
-func toLevels(v [][]string) []orderbook.Level {
-	if len(v) == 0 {
-		return nil
+func (h *orderbookTopicRouter) handleSnapshot(msg *types.Message) (*types.Message, error) {
+	var snapshot binance.DepthSnapshotResponse
+	if err := json.Unmarshal(msg.Payload, &snapshot); err != nil {
+		return nil, fmt.Errorf("orderbook_topic_router: decode snapshot failed: %w", err)
 	}
-	out := make([]orderbook.Level, 0, len(v))
-	for _, item := range v {
-		if len(item) < 2 {
-			continue
+	if snapshot.Code != 0 {
+		return nil, fmt.Errorf("orderbook_topic_router: snapshot api error code=%d msg=%s", snapshot.Code, snapshot.Msg)
+	}
+
+	symbol := h.resolveSymbol(snapshot.Symbol, msg.Metadata)
+	if symbol == "" {
+		return nil, fmt.Errorf("orderbook_topic_router: snapshot symbol missing")
+	}
+	if h.symbol != "" && symbol != h.symbol {
+		return nil, nil
+	}
+	exchange := h.resolveExchange(msg.Metadata)
+	lastUpdateID := snapshot.LastUpdateID
+	if lastUpdateID == 0 {
+		lastUpdateID = toInt64(msg.Metadata["final_update_id"])
+	}
+	if lastUpdateID == 0 {
+		return nil, fmt.Errorf("orderbook_topic_router: snapshot lastUpdateId missing")
+	}
+	now := time.Now().UTC().UnixMilli()
+	source, reason := h.resolveSnapshotMeta(msg.Metadata)
+	event := orderbookSnapshotEvent{
+		Symbol:         symbol,
+		Exchange:       exchange,
+		Snapshot:       true,
+		LastUpdateID:   lastUpdateID,
+		SnapshotSource: source,
+		SnapshotReason: reason,
+		Bids:           snapshot.Bids,
+		Asks:           snapshot.Asks,
+		ExchangeTS:     firstNonZeroInt64(snapshot.Transaction, snapshot.EventTime, toInt64(msg.Metadata["event_time"]), toInt64(msg.Metadata["exchange_ts"]), now),
+		IngestTS:       now,
+	}
+
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return nil, fmt.Errorf("orderbook_topic_router: marshal snapshot payload failed: %w", err)
+	}
+	meta := copyMessageMetadata(msg.Metadata)
+	meta["symbol"] = symbol
+	meta["exchange"] = exchange
+	meta["snapshot"] = true
+	meta["snapshot_source"] = source
+	meta["snapshot_reason"] = reason
+	meta["lastUpdateId"] = lastUpdateID
+	meta["final_update_id"] = lastUpdateID
+	meta["exchange_ts"] = event.ExchangeTS
+	meta["ingest_ts"] = event.IngestTS
+	meta["ob_topic"] = obTopicSnapshot
+
+	roleID := util.ToString(meta["role_id"])
+	metrics.RecordOrderbookSnapshotEmitted(roleID, source, reason)
+	obslogging.Info(context.Background(), obslogging.EventOrderbookSnapshotEmit, "orderbook snapshot emitted", obslogging.Fields{
+		"role_id":         roleID,
+		"symbol":          symbol,
+		"exchange":        exchange,
+		"snapshot_source": source,
+		"snapshot_reason": reason,
+		"last_update_id":  lastUpdateID,
+	})
+
+	return &types.Message{Metadata: meta, Payload: payload}, nil
+}
+
+func (h *orderbookTopicRouter) resolveSymbol(payloadSymbol string, meta map[string]any) string {
+	symbol := strings.ToUpper(strings.TrimSpace(payloadSymbol))
+	if symbol == "" {
+		symbol = strings.ToUpper(strings.TrimSpace(util.ToString(meta["symbol"])))
+	}
+	if symbol == "" {
+		symbol = strings.ToUpper(strings.TrimSpace(util.ToString(meta["binance_symbol"])))
+	}
+	if symbol == "" {
+		symbol = h.symbol
+	}
+	return symbol
+}
+
+func (h *orderbookTopicRouter) resolveExchange(meta map[string]any) string {
+	exchange := strings.ToLower(strings.TrimSpace(util.ToString(meta["exchange"])))
+	if exchange == "" {
+		exchange = h.exchange
+	}
+	if exchange == "" {
+		exchange = defaultOrderbookExchange
+	}
+	return exchange
+}
+
+func (h *orderbookTopicRouter) resolveSnapshotMeta(meta map[string]any) (string, string) {
+	source := strings.TrimSpace(util.ToString(meta["snapshot_source"]))
+	reason := strings.TrimSpace(util.ToString(meta["snapshot_reason"]))
+	if source == "" {
+		source = h.snapshotSource
+	}
+	if reason == "" {
+		reason = h.snapshotReason
+	}
+	if source == "" {
+		if isBackfillSnapshot(meta) {
+			source = "backfill"
+		} else {
+			source = "periodic"
 		}
-		out = append(out, orderbook.Level{
-			Price: item[0],
-			Size:  item[1],
-		})
+	}
+	if reason == "" {
+		if source == "periodic" {
+			reason = "periodic"
+		} else {
+			reason = "gap"
+		}
+	}
+	return source, reason
+}
+
+func copyMessageMetadata(meta map[string]any) map[string]any {
+	if meta == nil {
+		return map[string]any{}
+	}
+	out := make(map[string]any, len(meta)+8)
+	for k, v := range meta {
+		out[k] = v
 	}
 	return out
+}
+
+func firstNonZeroInt64(values ...int64) int64 {
+	for _, v := range values {
+		if v != 0 {
+			return v
+		}
+	}
+	return 0
+}
+
+func toInt64(v any) int64 {
+	switch vv := v.(type) {
+	case int64:
+		return vv
+	case int:
+		return int64(vv)
+	case float64:
+		return int64(vv)
+	case float32:
+		return int64(vv)
+	case json.Number:
+		n, _ := vv.Int64()
+		return n
+	case string:
+		return util.ToInt64(vv)
+	default:
+		return 0
+	}
+}
+
+func isSnapshotMeta(meta map[string]any) bool {
+	if meta == nil {
+		return false
+	}
+	if snapshot, ok := meta["snapshot"].(bool); ok && snapshot {
+		return true
+	}
+	if strings.EqualFold(strings.TrimSpace(util.ToString(meta["backfill_type"])), types.BackfillTypeSnapshot) {
+		return true
+	}
+	return false
+}
+
+func isBackfillSnapshot(meta map[string]any) bool {
+	if meta == nil {
+		return false
+	}
+	if isBackfill, ok := meta["is_backfill"].(bool); ok && isBackfill {
+		return true
+	}
+	if strings.EqualFold(strings.TrimSpace(util.ToString(meta["backfill_type"])), types.BackfillTypeSnapshot) {
+		return true
+	}
+	return false
 }

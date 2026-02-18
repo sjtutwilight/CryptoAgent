@@ -777,7 +777,7 @@ tracing:
 | `integrity.gap_detected` | WARN | 检测到序列间隙 |
 | `integrity.backfill_triggered` | INFO | 触发补数 |
 | `integrity.hard_timeout` | ERROR | 硬超时强制跳过 |
-| `orderbook.snapshot_applied` | INFO | 订单簿快照应用成功 |
+| `orderbook.snapshot.emit` | INFO | 订单簿 snapshot 事件下沉（periodic/backfill） |
 
 ---
 
@@ -892,7 +892,6 @@ datainjector/worker/
 | 2025-12-15 | 1.4 | Integrity 模块重构，引入 Profile 机制 |
 | 2025-12-10 | 1.3 | 新增订单簿维护逻辑 |
 | 2025-12-01 | 1.0 | 初始版本 |
-
 
 
 

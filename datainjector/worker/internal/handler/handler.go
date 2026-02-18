@@ -16,6 +16,16 @@ type BackfillCommandAware interface {
 	SetBackfillChannel(ch chan<- types.BackfillCmd)
 }
 
+// BackfillTargetAware 支持按补数类型注入不同通道，实现 snapshot/range 隔离。
+type BackfillTargetAware interface {
+	SetBackfillTargets(defaultCh, snapshotCh, diffCh chan<- types.BackfillCmd)
+}
+
+// BackfillResultAware 接收 backfill 执行回执，用于结果驱动闭环状态迁移。
+type BackfillResultAware interface {
+	OnBackfillResult(result types.BackfillResult)
+}
+
 // SnapshotListener 接收快照应用完成的通知，返回可直接释放的增量消息。
 type SnapshotListener interface {
 	OnSnapshotApplied(lastSeq uint64) []*types.Message

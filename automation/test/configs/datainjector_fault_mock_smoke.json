@@ -1,0 +1,37 @@
+{
+  "role_ids": [
+    "rec-binance-perp-aave-orderbook-full"
+  ],
+  "role_config_yaml": "datainjector/worker/configs/aave/roles_aave_full_stable.json",
+  "fault_mode": "mock",
+  "fault_case": "disconnect_reconnect",
+  "fault_action": "role_restart",
+  "fault_pause_seconds": 6,
+  "observe_seconds": 20,
+  "log_since_seconds": 180,
+  "expect_backfill": false,
+  "apply_roles_before_inject": true,
+  "cleanup_stop_roles": false,
+  "mock_provider_base_url": "http://localhost:8090",
+  "require_mock_provider": false,
+  "fault_rules": {
+    "required_events": [
+      "ws.reconnect.start",
+      "ws.reconnect.success",
+      "caller.response",
+      "pipeline.finish"
+    ],
+    "required_backfill_events": [
+      "integrity.backfill.trigger",
+      "integrity.backfill.success"
+    ],
+    "fail_events": [
+      "handler.error",
+      "sink.error",
+      "pipeline.error",
+      "caller.error",
+      "integrity.backfill.exhausted",
+      "integrity.backfill.enqueue.error"
+    ]
+  }
+}

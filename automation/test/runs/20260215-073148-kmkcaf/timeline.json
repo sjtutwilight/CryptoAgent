@@ -1,0 +1,56 @@
+[
+  {
+    "stage": "fault_regression",
+    "probe": "prepare.worker_health",
+    "result": "SUCCESS",
+    "detail": "container running"
+  },
+  {
+    "stage": "fault_regression",
+    "probe": "prepare.role_scope",
+    "result": "SUCCESS",
+    "detail": "scope prepared: mode=mock, action=role_restart, roles=1"
+  },
+  {
+    "stage": "fault_regression",
+    "probe": "prepare.apply_roles",
+    "result": "SUCCESS",
+    "detail": "roles applied in prepare: 1"
+  },
+  {
+    "stage": "fault_regression",
+    "probe": "prepare.mock_reset",
+    "result": "FAIL",
+    "detail": "mock reset failed: <urlopen error [Errno 61] Connection refused>"
+  },
+  {
+    "stage": "fault_regression",
+    "probe": "inject.execute",
+    "result": "SUCCESS",
+    "detail": "mock injection relies on provider config"
+  },
+  {
+    "stage": "fault_regression",
+    "probe": "observe.window",
+    "result": "SUCCESS",
+    "detail": "observed 20s"
+  },
+  {
+    "stage": "fault_regression",
+    "probe": "assert.rules",
+    "result": "FAIL",
+    "detail": "failed roles: rec-binance-perp-aave-orderbook-full"
+  },
+  {
+    "stage": "fault_regression",
+    "probe": "report.artifacts",
+    "result": "SUCCESS",
+    "detail": "fault regression artifacts written"
+  },
+  {
+    "stage": "fault_regression",
+    "probe": "cleanup.restore",
+    "result": "SUCCESS",
+    "detail": "cleanup ok"
+  }
+]

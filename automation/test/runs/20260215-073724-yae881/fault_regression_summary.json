@@ -1,0 +1,31 @@
+{
+  "overall_status": "PASS",
+  "failed_roles": [],
+  "role_results": {
+    "rec-binance-perp-aave-orderbook-full": {
+      "status": "PASS",
+      "missing_events": [],
+      "failed_events": [],
+      "event_counts": {
+        "caller.response": 181,
+        "pipeline.finish": 20
+      },
+      "fallback_hits": {}
+    }
+  },
+  "effective_rules": {
+    "required_events": [
+      "caller.response",
+      "pipeline.finish"
+    ],
+    "fail_events": [
+      "handler.error",
+      "sink.error",
+      "pipeline.error",
+      "caller.error",
+      "integrity.backfill.exhausted",
+      "integrity.backfill.enqueue.error"
+    ],
+    "expect_backfill": false
+  }
+}

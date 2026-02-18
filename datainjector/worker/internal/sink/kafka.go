@@ -16,12 +16,13 @@ import (
 )
 
 type KafkaConfig struct {
-	Brokers    []string
-	Topic      string
-	KeyFrom    []string
-	Linger     time.Duration
-	TopicField string
-	TopicMap   map[string]string
+	Brokers      []string
+	Topic        string
+	KeyFrom      []string
+	Linger       time.Duration
+	WriteTimeout time.Duration
+	TopicField   string
+	TopicMap     map[string]string
 }
 
 type Kafka struct {
@@ -30,6 +31,7 @@ type Kafka struct {
 	defaultTopic  string
 	keyFrom       []string
 	linger        time.Duration
+	writeTimeout  time.Duration
 	topicField    string
 	topicMap      map[string]string
 
@@ -55,6 +57,7 @@ func init() {
 			defaultTopic:  kc.Topic,
 			keyFrom:       kc.KeyFrom,
 			linger:        kc.Linger,
+			writeTimeout:  kc.WriteTimeout,
 			topicField:    kc.TopicField,
 			topicMap:      kc.TopicMap,
 			writers:       make(map[string]*kafka.Writer),
@@ -121,6 +124,23 @@ func parseKafkaConfig(cfg map[string]any) (*KafkaConfig, error) {
 			}
 		}
 	}
+	kc.WriteTimeout = 5 * time.Second
+	if timeout, ok := cfg["write_timeout_ms"]; ok {
+		switch v := timeout.(type) {
+		case int:
+			if v > 0 {
+				kc.WriteTimeout = time.Duration(v) * time.Millisecond
+			}
+		case int64:
+			if v > 0 {
+				kc.WriteTimeout = time.Duration(v) * time.Millisecond
+			}
+		case float64:
+			if v > 0 {
+				kc.WriteTimeout = time.Duration(v) * time.Millisecond
+			}
+		}
+	}
 	if topicField, ok := cfg["topic_field"].(string); ok {
 		if tf := strings.TrimSpace(topicField); tf != "" {
 			kc.TopicField = tf
@@ -171,12 +191,75 @@ func (k *Kafka) Write(msg *types.Message) error {
 	if err != nil {
 		return err
 	}
+	ctx := context.Background()
+	cancel := func() {}
+	if k.writeTimeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, k.writeTimeout)
+	}
+	defer cancel()
 	key := k.buildKey(msg)
-	return writer.WriteMessages(context.Background(), kafka.Message{
+	var payload []byte
+	var metadata map[string]any
+	if msg != nil {
+		payload = msg.Payload
+		metadata = msg.Metadata
+	}
+	return writer.WriteMessages(ctx, kafka.Message{
 		Key:     []byte(key),
-		Value:   msg.Payload,
-		Headers: buildHeaders(msg.Metadata),
+		Value:   payload,
+		Headers: buildHeaders(metadata),
 	})
+}
+
+func (k *Kafka) WriteBatch(msgs []*types.Message) error {
+	if len(msgs) == 0 {
+		return nil
+	}
+	type topicBatch struct {
+		writer *kafka.Writer
+		items  []kafka.Message
+	}
+	batches := make(map[string]*topicBatch)
+	for _, msg := range msgs {
+		if msg == nil {
+			continue
+		}
+		writer, topic, err := k.writerForMessage(msg)
+		if err != nil {
+			return err
+		}
+		batch, ok := batches[topic]
+		if !ok {
+			batch = &topicBatch{
+				writer: writer,
+				items:  make([]kafka.Message, 0, 64),
+			}
+			batches[topic] = batch
+		}
+		key := k.buildKey(msg)
+		batch.items = append(batch.items, kafka.Message{
+			Key:     []byte(key),
+			Value:   msg.Payload,
+			Headers: buildHeaders(msg.Metadata),
+		})
+	}
+
+	for _, batch := range batches {
+		if batch == nil || batch.writer == nil || len(batch.items) == 0 {
+			continue
+		}
+		ctx := context.Background()
+		cancel := func() {}
+		if k.writeTimeout > 0 {
+			ctx, cancel = context.WithTimeout(ctx, k.writeTimeout)
+		}
+		err := batch.writer.WriteMessages(ctx, batch.items...)
+		cancel()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (k *Kafka) Close() error {
@@ -202,6 +285,9 @@ func (k *Kafka) Close() error {
 
 func (k *Kafka) buildKey(msg *types.Message) string {
 	if len(k.keyFrom) == 0 {
+		return ""
+	}
+	if msg == nil {
 		return ""
 	}
 	parts := make([]string, 0, len(k.keyFrom))

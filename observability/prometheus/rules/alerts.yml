@@ -169,70 +169,153 @@ groups:
     rules:
       # Worker 离线
       - alert: WorkerDown
-        expr: up{job="worker"} == 0
-        for: 1m
+        expr: max(up{job="worker"}) < 1
+        for: 2m
         labels:
           severity: critical
           component: worker
+          root_cause_class: scrape_unavailable
+          error_class: target_down
         annotations:
           summary: "Worker服务离线"
-          description: "Worker实例 {{ $labels.instance }} 无法访问"
+          description: "job=worker 在过去2分钟内没有可用抓取目标"
+          root_cause_class: "scrape_unavailable"
+          error_class: "target_down"
 
-      # 消息处理错误率过高
-      - alert: WorkerErrorRateHigh
-        expr: rate(worker_messages_processed_total{status="error"}[5m]) / rate(worker_messages_processed_total[5m]) > 0.05
+      # Backfill pending 时长异常（会话卡滞）
+      - alert: WorkerBackfillSessionPendingTooLong
+        expr: histogram_quantile(0.95, sum by (le, role_id, backfill_type) (rate(worker_integrity_backfill_pending_duration_seconds_bucket[10m]))) > 30
         for: 5m
         labels:
           severity: warning
           component: worker
+          root_cause_class: backfill_session_stuck
+          error_class: pending_timeout
         annotations:
-          summary: "Worker消息处理错误率过高"
-          description: "Role {{ $labels.role_id }} 的错误率超过5%"
+          summary: "Worker Backfill pending 时长异常"
+          description: "Role {{ $labels.role_id }} {{ $labels.backfill_type }} pending p95 超过 30s"
+          root_cause_class: "backfill_session_stuck"
+          error_class: "pending_timeout"
 
-      # 队列积压
-      - alert: WorkerQueueBacklog
-        expr: worker_queue_size / worker_queue_capacity > 0.8
+      # Backfill inflight 卡住（有 inflight，但长期无结果回写）
+      - alert: WorkerBackfillInflightStuck
+        expr: sum by (role_id, backfill_type) (max_over_time(worker_integrity_backfill_sessions_inflight[15m])) > 0 and sum by (role_id, backfill_type) (increase(worker_integrity_backfill_result_total[15m])) == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: worker
+          root_cause_class: backfill_session_stuck
+          error_class: inflight_timeout
+        annotations:
+          summary: "Worker Backfill inflight 长时间未结束"
+          description: "Role {{ $labels.role_id }} {{ $labels.backfill_type }} 在 15m 内有 inflight，但无结果回写"
+          root_cause_class: "backfill_session_stuck"
+          error_class: "inflight_timeout"
+
+      # Backfill fail/timeout 激增
+      - alert: WorkerBackfillResultFailureBurst
+        expr: sum by (role_id, backfill_type, error_class) (increase(worker_integrity_backfill_result_total{status=~"fail|timeout"}[10m])) > 5
+        for: 2m
+        labels:
+          severity: critical
+          component: worker
+          root_cause_class: backfill_degradation
+          error_class: backfill_result_burst
+        annotations:
+          summary: "Worker Backfill fail/timeout 激增"
+          description: "Role {{ $labels.role_id }} {{ $labels.backfill_type }} 在 10m 内 fail/timeout 达到 {{ $value }}"
+          root_cause_class: "backfill_degradation"
+          error_class: "{{ $labels.error_class }}"
+
+      # Backfill dedup 异常激增
+      - alert: WorkerBackfillDedupBurst
+        expr: sum by (role_id, backfill_type) (increase(worker_integrity_backfill_schedule_dedup_total[10m])) > 50
         for: 5m
         labels:
           severity: warning
           component: worker
+          root_cause_class: duplicate_schedule
+          error_class: dedup_spike
         annotations:
-          summary: "Worker队列积压"
-          description: "Role {{ $labels.role_id }} 的队列使用率超过80%"
+          summary: "Worker Backfill dedup 命中激增"
+          description: "Role {{ $labels.role_id }} {{ $labels.backfill_type }} 在 10m 内 dedup 命中 {{ $value }}"
+          root_cause_class: "duplicate_schedule"
+          error_class: "dedup_spike"
 
-      # WebSocket 连接断开
-      - alert: WorkerWebSocketDisconnected
-        expr: worker_websocket_connections == 0
+      # Backfill 持久化补偿积压过高
+      - alert: WorkerBackfillCompensationBacklogHigh
+        expr: max_over_time(worker_integrity_backfill_compensation_backlog[10m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: worker
+          root_cause_class: backlog
+          error_class: compensation_backlog
+        annotations:
+          summary: "Worker Backfill 补偿积压过高"
+          description: "Role {{ $labels.role_id }} 持久化补偿队列积压超过 100"
+          root_cause_class: "backlog"
+          error_class: "compensation_backlog"
+
+      # Pipeline 产出率下降（caller -> sink）
+      - alert: WorkerPipelineYieldDegraded
+        expr: (sum by (role_id) (increase(worker_task_stage_total{stage="final_succeeded"}[10m])) / clamp_min(sum by (role_id) (increase(worker_task_stage_total{stage="caller_accepted"}[10m])), 1)) < 0.6 and sum by (role_id) (increase(worker_task_stage_total{stage="caller_accepted"}[10m])) > 20
+        for: 5m
+        labels:
+          severity: warning
+          component: worker
+          root_cause_class: pipeline_yield
+          error_class: sink_success_drop
+        annotations:
+          summary: "Worker Pipeline 产出率下降"
+          description: "Role {{ $labels.role_id }} 在 10m 窗口 caller->sink 产出率低于 60%"
+          root_cause_class: "pipeline_yield"
+          error_class: "sink_success_drop"
+
+      # WebSocket 重连频率过高（链路抖动）
+      - alert: WorkerWSReconnectBurst
+        expr: increase(worker_websocket_reconnects_total[10m]) > 20
         for: 2m
         labels:
           severity: warning
           component: worker
+          root_cause_class: link_jitter
+          error_class: reconnect_burst
         annotations:
-          summary: "Worker WebSocket连接断开"
-          description: "Role {{ $labels.role_id }} 的WebSocket连接已断开"
+          summary: "Worker WebSocket重连频率过高"
+          description: "Role {{ $labels.role_id }} 在10分钟内重连 {{ $value }} 次，疑似链路抖动"
+          root_cause_class: "link_jitter"
+          error_class: "reconnect_burst"
 
-      # 补数失败率过高
-      - alert: WorkerBackfillFailureHigh
-        expr: rate(worker_integrity_backfills_total{status="failed"}[5m]) / rate(worker_integrity_backfills_total[5m]) > 0.3
-        for: 5m
+      # WebSocket 丢弃激增（消费背压）
+      - alert: WorkerWSBufferDropHigh
+        expr: sum by (role_id, layer, reason) (increase(worker_websocket_drops_total[5m])) > 200
+        for: 2m
         labels:
           severity: warning
           component: worker
+          root_cause_class: backpressure
+          error_class: ws_drop_burst
         annotations:
-          summary: "Worker补数失败率过高"
-          description: "Role {{ $labels.role_id }} 的补数失败率超过30%"
+          summary: "Worker WebSocket丢弃激增"
+          description: "Role {{ $labels.role_id }} 在5分钟内丢弃 {{ $value }} 条消息（{{ $labels.layer }}/{{ $labels.reason }}）"
+          root_cause_class: "backpressure"
+          error_class: "ws_drop_burst"
 
-      # Gap检测过多
-      - alert: WorkerIntegrityGapsHigh
-        expr: rate(worker_integrity_gaps_total[5m]) > 10
-        for: 5m
+      # WS 1008/限流风险（策略限流）
+      - alert: WorkerWSPolicyViolationBurst
+        expr: increase(worker_websocket_errors_total{error_type="policy_1008"}[10m]) > 5
+        for: 2m
         labels:
           severity: warning
           component: worker
+          root_cause_class: rate_limit
+          error_class: policy_1008
         annotations:
-          summary: "Worker序列号Gap过多"
-          description: "Role {{ $labels.role_id }} 每分钟检测到 {{ $value }} 个Gap"
-
+          summary: "Worker WebSocket策略违规频发"
+          description: "Role {{ $labels.role_id }} 在10分钟内命中 {{ $value }} 次 1008/policy violation，疑似限流"
+          root_cause_class: "rate_limit"
+          error_class: "policy_1008"
   # ==================== Backend 告警 ====================
   - name: backend_alerts
     rules:
@@ -337,8 +420,6 @@ groups:
         annotations:
           summary: "内存使用率过高"
           description: "实例 {{ $labels.instance }} 内存使用率超过90%"
-
-
 
 
 

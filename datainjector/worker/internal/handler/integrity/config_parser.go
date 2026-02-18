@@ -36,7 +36,18 @@ func ParseConfig(cfg map[string]any) (Config, error) {
 	out.Gate.FinalityBlocks = util.GetInt(cfg, "finality_blocks", 12)
 
 	out.Backfill.Options = parseBackfillOptions(cfg)
+	out.Backfill.OrderbookMode = util.GetString(cfg, "orderbook_mode", "")
 	out.Backfill.Cooldown = util.ToDuration(util.GetInt(cfg, "backfill_cooldown_ms", 3000), time.Millisecond)
+	out.Backfill.ResultDrivenEnabled = util.GetBool(cfg, "backfill_result_driven_enabled", false)
+	out.Backfill.MaxFailures = util.GetInt(cfg, "backfill_max_failures", 3)
+	out.Backfill.ExhaustCooldown = util.ToDuration(util.GetInt(cfg, "backfill_exhaust_cooldown_ms", 30000), time.Millisecond)
+	out.Backfill.RetryBackoff = util.ToDuration(util.GetInt(cfg, "backfill_retry_backoff_ms", 300), time.Millisecond)
+	out.Backfill.BackpressureGapCooldown = util.ToDuration(util.GetInt(cfg, "backpressure_gap_cooldown_ms", 2000), time.Millisecond)
+	out.Backfill.EnqueueTimeout = util.ToDuration(util.GetInt(cfg, "backfill_enqueue_timeout_ms", 200), time.Millisecond)
+	out.Backfill.PersistentCompensation = util.GetBool(cfg, "backfill_persistent_compensation", false)
+	out.Backfill.CompensationFile = util.GetString(cfg, "backfill_compensation_file", "runtime/data/backfill_compensation.json")
+	out.Backfill.ReplayInterval = util.ToDuration(util.GetInt(cfg, "backfill_replay_interval_ms", 2000), time.Millisecond)
+	out.Backfill.CompensationMaxPending = util.GetInt(cfg, "backfill_compensation_max_pending", 2000)
 
 	out.Normalise()
 	if err := out.validate(); err != nil {
@@ -87,9 +98,28 @@ func parseBackfillOptions(cfg map[string]any) []types.BackfillOption {
 		if headers, ok := httpCfg["headers"].(map[string]any); ok {
 			params["headers"] = headers
 		}
+		if util.GetBool(httpCfg, "range_window", false) {
+			params["range_window"] = true
+		}
+		if v := util.GetString(httpCfg, "range_start_param", ""); v != "" {
+			params["range_start_param"] = v
+		}
+		if v := util.GetString(httpCfg, "range_end_param", ""); v != "" {
+			params["range_end_param"] = v
+		}
+		if v := util.GetString(httpCfg, "range_limit_param", ""); v != "" {
+			params["range_limit_param"] = v
+		}
+		if v := util.GetInt(httpCfg, "range_max_limit", 0); v > 0 {
+			params["range_max_limit"] = v
+		}
+		rpcMethod := util.GetString(httpCfg, "rpc_method", "")
+		if rpcMethod == "" {
+			rpcMethod = util.GetString(httpCfg, "method", "eth_getBlockByNumber")
+		}
 		options = append(options, types.BackfillOption{
 			Transport: types.BackfillTransportHTTP,
-			RPCMethod: util.GetString(httpCfg, "rpc_method", "eth_getBlockByNumber"),
+			RPCMethod: rpcMethod,
 			Params:    params,
 		})
 	}

@@ -1,0 +1,9 @@
+run_id: 20260215-075653-twvzjt
+scenario: datainjector_fault_regression
+overall_status: FAIL
+failed_roles: rec-binance-perp-aave-orderbook-full
+
+role_results:
+- rec-binance-perp-aave-orderbook-full: FAIL
+  missing_events: none
+  failed_events: integrity.backfill.exhausted(1)

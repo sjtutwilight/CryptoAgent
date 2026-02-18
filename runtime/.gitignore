@@ -8,6 +8,4 @@ data/starrocks/**
 
 # Keep directory structure but ignore contents
 !.gitkeep
-!*/
-
 

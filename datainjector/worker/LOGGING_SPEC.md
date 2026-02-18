@@ -85,6 +85,51 @@
   - 触发：`internal/role/role.go` enqueue error
   - 字段：role_id/run_id/task_id/error_*
 
+### Integrity / Backfill
+
+- integrity.gap.detected
+  - 触发：`internal/handler/integrity/sequence_engine.go` onGap
+  - 字段：role_id/stream_key/expected_seq/seen_seq/gap
+- integrity.advance
+  - 触发：`internal/handler/integrity/sequence_engine.go` advance
+  - 字段：role_id/stream_key/expected_prev/expected_new/reason
+- integrity.backfill.trigger
+  - 触发：`internal/handler/integrity/sequence_engine.go` triggerBackfill、`internal/role/role.go` handleBackfillCmd
+  - 字段：role_id/stream_key/backfill_type/start/end/attempts/cmd_id/session_id/session_key
+- integrity.backfill.retry
+  - 触发：`internal/handler/integrity/sequence_engine.go` retrySnapshotBackfill
+  - 字段：role_id/stream_key/expected_seq/seen_max/elapsed_ms
+- integrity.backfill.skipped
+  - 触发：`internal/handler/integrity/sequence_engine.go` triggerBackfill（无可执行 attempt）、`internal/role/role.go` handleBackfillCmd（空 attempts）
+  - 字段：role_id/stream_key/start/end/attempts
+- integrity.backfill.dedup
+  - 触发：`internal/handler/integrity/sequence_engine.go` triggerBackfillWithSession（pending 期间合并意图）
+  - 字段：role_id/stream_key/backfill_type/session_key/intent_start/intent_end
+- integrity.backfill.session
+  - 触发：`internal/handler/integrity/sequence_engine.go` triggerBackfillWithSession（会话进入 pending）
+  - 字段：role_id/stream_key/backfill_type/session_key/session_id/cmd_id/attempt/start/end
+- integrity.backfill.attempt.error
+  - 触发：`internal/role/role.go` executeBackfillAttempt request error、handleBackfillCmd attempt fail
+  - 字段：role_id/worker_id/backfill_type/attempt/request_step/status_code/retryable/error
+- integrity.backfill.enqueue.error
+  - 触发：`internal/role/role.go` executeBackfillAttempt enqueue error
+  - 字段：role_id/worker_id/backfill_type/attempt/request_step/error_*
+- integrity.backfill.success
+  - 触发：`internal/role/role.go` handleBackfillCmd
+  - 字段：role_id/worker_id/backfill_type/start/end/attempt/cmd_id/session_id
+- integrity.backfill.exhausted
+  - 触发：`internal/role/role.go` handleBackfillCmd
+  - 字段：role_id/worker_id/backfill_type/start/end/attempts/error_*
+- integrity.backfill.result
+  - 触发：`internal/handler/integrity/sequence_engine.go` OnBackfillResult
+  - 字段：role_id/stream_key/backfill_type/session_key/session_id/cmd_id/status/error_class/pending_ms/state
+
+### Orderbook Diff/Snapshot
+
+- orderbook.snapshot.emit
+  - 触发：`internal/handler/orderbook_handlers.go` orderbook_topic_router
+  - 字段：role_id/symbol/exchange/snapshot_source/snapshot_reason/last_update_id
+
 ### WebSocket（Protocol / Caller）
 
 - ws.connect

@@ -11,6 +11,11 @@ type Sink interface {
 	Write(msg *types.Message) error
 }
 
+// BatchSink 可选接口，支持批量写入以提升吞吐。
+type BatchSink interface {
+	WriteBatch(msgs []*types.Message) error
+}
+
 type Console struct{}
 
 func init() {

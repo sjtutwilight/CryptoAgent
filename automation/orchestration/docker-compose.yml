@@ -392,12 +392,22 @@ services:
       - ../../observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - ../../observability/prometheus/rules:/etc/prometheus/rules:ro
       - prometheus-data:/prometheus
+    entrypoint:
+      - /bin/sh
+      - -ec
     command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
-      - "--web.console.templates=/usr/share/prometheus/consoles"
-      - "--web.enable-lifecycle"
+      - |
+        WORKER_TARGET="$${PROMETHEUS_WORKER_TARGET:-worker-app:9100}"
+        BACKEND_TARGET="$${PROMETHEUS_BACKEND_TARGET:-host.docker.internal:8088}"
+        sed -e "s|__PROM_WORKER_TARGET__|$${WORKER_TARGET}|g" \
+            -e "s|__PROM_BACKEND_TARGET__|$${BACKEND_TARGET}|g" \
+            /etc/prometheus/prometheus.yml > /tmp/prometheus.yml
+        exec /bin/prometheus \
+          --config.file=/tmp/prometheus.yml \
+          --storage.tsdb.path=/prometheus \
+          --web.console.libraries=/usr/share/prometheus/console_libraries \
+          --web.console.templates=/usr/share/prometheus/consoles \
+          --web.enable-lifecycle
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:

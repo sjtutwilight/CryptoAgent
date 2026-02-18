@@ -48,6 +48,34 @@ scrape_configs:
           stages:
             - labels:
                 component: observability
+      - match:
+          selector: '{container=~".*worker.*"}'
+          stages:
+            - labels:
+                component: worker
+            - json:
+                expressions:
+                  ts: ts
+                  level: level
+                  event: event
+                  service: service
+                  role_id: role_id
+                  error_class: error_class
+                  backfill_type: backfill_type
+                  session_key: session_key
+                  cmd_id: cmd_id
+                  trace_id: trace_id
+                  message: message
+            - timestamp:
+                source: ts
+                format: RFC3339Nano
+            - labels:
+                level:
+                event:
+                service:
+                role_id:
+                error_class:
+                backfill_type:
   # ==================== Flink 应用日志 ====================
   - job_name: flink-logs
     pipeline_stages:
@@ -72,24 +100,29 @@ scrape_configs:
   # Worker运行在宿主机时，需要挂载对应目录
   - job_name: worker-logs
     pipeline_stages:
-      # Go标准日志格式: 2024/01/15 10:30:45 message
-      - regex:
-          expression: '^(?P<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}) (?P<message>.*)$'
+      - json:
+          expressions:
+            ts: ts
+            level: level
+            event: event
+            service: service
+            role_id: role_id
+            error_class: error_class
+            backfill_type: backfill_type
+            session_key: session_key
+            cmd_id: cmd_id
+            trace_id: trace_id
+            message: message
       - timestamp:
-          source: timestamp
-          format: '2006/01/02 15:04:05'
-      # 提取日志级别（如果有）
-      - regex:
-          expression: '(?P<level>INFO|WARN|ERROR|DEBUG|FATAL)'
-          source: message
+          source: ts
+          format: RFC3339Nano
       - labels:
           level:
-      # 提取role_id
-      - regex:
-          expression: 'role (?P<role_id>[\w-]+):'
-          source: message
-      - labels:
+          event:
+          service:
           role_id:
+          error_class:
+          backfill_type:
     static_configs:
       - targets:
           - localhost
@@ -97,7 +130,7 @@ scrape_configs:
           job: worker
           component: worker
           service: datainjector
-          __path__: /var/log/app/worker/*.log
+          __path__: /var/log/app/runtime/worker/*.log
 
   # ==================== Backend 日志采集 ====================
   # Spring Boot 日志格式

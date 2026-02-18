@@ -6,8 +6,10 @@ DataInjector Worker 诊断探针
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import time
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from ..shared.core.context import RunContext
@@ -505,4 +507,264 @@ def check_api_connectivity(
         return ProbeResult(status=ProbeStatus.FAIL, detail=f"connectivity check failed: {exc}")
 
 
+DEFAULT_FAULT_RULES: Dict[str, Any] = {
+    "required_events": [
+        "ws.reconnect.start",
+        "ws.reconnect.success",
+        "caller.response",
+        "pipeline.finish",
+    ],
+    "required_backfill_events": [
+        "integrity.backfill.trigger",
+        "integrity.backfill.success",
+    ],
+    "fail_events": [
+        "handler.error",
+        "sink.error",
+        "pipeline.error",
+        "caller.error",
+        "integrity.backfill.exhausted",
+        "integrity.backfill.enqueue.error",
+    ],
+    "text_fallback_patterns": {
+        "integrity.backfill.trigger": r"role\s+{role}\s+worker-\d+:.*backfill.*",
+        "integrity.backfill.success": r"role\s+{role}\s+worker-\d+:.*backfill.*succeeded",
+        "integrity.backfill.exhausted": r"role\s+{role}\s+worker-\d+:.*backfill.*exhausted",
+    },
+}
 
+
+def _project_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def _run_dir_from_ctx(ctx: RunContext) -> Path:
+    base_dir = str((ctx.metadata or {}).get("run_base_dir") or "automation/test/runs")
+    root = _project_root()
+    base_path = Path(base_dir)
+    if not base_path.is_absolute():
+        base_path = root / base_path
+    return base_path / ctx.run_id
+
+
+def _deep_merge_dict(base: Dict[str, Any], override: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    if not override:
+        return dict(base)
+    merged: Dict[str, Any] = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge_dict(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _collect_structured_hits(entries: List[Dict[str, Any]], role_id: str, event: str) -> List[Dict[str, Any]]:
+    return [
+        item for item in entries
+        if item.get("role_id") == role_id and item.get("event") == event
+    ]
+
+
+def _collect_text_hits(lines: List[str], role_id: str, pattern_template: str) -> List[Dict[str, Any]]:
+    pattern = pattern_template.format(role=re.escape(role_id))
+    regex = re.compile(pattern)
+    hits: List[Dict[str, Any]] = []
+    for raw in lines:
+        if regex.search(raw):
+            hits.append({
+                "ts": None,
+                "level": "INFO",
+                "event": "text.fallback",
+                "role_id": role_id,
+                "raw": raw,
+            })
+    return hits
+
+
+def _build_evidence(items: List[Dict[str, Any]], source: str, event: str, limit: int = 20) -> List[Dict[str, Any]]:
+    evidences: List[Dict[str, Any]] = []
+    for entry in items[-limit:]:
+        evidences.append({
+            "source": source,
+            "event": event,
+            "role_id": entry.get("role_id"),
+            "ts": entry.get("ts"),
+            "level": entry.get("level"),
+            "raw": entry.get("raw"),
+        })
+    return evidences
+
+
+def evaluate_fault_regression(
+    entries: List[Dict[str, Any]],
+    lines: List[str],
+    role_ids: List[str],
+    rules: Optional[Dict[str, Any]] = None,
+    expect_backfill: bool = False,
+) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+    effective_rules = _deep_merge_dict(DEFAULT_FAULT_RULES, rules)
+    required_events = list(effective_rules.get("required_events") or [])
+    if expect_backfill:
+        required_events.extend(list(effective_rules.get("required_backfill_events") or []))
+    # 保持顺序并去重
+    required_events = list(dict.fromkeys(required_events))
+    fail_events = list(effective_rules.get("fail_events") or [])
+    text_fallback_patterns = dict(effective_rules.get("text_fallback_patterns") or {})
+
+    role_results: Dict[str, Any] = {}
+    evidence_rows: List[Dict[str, Any]] = []
+    failed_roles: List[str] = []
+
+    for role_id in role_ids:
+        missing_events: List[str] = []
+        fallback_hits: Dict[str, int] = {}
+        event_counts: Dict[str, int] = {}
+        failed_event_hits: List[Dict[str, Any]] = []
+
+        for event_name in required_events:
+            hits = _collect_structured_hits(entries, role_id, event_name)
+            if hits:
+                event_counts[event_name] = len(hits)
+                evidence_rows.extend(_build_evidence(hits, source="structured", event=event_name))
+                continue
+
+            pattern = text_fallback_patterns.get(event_name)
+            if pattern:
+                text_hits = _collect_text_hits(lines, role_id, pattern)
+                if text_hits:
+                    fallback_hits[event_name] = len(text_hits)
+                    event_counts[event_name] = len(text_hits)
+                    evidence_rows.extend(_build_evidence(text_hits, source="text_fallback", event=event_name))
+                    continue
+
+            missing_events.append(event_name)
+            event_counts[event_name] = 0
+
+        for event_name in fail_events:
+            fail_hits = _collect_structured_hits(entries, role_id, event_name)
+            if not fail_hits:
+                continue
+            failed_event_hits.append({"event": event_name, "count": len(fail_hits)})
+            evidence_rows.extend(_build_evidence(fail_hits, source="structured", event=event_name))
+
+        status = "PASS"
+        if missing_events or failed_event_hits:
+            status = "FAIL"
+            failed_roles.append(role_id)
+
+        role_results[role_id] = {
+            "status": status,
+            "missing_events": missing_events,
+            "failed_events": failed_event_hits,
+            "event_counts": event_counts,
+            "fallback_hits": fallback_hits,
+        }
+
+    summary = {
+        "overall_status": "FAIL" if failed_roles else "PASS",
+        "failed_roles": failed_roles,
+        "role_results": role_results,
+        "effective_rules": {
+            "required_events": required_events,
+            "fail_events": fail_events,
+            "expect_backfill": expect_backfill,
+        },
+    }
+    return summary, evidence_rows
+
+
+def check_fault_regression(
+    ctx: RunContext,
+    role_ids: List[str],
+    container: str = "datainjector-worker",
+    since_seconds: int = 120,
+    tail_lines: int = 5000,
+    rules: Optional[Dict[str, Any]] = None,
+    expect_backfill: bool = False,
+) -> ProbeResult:
+    if not role_ids:
+        return ProbeResult(status=ProbeStatus.FAIL, detail="role_ids is empty")
+
+    entries, lines, error = _fetch_worker_logs(container, since_seconds, tail_lines)
+    if error:
+        return ProbeResult(status=ProbeStatus.FAIL, detail=error)
+
+    summary, evidence = evaluate_fault_regression(
+        entries=entries,
+        lines=lines,
+        role_ids=role_ids,
+        rules=rules,
+        expect_backfill=expect_backfill,
+    )
+    failed_roles = summary.get("failed_roles") or []
+    status = ProbeStatus.FAIL if failed_roles else ProbeStatus.SUCCESS
+    detail = "all roles passed"
+    if failed_roles:
+        detail = f"failed roles: {', '.join(failed_roles)}"
+
+    return ProbeResult(
+        status=status,
+        detail=detail,
+        metrics={
+            "role_count": len(role_ids),
+            "failed_role_count": len(failed_roles),
+            "event_count": len(entries),
+        },
+        payload={
+            "summary": summary,
+            "evidence": evidence,
+        },
+    )
+
+
+def write_fault_regression_artifacts(
+    ctx: RunContext,
+    summary: Dict[str, Any],
+    evidence: List[Dict[str, Any]],
+) -> ProbeResult:
+    run_dir = _run_dir_from_ctx(ctx)
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    summary_json_path = run_dir / "fault_regression_summary.json"
+    summary_txt_path = run_dir / "summary.txt"
+    evidence_path = run_dir / "evidence.jsonl"
+
+    with summary_json_path.open("w", encoding="utf-8") as f:
+        json.dump(summary, f, ensure_ascii=True, indent=2)
+        f.write("\n")
+
+    with evidence_path.open("w", encoding="utf-8") as f:
+        for row in evidence:
+            f.write(json.dumps(row, ensure_ascii=True) + "\n")
+
+    lines = [
+        f"run_id: {ctx.run_id}",
+        f"scenario: {ctx.scenario}",
+        f"overall_status: {summary.get('overall_status', 'UNKNOWN')}",
+        f"failed_roles: {', '.join(summary.get('failed_roles') or []) or 'none'}",
+        "",
+        "role_results:",
+    ]
+    role_results = summary.get("role_results") or {}
+    for role_id in sorted(role_results.keys()):
+        item = role_results[role_id] or {}
+        missing = ", ".join(item.get("missing_events") or []) or "none"
+        failed = ", ".join([f"{x.get('event')}({x.get('count')})" for x in (item.get("failed_events") or [])]) or "none"
+        lines.append(f"- {role_id}: {item.get('status', 'UNKNOWN')}")
+        lines.append(f"  missing_events: {missing}")
+        lines.append(f"  failed_events: {failed}")
+
+    with summary_txt_path.open("w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+    return ProbeResult(
+        status=ProbeStatus.SUCCESS,
+        detail="fault regression artifacts written",
+        payload={
+            "run_dir": str(run_dir),
+            "summary_json": str(summary_json_path),
+            "summary_txt": str(summary_txt_path),
+            "evidence_jsonl": str(evidence_path),
+        },
+    )

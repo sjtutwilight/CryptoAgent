@@ -12,6 +12,8 @@ import (
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/util"
 )
 
+const defaultExchange = "binance"
+
 type tradeEvent struct {
 	Symbol      string `json:"symbol"`
 	Exchange    string `json:"exchange"`
@@ -97,6 +99,17 @@ type liquidationNormalizer struct {
 type aggTradeHandler struct {
 	symbol   string
 	exchange string
+}
+
+type aggTradeRESTItem struct {
+	AggTradeID   int64  `json:"a"`
+	Price        string `json:"p"`
+	Quantity     string `json:"q"`
+	FirstTradeID int64  `json:"f"`
+	LastTradeID  int64  `json:"l"`
+	TradeTime    int64  `json:"T"`
+	IsBuyerMaker bool   `json:"m"`
+	Symbol       string `json:"s"`
 }
 
 func init() {
@@ -417,63 +430,154 @@ func (h *liquidationNormalizer) Handle(msg *types.Message) ([]*types.Message, er
 }
 
 func (h *aggTradeHandler) Handle(msg *types.Message) ([]*types.Message, error) {
-	fmt.Println("msg", string(msg.Payload))
 	if msg == nil || len(msg.Payload) == 0 {
 		return nil, nil
 	}
 
-	// 直接从payload解析aggTrade消息
-	var aggTrade binance.AggTradeMessage
-	if err := json.Unmarshal(msg.Payload, &aggTrade); err != nil {
+	aggTrades, err := parseAggTradePayload(msg.Payload, h.symbol)
+	if err != nil {
 		return nil, fmt.Errorf("binance_aggtrade: 解析消息失败: %w", err)
 	}
+	out := make([]*types.Message, 0, len(aggTrades))
+	for _, aggTrade := range aggTrades {
+		if aggTrade.EventType != "aggTrade" {
+			return nil, fmt.Errorf("binance_aggtrade: 非法事件类型: %s", aggTrade.EventType)
+		}
 
-	// 检查事件类型
-	if aggTrade.EventType != "aggTrade" {
-		return nil, fmt.Errorf("binance_aggtrade: 非法事件类型: %s", aggTrade.EventType)
+		symbol := strings.ToUpper(util.FirstNonEmpty(aggTrade.Symbol, h.symbol))
+		if h.symbol != "" && symbol != h.symbol {
+			continue
+		}
+
+		// 计算交易方向: buyer_maker=true表示卖单(taker是买方，maker是卖方)
+		side := "buy"
+		if aggTrade.IsBuyerMaker {
+			side = "sell"
+		}
+
+		// 构造标准化的交易事件
+		event := tradeEvent{
+			Symbol:      symbol,
+			Exchange:    util.FirstNonEmpty(h.exchange, defaultExchange),
+			Price:       aggTrade.Price,
+			Size:        aggTrade.Quantity,
+			Side:        side,
+			BuyerMaker:  aggTrade.IsBuyerMaker,
+			ExchangeTS:  util.FirstNonZero(aggTrade.TradeTime, aggTrade.EventTime),
+			IngestTS:    time.Now().UTC().UnixMilli(),
+			TradeID:     aggTrade.AggTradeID, // 使用聚合交易ID
+			BuyerOrder:  0,                   // aggTrade不包含订单ID信息
+			SellerOrder: 0,
+		}
+
+		payload, err := json.Marshal(event)
+		if err != nil {
+			return nil, err
+		}
+
+		meta := map[string]any{
+			"symbol":         event.Symbol,
+			"exchange":       event.Exchange,
+			"agg_trade_id":   aggTrade.AggTradeID,
+			"first_trade_id": aggTrade.FirstTradeID,
+			"last_trade_id":  aggTrade.LastTradeID,
+			"exchange_ts":    event.ExchangeTS,
+		}
+		inheritBackfillMeta(meta, msg.Metadata)
+		out = append(out, &types.Message{Metadata: meta, Payload: payload})
+	}
+	return out, nil
+}
+
+func parseAggTradePayload(payload []byte, fallbackSymbol string) ([]binance.AggTradeMessage, error) {
+	// Combined stream payload: {"stream":"btcusdt@aggTrade","data":{...}}
+	var wsEnvelope struct {
+		Stream string          `json:"stream"`
+		Data   json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(payload, &wsEnvelope); err == nil && len(wsEnvelope.Data) > 0 {
+		symbol := strings.ToUpper(strings.TrimSpace(fallbackSymbol))
+		if stream := strings.TrimSpace(wsEnvelope.Stream); stream != "" {
+			if idx := strings.Index(stream, "@"); idx > 0 {
+				stream = stream[:idx]
+			}
+			stream = strings.ToUpper(strings.TrimSpace(stream))
+			if stream != "" {
+				symbol = stream
+			}
+		}
+		return parseAggTradePayload(wsEnvelope.Data, symbol)
 	}
 
-	// 过滤symbol
-	if h.symbol != "" && strings.ToUpper(aggTrade.Symbol) != h.symbol {
-		return nil, nil
+	var wsTrade binance.AggTradeMessage
+	if err := json.Unmarshal(payload, &wsTrade); err == nil && wsTrade.EventType != "" {
+		if wsTrade.Symbol == "" && fallbackSymbol != "" {
+			wsTrade.Symbol = strings.ToUpper(strings.TrimSpace(fallbackSymbol))
+		}
+		return []binance.AggTradeMessage{wsTrade}, nil
 	}
 
-	// 计算交易方向: buyer_maker=true表示卖单(taker是买方，maker是卖方)
-	side := "buy"
-	if aggTrade.IsBuyerMaker {
-		side = "sell"
+	var wsTrades []binance.AggTradeMessage
+	if err := json.Unmarshal(payload, &wsTrades); err == nil && len(wsTrades) > 0 {
+		hasWSEnvelope := false
+		for _, item := range wsTrades {
+			if item.EventType != "" || item.Symbol != "" {
+				hasWSEnvelope = true
+				break
+			}
+		}
+		if hasWSEnvelope {
+			return wsTrades, nil
+		}
 	}
 
-	// 构造标准化的交易事件
-	event := tradeEvent{
-		Symbol:      strings.ToUpper(aggTrade.Symbol),
-		Exchange:    util.FirstNonEmpty(h.exchange, defaultExchange),
-		Price:       aggTrade.Price,
-		Size:        aggTrade.Quantity,
-		Side:        side,
-		BuyerMaker:  aggTrade.IsBuyerMaker,
-		ExchangeTS:  util.FirstNonZero(aggTrade.TradeTime, aggTrade.EventTime),
-		IngestTS:    time.Now().UTC().UnixMilli(),
-		TradeID:     aggTrade.AggTradeID, // 使用聚合交易ID
-		BuyerOrder:  0,                   // aggTrade不包含订单ID信息
-		SellerOrder: 0,
+	var restTrades []aggTradeRESTItem
+	if err := json.Unmarshal(payload, &restTrades); err == nil && len(restTrades) > 0 {
+		out := make([]binance.AggTradeMessage, 0, len(restTrades))
+		for _, item := range restTrades {
+			out = append(out, convertRestAggTrade(item, fallbackSymbol))
+		}
+		return out, nil
 	}
 
-	payload, err := json.Marshal(event)
-	if err != nil {
-		return nil, err
+	var restTrade aggTradeRESTItem
+	if err := json.Unmarshal(payload, &restTrade); err == nil && restTrade.AggTradeID > 0 {
+		return []binance.AggTradeMessage{convertRestAggTrade(restTrade, fallbackSymbol)}, nil
 	}
+	return nil, fmt.Errorf("不支持的 payload 结构")
+}
 
-	meta := map[string]any{
-		"symbol":         event.Symbol,
-		"exchange":       event.Exchange,
-		"agg_trade_id":   aggTrade.AggTradeID,
-		"first_trade_id": aggTrade.FirstTradeID,
-		"last_trade_id":  aggTrade.LastTradeID,
-		"exchange_ts":    event.ExchangeTS,
+func convertRestAggTrade(item aggTradeRESTItem, fallbackSymbol string) binance.AggTradeMessage {
+	return binance.AggTradeMessage{
+		EventType:    "aggTrade",
+		EventTime:    item.TradeTime,
+		Symbol:       strings.ToUpper(util.FirstNonEmpty(item.Symbol, fallbackSymbol)),
+		AggTradeID:   item.AggTradeID,
+		Price:        item.Price,
+		Quantity:     item.Quantity,
+		FirstTradeID: item.FirstTradeID,
+		LastTradeID:  item.LastTradeID,
+		TradeTime:    item.TradeTime,
+		IsBuyerMaker: item.IsBuyerMaker,
 	}
-	fmt.Println("payload", string(payload))
-	return []*types.Message{{Metadata: meta, Payload: payload}}, nil
+}
+
+func inheritBackfillMeta(dst map[string]any, src map[string]any) {
+	if dst == nil || src == nil {
+		return
+	}
+	keys := []string{
+		"is_backfill",
+		"backfill_type",
+		"backfill_attempt",
+		"backfill_step",
+		"backfill_steps",
+	}
+	for _, key := range keys {
+		if v, ok := src[key]; ok {
+			dst[key] = v
+		}
+	}
 }
 
 func diffDecimal(a, b string) string {

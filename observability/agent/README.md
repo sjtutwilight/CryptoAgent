@@ -94,7 +94,10 @@ docker-compose up -d prometheus loki grafana promtail kafka-exporter
 | `worker_websocket_connections` | Gauge | WebSocket连接数 |
 | `worker_websocket_reconnects_total` | Counter | 重连次数 |
 | `worker_integrity_gaps_total` | Counter | 序列号Gap数 |
-| `worker_integrity_backfills_total` | Counter | 补数请求数 |
+| `worker_integrity_backfill_sessions_inflight` | Gauge | Backfill会话进行中数量 |
+| `worker_integrity_backfill_result_total` | Counter | Backfill结果计数（success/fail/timeout） |
+| `worker_integrity_backfill_pending_duration_seconds` | Histogram | Backfill pending 持续时长 |
+| `worker_integrity_backfill_schedule_dedup_total` | Counter | Backfill去重命中次数 |
 | `worker_integrity_buffer_size` | Gauge | 乱序缓冲区大小 |
 
 ### Backend 指标
@@ -259,6 +262,5 @@ curl -X POST http://localhost:9090/-/reload
 - [Grafana官方文档](https://grafana.com/docs/)
 - [Loki官方文档](https://grafana.com/docs/loki/)
 - [Spring Boot Actuator](https://docs.spring.io/spring-boot/docs/current/reference/html/actuator.html)
-
 
 

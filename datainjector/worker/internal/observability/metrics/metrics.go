@@ -4,6 +4,7 @@ package metrics
 
 import (
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -170,17 +171,6 @@ var (
 		[]string{"role_id", "stream_key"},
 	)
 
-	// IntegrityBackfills 触发的补数请求数
-	IntegrityBackfills = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: "worker",
-			Subsystem: "integrity",
-			Name:      "backfills_total",
-			Help:      "触发的补数请求总数",
-		},
-		[]string{"role_id", "backfill_type", "status"}, // status: success, failed
-	)
-
 	// IntegrityBufferSize 乱序缓冲区大小
 	IntegrityBufferSize = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -201,6 +191,17 @@ var (
 			Help:      "去重过滤的消息总数",
 		},
 		[]string{"role_id", "stream_key"},
+	)
+
+	// OrderbookSnapshotEmitted 订单簿 snapshot 发射计数
+	OrderbookSnapshotEmitted = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "worker",
+			Subsystem: "orderbook",
+			Name:      "snapshot_emitted_total",
+			Help:      "订单簿 snapshot 发射总数",
+		},
+		[]string{"role_id", "snapshot_source", "snapshot_reason"},
 	)
 
 	// ==================== Handler链指标 ====================
@@ -313,6 +314,96 @@ var (
 		},
 		[]string{"version", "go_version", "build_time"},
 	)
+
+	// TaskStages 任务阶段状态计数
+	TaskStages = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "worker",
+			Subsystem: "task",
+			Name:      "stage_total",
+			Help:      "任务阶段事件计数",
+		},
+		[]string{"role_id", "stage", "result"},
+	)
+
+	// WebSocketDrops 各层缓冲丢弃计数
+	WebSocketDrops = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "worker",
+			Subsystem: "websocket",
+			Name:      "drops_total",
+			Help:      "WebSocket 各层缓冲丢弃计数",
+		},
+		[]string{"role_id", "layer", "reason"},
+	)
+
+	// BackfillEnqueueLatency backfill 指令入队等待时延
+	BackfillEnqueueLatency = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "worker",
+			Subsystem: "integrity",
+			Name:      "backfill_enqueue_latency_seconds",
+			Help:      "backfill 指令入队等待时延",
+			Buckets:   []float64{0.001, 0.01, 0.05, 0.1, 0.2, 0.5, 1, 2, 5},
+		},
+		[]string{"role_id", "backfill_type", "status"},
+	)
+
+	// BackfillCompensationBacklog 持久化补偿积压
+	BackfillCompensationBacklog = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "worker",
+			Subsystem: "integrity",
+			Name:      "backfill_compensation_backlog",
+			Help:      "backfill 持久化补偿积压数量",
+		},
+		[]string{"role_id"},
+	)
+
+	// BackfillSessionsInflight 当前会话 in-flight 数（0/1）
+	BackfillSessionsInflight = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "worker",
+			Subsystem: "integrity",
+			Name:      "backfill_sessions_inflight",
+			Help:      "backfill 会话 in-flight 状态（0/1）",
+		},
+		[]string{"role_id", "stream_key", "backfill_type"},
+	)
+
+	// BackfillScheduleDedupTotal keyed 去重计数
+	BackfillScheduleDedupTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "worker",
+			Subsystem: "integrity",
+			Name:      "backfill_schedule_dedup_total",
+			Help:      "backfill keyed 去重命中总数",
+		},
+		[]string{"role_id", "stream_key", "backfill_type"},
+	)
+
+	// BackfillResultTotal 会话结果总数
+	BackfillResultTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "worker",
+			Subsystem: "integrity",
+			Name:      "backfill_result_total",
+			Help:      "backfill 结果总数",
+		},
+		[]string{"role_id", "backfill_type", "status", "error_class"},
+	)
+
+	// BackfillPendingDuration 会话 pending 时长
+	BackfillPendingDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "worker",
+			Subsystem: "integrity",
+			Name:      "backfill_pending_duration_seconds",
+			Help:      "backfill 会话 pending 持续时长",
+			Buckets:   []float64{0.01, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 30, 60},
+		},
+		[]string{"role_id", "stream_key", "backfill_type", "status"},
+	)
 )
 
 // Init 初始化metrics注册
@@ -344,9 +435,9 @@ func Init() {
 			HTTPLatency,
 			// 完整性模块
 			IntegrityGaps,
-			IntegrityBackfills,
 			IntegrityBufferSize,
 			IntegrityDuplicates,
+			OrderbookSnapshotEmitted,
 			// Handler
 			HandlerLatency,
 			HandlerErrors,
@@ -361,6 +452,14 @@ func Init() {
 			RoleStartTime,
 			// 构建信息
 			BuildInfo,
+			TaskStages,
+			WebSocketDrops,
+			BackfillEnqueueLatency,
+			BackfillCompensationBacklog,
+			BackfillSessionsInflight,
+			BackfillScheduleDedupTotal,
+			BackfillResultTotal,
+			BackfillPendingDuration,
 		)
 	})
 }
@@ -429,18 +528,13 @@ func RecordWebSocketError(roleID, endpoint, errorType string) {
 
 // RecordHTTPRequest 记录HTTP请求
 func RecordHTTPRequest(roleID, endpoint, method string, statusCode int, duration time.Duration) {
-	HTTPRequests.WithLabelValues(roleID, endpoint, method, string(rune(statusCode))).Inc()
+	HTTPRequests.WithLabelValues(roleID, endpoint, method, strconv.Itoa(statusCode)).Inc()
 	HTTPLatency.WithLabelValues(roleID, endpoint).Observe(duration.Seconds())
 }
 
 // RecordIntegrityGap 记录序列号gap
 func RecordIntegrityGap(roleID, streamKey string) {
 	IntegrityGaps.WithLabelValues(roleID, streamKey).Inc()
-}
-
-// RecordIntegrityBackfill 记录补数请求
-func RecordIntegrityBackfill(roleID, backfillType, status string) {
-	IntegrityBackfills.WithLabelValues(roleID, backfillType, status).Inc()
 }
 
 // SetIntegrityBufferSize 设置缓冲区大小
@@ -451,6 +545,20 @@ func SetIntegrityBufferSize(roleID, streamKey string, size int) {
 // RecordIntegrityDuplicate 记录重复消息
 func RecordIntegrityDuplicate(roleID, streamKey string) {
 	IntegrityDuplicates.WithLabelValues(roleID, streamKey).Inc()
+}
+
+// RecordOrderbookSnapshotEmitted 记录订单簿 snapshot 发射
+func RecordOrderbookSnapshotEmitted(roleID, source, reason string) {
+	if roleID == "" {
+		roleID = "unknown"
+	}
+	if source == "" {
+		source = "unknown"
+	}
+	if reason == "" {
+		reason = "unknown"
+	}
+	OrderbookSnapshotEmitted.WithLabelValues(roleID, source, reason).Inc()
 }
 
 // RecordHandlerLatency 记录Handler延迟
@@ -498,15 +606,89 @@ func SetBuildInfo(version, goVersion, buildTime string) {
 	BuildInfo.WithLabelValues(version, goVersion, buildTime).Set(1)
 }
 
+func RecordTaskStage(roleID, stage, result string) {
+	TaskStages.WithLabelValues(roleID, stage, result).Inc()
+}
 
+func RecordWebSocketDrop(roleID, layer, reason string) {
+	if roleID == "" {
+		roleID = "unknown"
+	}
+	WebSocketDrops.WithLabelValues(roleID, layer, reason).Inc()
+}
 
+func RecordBackfillEnqueue(roleID, backfillType, status string, duration time.Duration) {
+	if roleID == "" {
+		roleID = "unknown"
+	}
+	BackfillEnqueueLatency.WithLabelValues(roleID, backfillType, status).Observe(duration.Seconds())
+}
 
+func SetBackfillCompensationBacklog(roleID string, size int) {
+	if roleID == "" {
+		roleID = "unknown"
+	}
+	BackfillCompensationBacklog.WithLabelValues(roleID).Set(float64(size))
+}
 
+func SetBackfillSessionsInflight(roleID, streamKey, backfillType string, inflight int) {
+	if roleID == "" {
+		roleID = "unknown"
+	}
+	if streamKey == "" {
+		streamKey = "default"
+	}
+	if backfillType == "" {
+		backfillType = "unknown"
+	}
+	val := 0.0
+	if inflight > 0 {
+		val = 1
+	}
+	BackfillSessionsInflight.WithLabelValues(roleID, streamKey, backfillType).Set(val)
+}
 
+func RecordBackfillScheduleDedup(roleID, streamKey, backfillType string) {
+	if roleID == "" {
+		roleID = "unknown"
+	}
+	if streamKey == "" {
+		streamKey = "default"
+	}
+	if backfillType == "" {
+		backfillType = "unknown"
+	}
+	BackfillScheduleDedupTotal.WithLabelValues(roleID, streamKey, backfillType).Inc()
+}
 
+func RecordBackfillResult(roleID, backfillType, status, errorClass string) {
+	if roleID == "" {
+		roleID = "unknown"
+	}
+	if backfillType == "" {
+		backfillType = "unknown"
+	}
+	if status == "" {
+		status = "unknown"
+	}
+	if errorClass == "" {
+		errorClass = "none"
+	}
+	BackfillResultTotal.WithLabelValues(roleID, backfillType, status, errorClass).Inc()
+}
 
-
-
-
-
-
+func RecordBackfillPendingDuration(roleID, streamKey, backfillType, status string, duration time.Duration) {
+	if roleID == "" {
+		roleID = "unknown"
+	}
+	if streamKey == "" {
+		streamKey = "default"
+	}
+	if backfillType == "" {
+		backfillType = "unknown"
+	}
+	if status == "" {
+		status = "unknown"
+	}
+	BackfillPendingDuration.WithLabelValues(roleID, streamKey, backfillType, status).Observe(duration.Seconds())
+}

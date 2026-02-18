@@ -19,6 +19,7 @@
 - `tool/orchestration.sh` - 编排与开发场景入口（调用 docker-compose、服务启停脚本）
 - `tool/ops.sh`           - 数据初始化与操作脚本统一入口
 - `tool/test.sh`          - 测试入口（调用 automation/test 下的 Scenario）
+- `tool/git-branch.sh`    - Git 分支工作流入口（建分支/同步主干/合并主干）
 
 Ops spec: `tool/OPS.md`
 
@@ -39,6 +40,39 @@ Ops spec: `tool/OPS.md`
 ./tool/ops.sh flink:job perp
 ./tool/ops.sh flink:cancel kline
 ./tool/test.sh scenario:run binance_kline --stages=infra,ingress
+```
+
+### Git 分支提效命令
+
+```bash
+# 1) 同步 main 并创建新分支
+./tool/git-branch.sh new feat/ws-buffer-refactor
+
+# 2) 单独同步主干
+./tool/git-branch.sh sync-main
+
+# 3) 将最新主干合并到当前分支
+./tool/git-branch.sh merge-main
+```
+
+### Kafka 微结构增量导出到 ODS
+
+将 `perp/spot` 的 `orderbook/aggtrades` topic 周期性导出到 `runtime/data/ods`：
+
+```bash
+python3 tool/export_kafka_microstructure_to_ods.py --once
+```
+
+持续运行（每 5 分钟增量导出一次）：
+
+```bash
+python3 tool/export_kafka_microstructure_to_ods.py --interval-seconds 300
+```
+
+首次需要补历史时可启用：
+
+```bash
+python3 tool/export_kafka_microstructure_to_ods.py --from-beginning --once
 ```
 
 Notes:

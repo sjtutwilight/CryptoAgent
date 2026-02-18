@@ -22,6 +22,11 @@ type Event struct {
 	DurationMs int64     `json:"durationMs,omitempty"`
 	DataSize   int       `json:"dataSize,omitempty"`
 	Retryable  bool      `json:"retryable,omitempty"`
+	Stage      string    `json:"stage,omitempty"`
+	ErrorClass string    `json:"errorClass,omitempty"`
+	Attempt    int       `json:"attempt,omitempty"`
+	RoleID     string    `json:"roleId,omitempty"`
+	RunID      string    `json:"runId,omitempty"`
 	Timestamp  time.Time `json:"timestamp"`
 }
 

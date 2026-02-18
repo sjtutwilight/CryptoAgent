@@ -1,0 +1,56 @@
+[
+  {
+    "stage": "fault_regression",
+    "probe": "prepare.worker_health",
+    "result": "SUCCESS",
+    "detail": "container running"
+  },
+  {
+    "stage": "fault_regression",
+    "probe": "prepare.role_scope",
+    "result": "SUCCESS",
+    "detail": "scope prepared: mode=real, action=container_pause, roles=1"
+  },
+  {
+    "stage": "fault_regression",
+    "probe": "prepare.apply_roles",
+    "result": "SUCCESS",
+    "detail": "roles applied in prepare: 1"
+  },
+  {
+    "stage": "fault_regression",
+    "probe": "prepare.mock_reset",
+    "result": "SKIP",
+    "detail": "mock reset skipped (mode != mock)"
+  },
+  {
+    "stage": "fault_regression",
+    "probe": "inject.execute",
+    "result": "SUCCESS",
+    "detail": "container paused/unpaused: datainjector-worker"
+  },
+  {
+    "stage": "fault_regression",
+    "probe": "observe.window",
+    "result": "SUCCESS",
+    "detail": "observed 30s"
+  },
+  {
+    "stage": "fault_regression",
+    "probe": "assert.rules",
+    "result": "FAIL",
+    "detail": "failed roles: rec-binance-perp-aave-orderbook-full"
+  },
+  {
+    "stage": "fault_regression",
+    "probe": "report.artifacts",
+    "result": "SUCCESS",
+    "detail": "fault regression artifacts written"
+  },
+  {
+    "stage": "fault_regression",
+    "probe": "cleanup.restore",
+    "result": "SUCCESS",
+    "detail": "cleanup ok"
+  }
+]

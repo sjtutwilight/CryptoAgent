@@ -16,6 +16,7 @@ from automation.test.scenarios import (  # noqa: E402
     binance_kline,
     binance_perp,
     binance_spot_link_kline_batch,
+    datainjector_fault_regression,
     geckoterminal_link_liquidity,
     hyperliquid_perp,
     spark_token_holders,
@@ -49,6 +50,8 @@ def load_scenario(name: str):
         return spark_token_holders.build_scenario()
     if name == "geckoterminal_link_liquidity":
         return geckoterminal_link_liquidity.build_scenario()
+    if name == "datainjector_fault_regression":
+        return datainjector_fault_regression.build_scenario()
     raise ValueError(f"unknown scenario: {name}")
 
 
@@ -103,13 +106,20 @@ def run_stage(ctx: RunContext, stage, run_dir: Path) -> List[ProbeResult]:
 
 
 def summarize(results: Iterable[ProbeResult]) -> str:
-    status = ProbeStatus.SUCCESS
+    has_success = False
+    has_skip = False
     for result in results:
         if result.status == ProbeStatus.FAIL:
             return "failed"
-        if result.status == ProbeStatus.SKIP:
-            status = ProbeStatus.SKIP
-    return "skipped" if status == ProbeStatus.SKIP else "passed"
+        if result.status == ProbeStatus.SUCCESS:
+            has_success = True
+        elif result.status == ProbeStatus.SKIP:
+            has_skip = True
+    if has_success:
+        return "passed"
+    if has_skip:
+        return "skipped"
+    return "passed"
 
 
 def parse_args() -> argparse.Namespace:
@@ -157,6 +167,7 @@ def main() -> None:
     selected = select_stages(stage_names, args.stages, args.from_stage, args.to_stage)
 
     config = load_config(args)
+    config.setdefault("run_base_dir", args.base_dir)
     all_results: List[ProbeResult] = []
     for idx in selected:
         stage = scenario.stages[idx]

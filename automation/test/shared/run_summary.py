@@ -68,6 +68,13 @@ def build_timeline(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 def write_summary(run_dir: Path) -> None:
     events = read_probe_events(run_dir)
     summary = build_summary(events)
+    fault_summary_path = run_dir / "fault_regression_summary.json"
+    if fault_summary_path.exists():
+        try:
+            with fault_summary_path.open("r", encoding="utf-8") as f:
+                summary["fault_regression"] = json.load(f)
+        except Exception:
+            summary["fault_regression"] = {"status": "invalid_fault_summary"}
     with (run_dir / "summary.json").open("w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=True, indent=2)
         f.write("\n")

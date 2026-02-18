@@ -82,6 +82,9 @@ checks: 必填字段（如 topic/symbol/protocol/endpoint）与结构校验。
 ### sink 配置规范
 - 优先使用 `type: "file"` 保存到本地文件，便于调试和数据留存
 - 只有明确需要实时流式处理时才使用 `type: "kafka"`
+- AAVE 微观结构（spot/perp orderbook + aggtrades）属于 Kafka-first 默认链路，使用 `configs/aave/roles_aave_full_stable.json`
+- 启动方式：`--config configs/base.yaml --roles configs/aave/roles_aave_full_stable.json`
+- 该场景下 file 录制仅作为调试辅助，不是默认接入路径
 - 文件 sink 示例：
   ```yaml
   sink:

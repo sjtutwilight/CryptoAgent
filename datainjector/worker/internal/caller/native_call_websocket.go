@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/observability/logging"
+	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/observability/metrics"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/protocol"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/types"
 	"github.com/twilight-labs/dataplatform/datainjector/worker/internal/util"
@@ -19,17 +20,22 @@ import (
 
 type WebSocketCall struct {
 	chainID              string
+	roleID               string
 	subscribeTopic       string
 	subscribePayload     interface{}
 	subscribeReq         protocol.JSONRPCRequest
 	subscribeMethod      string
 	subscribeJSONRPC     string
-	subscribeID          string
+	subscribeReqIDs      map[string]struct{}
+	subscribeIDs         map[string]struct{}
 	wsClient             *protocol.WebSocketClient
 	mu                   sync.Mutex
 	subscribed           bool
 	msgBuffer            []*types.Message
-	reqCounter           int64
+	msgBufferBytes       int
+	msgBufferMaxMessages int
+	msgBufferMaxBytes    int
+	msgBufferDropPolicy  string
 	wsPendingMu          sync.Mutex
 	wsPending            map[string]chan wsRPCResponse
 	messageFormat        string
@@ -42,7 +48,19 @@ type WebSocketCall struct {
 	notifyMethod         string
 	extractBlockMetadata bool
 	resultMetadata       map[string]string
+	sharedHub            *sharedWebSocketHub
+	sharedSubID          int
+	sharedMessageCh      <-chan []byte
+	releaseWSClient      func()
+	shareByEndpoint      bool
+	allowedStreams       map[string]struct{}
+	backpressureHighPct  int
+	backpressureLowPct   int
+	messageBackpressure  bool
+	wsBoundedBuffer      bool
 }
+
+var wsGlobalReqCounter int64
 
 func NewWebSocketCall(callerConfig map[string]any, params map[string]any) (*WebSocketCall, error) {
 	url := getStringValue(callerConfig, "url", "")
@@ -52,7 +70,12 @@ func NewWebSocketCall(callerConfig map[string]any, params map[string]any) (*WebS
 
 	call := &WebSocketCall{
 		msgBuffer:            make([]*types.Message, 0),
+		msgBufferMaxMessages: 2048,
+		msgBufferMaxBytes:    16 * 1024 * 1024,
+		msgBufferDropPolicy:  "drop_oldest",
 		wsPending:            make(map[string]chan wsRPCResponse),
+		subscribeReqIDs:      make(map[string]struct{}),
+		subscribeIDs:         make(map[string]struct{}),
 		subscribeMethod:      "eth_subscribe",
 		subscribeJSONRPC:     "2.0",
 		messageFormat:        "jsonrpc",
@@ -62,6 +85,11 @@ func NewWebSocketCall(callerConfig map[string]any, params map[string]any) (*WebS
 	}
 
 	callerParams, _ := params["caller_params"].(map[string]any)
+	roleID := getStringValue(params, "role_id", "")
+	if roleID == "" && callerParams != nil {
+		roleID = getStringValue(callerParams, "role_id", "")
+	}
+	call.roleID = roleID
 
 	if cid := getStringValue(callerConfig, "chain_id", ""); cid != "" {
 		call.chainID = cid
@@ -158,9 +186,76 @@ func NewWebSocketCall(callerConfig map[string]any, params map[string]any) (*WebS
 	}
 	reconnectBase := 2
 	reconnectMax := 60
+	minReconnectIntervalMs := 3000
+	backoffJitterPercent := 30
+	policyViolationThreshold := 3
+	policyCooldownSeconds := 60
+	subscribeDedupeWindowMs := 10000
+	// 默认不启用 endpoint 级复用，避免不同订阅流在缺少可路由字段时发生串流。
+	// 是否复用由配置显式开启（caller_params.reconnect.share_by_endpoint）。
+	shareByEndpoint := false
+	dispatchBufferSize := 1024
+	backpressureHighPct := 80
+	backpressureLowPct := 40
+	msgBufferMaxMessages := call.msgBufferMaxMessages
+	msgBufferMaxBytes := call.msgBufferMaxBytes
+	msgBufferDropPolicy := call.msgBufferDropPolicy
+	wsBoundedBuffer := getBoolValue(callerParams, "ws_bounded_buffer", true)
 	if rcMap, ok := callerParams["reconnect"].(map[string]any); ok {
 		reconnectBase = getIntValue(rcMap, "backoff_base_seconds", reconnectBase)
 		reconnectMax = getIntValue(rcMap, "backoff_max_seconds", reconnectMax)
+		minReconnectIntervalMs = getIntValue(rcMap, "min_interval_ms", minReconnectIntervalMs)
+		backoffJitterPercent = getIntValue(rcMap, "jitter_percent", backoffJitterPercent)
+		policyViolationThreshold = getIntValue(rcMap, "policy_violation_threshold", policyViolationThreshold)
+		policyCooldownSeconds = getIntValue(rcMap, "policy_cooldown_seconds", policyCooldownSeconds)
+		subscribeDedupeWindowMs = getIntValue(rcMap, "subscribe_dedupe_window_ms", subscribeDedupeWindowMs)
+		shareByEndpoint = getBoolValue(rcMap, "share_by_endpoint", shareByEndpoint)
+		dispatchBufferSize = getIntValue(rcMap, "dispatch_buffer_size", dispatchBufferSize)
+		backpressureHighPct = getIntValue(rcMap, "backpressure_high_watermark_percent", backpressureHighPct)
+		backpressureLowPct = getIntValue(rcMap, "backpressure_low_watermark_percent", backpressureLowPct)
+	}
+	if callerParams != nil {
+		if v := getIntValue(callerParams, "buffer_max_messages", 0); v > 0 {
+			msgBufferMaxMessages = v
+		}
+		if v := getIntValue(callerParams, "buffer_max_bytes", 0); v > 0 {
+			msgBufferMaxBytes = v
+		}
+		if v := getStringValue(callerParams, "buffer_drop_policy", ""); v != "" {
+			msgBufferDropPolicy = strings.ToLower(strings.TrimSpace(v))
+		}
+		if bufferMap, ok := callerParams["buffer"].(map[string]any); ok {
+			if v := getIntValue(bufferMap, "max_messages", 0); v > 0 {
+				msgBufferMaxMessages = v
+			}
+			if v := getIntValue(bufferMap, "max_bytes", 0); v > 0 {
+				msgBufferMaxBytes = v
+			}
+			if v := getStringValue(bufferMap, "drop_policy", ""); v != "" {
+				msgBufferDropPolicy = strings.ToLower(strings.TrimSpace(v))
+			}
+		}
+	}
+	if msgBufferMaxMessages <= 0 {
+		msgBufferMaxMessages = 2048
+	}
+	if msgBufferMaxBytes <= 0 {
+		msgBufferMaxBytes = 16 * 1024 * 1024
+	}
+	switch msgBufferDropPolicy {
+	case "drop_oldest", "drop_newest":
+	default:
+		msgBufferDropPolicy = "drop_oldest"
+	}
+	if !wsBoundedBuffer {
+		msgBufferMaxMessages = 0
+		msgBufferMaxBytes = 0
+	}
+	if backpressureHighPct <= 0 || backpressureHighPct > 100 {
+		backpressureHighPct = 80
+	}
+	if backpressureLowPct < 0 || backpressureLowPct >= backpressureHighPct {
+		backpressureLowPct = backpressureHighPct / 2
 	}
 
 	if method := getStringValue(callerConfig, "subscribe_method", ""); method != "" {
@@ -179,15 +274,44 @@ func NewWebSocketCall(callerConfig map[string]any, params map[string]any) (*WebS
 	}
 
 	cfg := protocol.WebSocketConfig{
-		URL:                url,
-		HeartbeatMs:        heartbeatMs,
-		BackoffBaseSeconds: reconnectBase,
-		BackoffMaxSeconds:  reconnectMax,
-		HeartbeatPayload:   heartbeatPayload,
-		HeartbeatOpcode:    heartbeatOpcode,
+		URL:                      url,
+		HeartbeatMs:              heartbeatMs,
+		BackoffBaseSeconds:       reconnectBase,
+		BackoffMaxSeconds:        reconnectMax,
+		MinReconnectIntervalMs:   minReconnectIntervalMs,
+		BackoffJitterPercent:     backoffJitterPercent,
+		PolicyViolationThreshold: policyViolationThreshold,
+		PolicyCooldownSeconds:    policyCooldownSeconds,
+		SubscribeDedupeWindowMs:  subscribeDedupeWindowMs,
+		HeartbeatPayload:         heartbeatPayload,
+		HeartbeatOpcode:          heartbeatOpcode,
 	}
 
-	call.wsClient = protocol.NewWebSocketClient(cfg)
+	endpointKey := buildEndpointShareKey(url, call.messageFormat)
+	wsClient, hub, release, err := acquireWebSocketEndpoint(endpointKey, cfg, shareByEndpoint)
+	if err != nil {
+		return nil, err
+	}
+	call.wsClient = wsClient
+	call.sharedHub = hub
+	call.releaseWSClient = release
+	call.shareByEndpoint = shareByEndpoint
+	call.backpressureHighPct = backpressureHighPct
+	call.backpressureLowPct = backpressureLowPct
+	call.msgBufferMaxMessages = msgBufferMaxMessages
+	call.msgBufferMaxBytes = msgBufferMaxBytes
+	call.msgBufferDropPolicy = msgBufferDropPolicy
+	call.wsBoundedBuffer = wsBoundedBuffer
+	subID, subCh, err := hub.subscribe(dispatchBufferSize, nil)
+	if err != nil {
+		if release != nil {
+			release()
+		}
+		return nil, err
+	}
+	call.sharedSubID = subID
+	call.sharedMessageCh = subCh
+
 	if err := call.wsClient.Connect(); err != nil {
 		logging.Warn(context.Background(), logging.EventWSInitConnectError, "initial websocket connect failed, will retry", logging.Fields{
 			"error": err.Error(),
@@ -195,10 +319,18 @@ func NewWebSocketCall(callerConfig map[string]any, params map[string]any) (*WebS
 	}
 
 	call.refreshSubscribeRequest(callerParams)
+	call.syncSharedHubRoutes()
 	go call.receiveMessages()
 
 	logging.Info(context.Background(), logging.EventWSInit, "websocket client initialized", logging.Fields{
-		"message_format": call.messageFormat,
+		"message_format":    call.messageFormat,
+		"share_by_endpoint": call.shareByEndpoint,
+		"endpoint_key":      endpointKey,
+		"buffer_max_msgs":   call.msgBufferMaxMessages,
+		"buffer_max_bytes":  call.msgBufferMaxBytes,
+		"buffer_drop":       call.msgBufferDropPolicy,
+		"role_id":           call.roleID,
+		"ws_bounded_buffer": call.wsBoundedBuffer,
 	})
 	return call, nil
 }
@@ -209,16 +341,33 @@ func (w *WebSocketCall) sendSubscribe() error {
 	}
 	if w.skipSubscribe {
 		w.subscribed = true
+		w.clearSubscriptionRoutingStateLocked()
+		w.syncSharedHubRoutesLocked()
 		return nil
 	}
 	if w.useRawSubscribe {
 		if len(w.subscribePayloads) == 0 {
 			return fmt.Errorf("subscribe payload 为空")
 		}
+		w.clearSubscriptionRoutingStateLocked()
+		tracked, missing := w.trackSubscribeRequestIDsFromRawPayloadsLocked(w.subscribePayloads)
+		if w.shareByEndpoint && w.messageFormat == "jsonrpc" && tracked == 0 {
+			return fmt.Errorf("share_by_endpoint 模式下 jsonrpc subscribe_raw 必须包含 id 字段")
+		}
+		if missing > 0 && w.shareByEndpoint && w.messageFormat == "jsonrpc" {
+			logging.Warn(context.Background(), logging.EventWSSubscribeParseErr, "jsonrpc subscribe_raw 存在缺失 id 的请求，可能影响共享路由", logging.Fields{
+				"missing_count": missing,
+				"payload_count": len(w.subscribePayloads),
+			})
+		}
+		w.syncSharedHubRoutesLocked()
 		return w.wsClient.SendRawSubscribes(w.subscribePayloads)
 	}
 	req := w.buildSubscribeRequest(w.subscribeTopic, w.subscribePayload)
 	w.subscribeReq = req
+	w.clearSubscriptionRoutingStateLocked()
+	w.trackSubscribeRequestIDLocked(normalizeRequestIDValue(req.ID))
+	w.syncSharedHubRoutesLocked()
 	return w.wsClient.Subscribe(req)
 }
 
@@ -252,12 +401,22 @@ func (w *WebSocketCall) CallOnce(ctx context.Context, args map[string]any) ([]*t
 
 	msgs := w.msgBuffer
 	w.msgBuffer = make([]*types.Message, 0)
+	w.msgBufferBytes = 0
 	w.mu.Unlock()
 
 	return msgs, nil
 }
 
 func (w *WebSocketCall) Close() error {
+	if w.sharedHub != nil && w.sharedSubID > 0 {
+		w.sharedHub.unsubscribe(w.sharedSubID)
+		w.sharedSubID = 0
+	}
+	if w.releaseWSClient != nil {
+		w.releaseWSClient()
+		w.releaseWSClient = nil
+		return nil
+	}
 	if w.wsClient != nil {
 		return w.wsClient.Close()
 	}
@@ -335,6 +494,11 @@ func (w *WebSocketCall) refreshSubscribeRequest(callerParams map[string]any) {
 	if callerParams == nil {
 		callerParams = map[string]any{}
 	}
+	streams := getStringSlice(callerParams, "streams")
+	if len(streams) == 0 && len(w.defaultStreams) > 0 {
+		streams = append(streams, w.defaultStreams...)
+	}
+	w.setAllowedStreams(streams)
 
 	if rawPayload, ok := callerParams["subscribe_raw"]; ok && rawPayload != nil {
 		payloads, err := normalizeRawPayloads(rawPayload)
@@ -363,6 +527,7 @@ func (w *WebSocketCall) refreshSubscribeRequest(callerParams map[string]any) {
 			}
 		}
 		if len(streams) > 0 {
+			w.setAllowedStreams(streams)
 			method := getStringValue(callerParams, "subscribe_method", "")
 			if method == "" {
 				method = "SUBSCRIBE"
@@ -417,6 +582,9 @@ func (w *WebSocketCall) refreshSubscribeRequest(callerParams map[string]any) {
 	w.subscribeTopic = topic
 	w.subscribePayload = extra
 	w.subscribeReq = w.buildSubscribeRequest(topic, extra)
+	if topic != "" && len(w.allowedStreams) == 0 {
+		w.setAllowedStreams([]string{topic})
+	}
 }
 
 func (w *WebSocketCall) buildSubscribeRequest(topic string, extra interface{}) protocol.JSONRPCRequest {
@@ -442,7 +610,12 @@ func (w *WebSocketCall) buildSubscribeRequest(topic string, extra interface{}) p
 }
 
 func (w *WebSocketCall) receiveMessages() {
-	for data := range w.wsClient.MessageChan() {
+	source := w.wsClient.MessageChan()
+	if w.sharedMessageCh != nil {
+		source = w.sharedMessageCh
+	}
+	for data := range source {
+		w.refreshMessageBackpressure(source)
 		if err := w.handleIncomingMessage(data); err != nil {
 			logging.Warn(context.Background(), logging.EventWSMessageProcessErr, "process websocket message failed", logging.Fields{
 				"error": err.Error(),
@@ -483,6 +656,11 @@ func (w *WebSocketCall) handleJSONRPCMessage(data []byte) error {
 		if w.deliverPendingResponse(base.ID, base.Result, base.Error) {
 			return nil
 		}
+		reqID := rawIDToString(base.ID)
+		if w.shareByEndpoint && reqID != "" && !w.isPendingSubscribeRequestID(reqID) {
+			// 共享连接下，忽略其他 caller 的 RPC 响应，避免串流与误报。
+			return nil
+		}
 	}
 
 	if base.Error != nil {
@@ -496,6 +674,9 @@ func (w *WebSocketCall) handleJSONRPCMessage(data []byte) error {
 		}
 		if err := json.Unmarshal(base.Params, &params); err != nil {
 			return fmt.Errorf("解析订阅通知失败: %w", err)
+		}
+		if w.shouldDropBySubscription(params.Subscription) {
+			return nil
 		}
 
 		meta := w.baseMetadata()
@@ -519,12 +700,13 @@ func (w *WebSocketCall) handleJSONRPCMessage(data []byte) error {
 	if len(base.Result) > 0 {
 		var subID string
 		if err := json.Unmarshal(base.Result, &subID); err == nil && subID != "" {
-			w.mu.Lock()
-			w.subscribeID = subID
-			w.mu.Unlock()
-			logging.Info(context.Background(), logging.EventWSSubscribeAck, "subscription ack received", logging.Fields{
-				"subscription_id": subID,
-			})
+			reqID := rawIDToString(base.ID)
+			if w.recordSubscriptionAck(reqID, subID) {
+				logging.Info(context.Background(), logging.EventWSSubscribeAck, "subscription ack received", logging.Fields{
+					"subscription_id": subID,
+					"request_id":      reqID,
+				})
+			}
 		}
 	}
 
@@ -547,6 +729,9 @@ func (w *WebSocketCall) handleBinanceMessage(data []byte) error {
 	meta := w.baseMetadata()
 	if obj, ok := payload.(map[string]any); ok {
 		if stream, ok := obj["stream"].(string); ok && stream != "" {
+			if w.shouldDropByStream(stream) {
+				return nil
+			}
 			meta["stream"] = stream
 			if _, exists := meta["subscription"]; !exists {
 				meta["subscription"] = stream
@@ -573,6 +758,9 @@ func (w *WebSocketCall) handleHyperliquidMessage(data []byte) error {
 
 	if obj, ok := payload.(map[string]any); ok {
 		if channel, ok := obj["channel"].(string); ok {
+			if w.shouldDropByStream(channel) {
+				return nil
+			}
 			lower := strings.ToLower(channel)
 			if lower == "pong" {
 				return nil
@@ -631,6 +819,9 @@ func (w *WebSocketCall) baseMetadata() map[string]any {
 			meta["subscription"] = w.subscribeTopic
 		}
 	}
+	if w.messageBackpressure {
+		meta["ws_backpressure"] = true
+	}
 	return meta
 }
 
@@ -682,10 +873,88 @@ func (w *WebSocketCall) bufferMessage(meta map[string]any, data []byte) {
 	}
 	payload := make([]byte, len(data))
 	copy(payload, data)
+	msg := &types.Message{Metadata: meta, Payload: payload}
+	dropReason := ""
+	dropIncoming := false
+	bufferSize := 0
+	bufferBytes := 0
 
 	w.mu.Lock()
-	w.msgBuffer = append(w.msgBuffer, &types.Message{Metadata: meta, Payload: payload})
+	msgSize := len(payload)
+	effectivePolicy := w.msgBufferDropPolicy
+	if w.messageBackpressure {
+		effectivePolicy = "drop_newest"
+	}
+	if w.wsBoundedBuffer && w.msgBufferMaxMessages > 0 && len(w.msgBuffer) >= w.msgBufferMaxMessages {
+		if effectivePolicy == "drop_newest" {
+			dropIncoming = true
+			dropReason = "max_messages_drop_newest"
+		} else {
+			dropReason = "max_messages_drop_oldest"
+			w.dropOldestBufferedMessageLocked()
+		}
+	}
+
+	if !dropIncoming && w.wsBoundedBuffer && w.msgBufferMaxBytes > 0 && msgSize > w.msgBufferMaxBytes {
+		dropIncoming = true
+		dropReason = "message_too_large"
+	}
+
+	if !dropIncoming && w.wsBoundedBuffer && w.msgBufferMaxBytes > 0 && w.msgBufferBytes+msgSize > w.msgBufferMaxBytes {
+		if effectivePolicy == "drop_newest" {
+			dropIncoming = true
+			dropReason = "max_bytes_drop_newest"
+		} else {
+			for len(w.msgBuffer) > 0 && w.msgBufferBytes+msgSize > w.msgBufferMaxBytes {
+				w.dropOldestBufferedMessageLocked()
+			}
+			if w.msgBufferBytes+msgSize > w.msgBufferMaxBytes {
+				dropIncoming = true
+				dropReason = "max_bytes_drop_newest"
+			} else if dropReason == "" {
+				dropReason = "max_bytes_drop_oldest"
+			}
+		}
+	}
+
+	if !dropIncoming {
+		w.msgBuffer = append(w.msgBuffer, msg)
+		w.msgBufferBytes += msgSize
+	}
+	bufferSize = len(w.msgBuffer)
+	bufferBytes = w.msgBufferBytes
 	w.mu.Unlock()
+
+	if dropReason != "" {
+		logging.Warn(context.Background(), logging.EventWSBufferDrop, "websocket caller buffer drop", logging.Fields{
+			"role_id":       w.roleID,
+			"subscription":  w.subscribeTopic,
+			"buffer_layer":  "caller_buffer",
+			"drop_reason":   dropReason,
+			"drop_policy":   effectivePolicy,
+			"buffer_size":   bufferSize,
+			"buffer_bytes":  bufferBytes,
+			"max_messages":  w.msgBufferMaxMessages,
+			"max_bytes":     w.msgBufferMaxBytes,
+			"message_bytes": msgSize,
+		})
+		metrics.RecordWebSocketDrop(w.roleID, "caller_buffer", dropReason)
+	}
+}
+
+func (w *WebSocketCall) dropOldestBufferedMessageLocked() {
+	if len(w.msgBuffer) == 0 {
+		return
+	}
+	removed := w.msgBuffer[0]
+	w.msgBuffer[0] = nil
+	w.msgBuffer = w.msgBuffer[1:]
+	if removed != nil {
+		w.msgBufferBytes -= len(removed.Payload)
+		if w.msgBufferBytes < 0 {
+			w.msgBufferBytes = 0
+		}
+	}
 }
 
 func lookupJSONPath(data interface{}, path string) (interface{}, bool) {
@@ -775,6 +1044,8 @@ func (w *WebSocketCall) ensureConnected() error {
 		return err
 	}
 	w.subscribed = false
+	w.clearSubscriptionRoutingStateLocked()
+	w.syncSharedHubRoutesLocked()
 	return nil
 }
 
@@ -785,6 +1056,8 @@ func (w *WebSocketCall) updateSubscribeFromArgs(args map[string]any) {
 	w.refreshSubscribeRequest(args)
 	w.mu.Lock()
 	w.subscribed = false
+	w.clearSubscriptionRoutingStateLocked()
+	w.syncSharedHubRoutesLocked()
 	w.mu.Unlock()
 }
 
@@ -813,6 +1086,80 @@ func hasSubscribeOverrides(args map[string]any) bool {
 		}
 	}
 	return false
+}
+
+func (w *WebSocketCall) setAllowedStreams(streams []string) {
+	if len(streams) == 0 {
+		w.allowedStreams = nil
+		return
+	}
+	allowed := make(map[string]struct{}, len(streams))
+	for _, stream := range streams {
+		normalized := strings.ToLower(strings.TrimSpace(stream))
+		if normalized == "" {
+			continue
+		}
+		allowed[normalized] = struct{}{}
+	}
+	if len(allowed) == 0 {
+		w.allowedStreams = nil
+		return
+	}
+	w.allowedStreams = allowed
+}
+
+func (w *WebSocketCall) shouldDropByStream(stream string) bool {
+	if len(w.allowedStreams) == 0 {
+		return false
+	}
+	_, ok := w.allowedStreams[strings.ToLower(strings.TrimSpace(stream))]
+	return !ok
+}
+
+func (w *WebSocketCall) refreshMessageBackpressure(ch <-chan []byte) {
+	capacity := cap(ch)
+	if capacity <= 0 {
+		w.messageBackpressure = false
+		return
+	}
+	usedPercent := (len(ch) * 100) / capacity
+	high := w.backpressureHighPct
+	low := w.backpressureLowPct
+	if high <= 0 {
+		high = 80
+	}
+	if low < 0 || low >= high {
+		low = high / 2
+	}
+	if !w.messageBackpressure && usedPercent >= high {
+		w.messageBackpressure = true
+		logging.Warn(context.Background(), logging.EventWSBufferDrop, "websocket enters backpressure mode", logging.Fields{
+			"role_id":         w.roleID,
+			"subscription":    w.subscribeTopic,
+			"buffer_layer":    "upstream_channel",
+			"drop_reason":     "backpressure_high_watermark",
+			"used_percent":    usedPercent,
+			"high_watermark":  high,
+			"load_shedding":   "prefer_drop_newest",
+			"ws_bounded_mode": w.wsBoundedBuffer,
+		})
+		return
+	}
+	if w.messageBackpressure && usedPercent <= low {
+		w.messageBackpressure = false
+		logging.Info(context.Background(), logging.EventWSSubscribeAck, "websocket exits backpressure mode", logging.Fields{
+			"role_id":       w.roleID,
+			"subscription":  w.subscribeTopic,
+			"used_percent":  usedPercent,
+			"low_watermark": low,
+			"buffer_layer":  "upstream_channel",
+			"drop_reason":   "backpressure_recovered",
+		})
+	}
+}
+
+func buildEndpointShareKey(url, format string) string {
+	return strings.ToLower(strings.TrimSpace(format)) + "|" + strings.TrimSpace(url)
 }
 
 func (w *WebSocketCall) callWebSocket(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {
@@ -897,7 +1244,13 @@ func (w *WebSocketCall) rejectPending(id string, err error) {
 }
 
 func (w *WebSocketCall) nextRequestIDString() string {
-	return fmt.Sprintf("%d", atomic.AddInt64(&w.reqCounter, 1))
+	seq := atomic.AddInt64(&wsGlobalReqCounter, 1)
+	// 仅在 endpoint 级共享 + JSON-RPC 场景使用 subscriber 前缀。
+	// Binance/Hyperliquid 等协议要求更严格的请求 id 格式，避免携带 ":"。
+	if w.shareByEndpoint && w.sharedSubID > 0 && strings.EqualFold(w.messageFormat, "jsonrpc") {
+		return fmt.Sprintf("%d:%d", w.sharedSubID, seq)
+	}
+	return fmt.Sprintf("%d", seq)
 }
 
 func rawIDToString(raw json.RawMessage) string {
@@ -1022,5 +1375,215 @@ func normalizeRawPayloads(value interface{}) ([][]byte, error) {
 			return nil, nil
 		}
 		return [][]byte{append([]byte(nil), bytes...)}, nil
+	}
+}
+
+func (w *WebSocketCall) clearSubscriptionRoutingState() {
+	w.mu.Lock()
+	w.clearSubscriptionRoutingStateLocked()
+	w.mu.Unlock()
+}
+
+func (w *WebSocketCall) clearSubscriptionRoutingStateLocked() {
+	if len(w.subscribeReqIDs) > 0 {
+		for k := range w.subscribeReqIDs {
+			delete(w.subscribeReqIDs, k)
+		}
+	}
+	if len(w.subscribeIDs) > 0 {
+		for k := range w.subscribeIDs {
+			delete(w.subscribeIDs, k)
+		}
+	}
+}
+
+func (w *WebSocketCall) trackSubscribeRequestID(id string) {
+	if id == "" {
+		return
+	}
+	w.mu.Lock()
+	w.trackSubscribeRequestIDLocked(id)
+	w.mu.Unlock()
+}
+
+func (w *WebSocketCall) trackSubscribeRequestIDsFromRawPayloads(payloads [][]byte) (tracked int, missing int) {
+	w.mu.Lock()
+	tracked, missing = w.trackSubscribeRequestIDsFromRawPayloadsLocked(payloads)
+	w.mu.Unlock()
+	return tracked, missing
+}
+
+func (w *WebSocketCall) trackSubscribeRequestIDLocked(id string) {
+	if id == "" {
+		return
+	}
+	if w.subscribeReqIDs == nil {
+		w.subscribeReqIDs = make(map[string]struct{})
+	}
+	w.subscribeReqIDs[id] = struct{}{}
+}
+
+func (w *WebSocketCall) trackSubscribeRequestIDsFromRawPayloadsLocked(payloads [][]byte) (tracked int, missing int) {
+	for _, payload := range payloads {
+		reqID, ok := extractRequestIDFromRawPayload(payload)
+		if !ok {
+			missing++
+			continue
+		}
+		w.trackSubscribeRequestIDLocked(reqID)
+		tracked++
+	}
+	return tracked, missing
+}
+
+func (w *WebSocketCall) isPendingSubscribeRequestID(id string) bool {
+	if id == "" {
+		return false
+	}
+	w.mu.Lock()
+	_, ok := w.subscribeReqIDs[id]
+	w.mu.Unlock()
+	return ok
+}
+
+func (w *WebSocketCall) shouldDropBySubscription(subscription string) bool {
+	subscription = strings.TrimSpace(subscription)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if len(w.subscribeIDs) == 0 {
+		return w.shareByEndpoint
+	}
+	if subscription == "" {
+		return w.shareByEndpoint
+	}
+	_, ok := w.subscribeIDs[subscription]
+	return !ok
+}
+
+func (w *WebSocketCall) recordSubscriptionAck(reqID string, subID string) bool {
+	subID = strings.TrimSpace(subID)
+	if subID == "" {
+		return false
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if reqID != "" {
+		if len(w.subscribeReqIDs) == 0 {
+			if w.shareByEndpoint {
+				return false
+			}
+		} else {
+			if _, ok := w.subscribeReqIDs[reqID]; !ok {
+				if w.shareByEndpoint {
+					return false
+				}
+			} else {
+				delete(w.subscribeReqIDs, reqID)
+			}
+		}
+	}
+	if w.subscribeIDs == nil {
+		w.subscribeIDs = make(map[string]struct{})
+	}
+	w.subscribeIDs[subID] = struct{}{}
+	if w.sharedHub != nil && w.sharedSubID > 0 {
+		w.sharedHub.bindRoute(w.sharedSubID, subID)
+	}
+	return true
+}
+
+func extractRequestIDFromRawPayload(payload []byte) (string, bool) {
+	if len(payload) == 0 {
+		return "", false
+	}
+	var obj map[string]any
+	if err := json.Unmarshal(payload, &obj); err != nil {
+		return "", false
+	}
+	if len(obj) == 0 {
+		return "", false
+	}
+	id, ok := obj["id"]
+	if !ok {
+		return "", false
+	}
+	reqID := normalizeRequestIDValue(id)
+	if reqID == "" {
+		return "", false
+	}
+	return reqID, true
+}
+
+func normalizeRequestIDValue(id interface{}) string {
+	switch v := id.(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(v)
+	case json.Number:
+		return strings.TrimSpace(v.String())
+	case float64:
+		return strconv.FormatInt(int64(v), 10)
+	case float32:
+		return strconv.FormatInt(int64(v), 10)
+	case int:
+		return strconv.Itoa(v)
+	case int8:
+		return strconv.FormatInt(int64(v), 10)
+	case int16:
+		return strconv.FormatInt(int64(v), 10)
+	case int32:
+		return strconv.FormatInt(int64(v), 10)
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case uint:
+		return strconv.FormatUint(uint64(v), 10)
+	case uint8:
+		return strconv.FormatUint(uint64(v), 10)
+	case uint16:
+		return strconv.FormatUint(uint64(v), 10)
+	case uint32:
+		return strconv.FormatUint(uint64(v), 10)
+	case uint64:
+		return strconv.FormatUint(v, 10)
+	default:
+		return strings.TrimSpace(fmt.Sprintf("%v", v))
+	}
+}
+
+func (w *WebSocketCall) syncSharedHubRoutes() {
+	w.mu.Lock()
+	w.syncSharedHubRoutesLocked()
+	w.mu.Unlock()
+}
+
+func (w *WebSocketCall) syncSharedHubRoutesLocked() {
+	if w.sharedHub == nil || w.sharedSubID <= 0 {
+		return
+	}
+	routes := w.currentSharedHubRoutesLocked()
+	w.sharedHub.replaceRoutes(w.sharedSubID, routes)
+}
+
+func (w *WebSocketCall) currentSharedHubRoutesLocked() []string {
+	switch strings.ToLower(strings.TrimSpace(w.messageFormat)) {
+	case "binance", "hyperliquid":
+		if len(w.allowedStreams) == 0 {
+			return nil
+		}
+		routes := make([]string, 0, len(w.allowedStreams))
+		for stream := range w.allowedStreams {
+			routes = append(routes, stream)
+		}
+		return routes
+	default:
+		if len(w.subscribeIDs) == 0 {
+			return nil
+		}
+		routes := make([]string, 0, len(w.subscribeIDs))
+		for subID := range w.subscribeIDs {
+			routes = append(routes, subID)
+		}
+		return routes
 	}
 }

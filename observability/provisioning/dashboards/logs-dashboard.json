@@ -3,7 +3,10 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": "-- Grafana --",
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -31,7 +34,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 20,
+        "h": 14,
         "w": 24,
         "x": 0,
         "y": 0
@@ -41,7 +44,7 @@
         "dedupStrategy": "none",
         "enableLogDetails": true,
         "prettifyLogMessage": true,
-        "showCommonLabels": true,
+        "showCommonLabels": false,
         "showLabels": true,
         "showTime": true,
         "sortOrder": "Descending",
@@ -49,14 +52,97 @@
       },
       "targets": [
         {
-          "expr": "{container=~\"$container\"}",
-          "legendFormat": "{{container}}",
+          "expr": "{service=\"datainjector-worker\",event=~\"$event\",role_id=~\"$role_id\",error_class=~\"$error_class\"} |= \"$session_key\" |= \"$cmd_id\"",
           "queryType": "range",
           "refId": "A"
         }
       ],
-      "title": "容器日志",
+      "title": "Worker 结构化日志",
       "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (event) (count_over_time({service=\"datainjector-worker\",event=~\"$event\",role_id=~\"$role_id\",error_class=~\"$error_class\"} |= \"$session_key\" |= \"$cmd_id\" [5m]))",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "事件分布 (5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (error_class) (count_over_time({service=\"datainjector-worker\",event=~\"$event\",role_id=~\"$role_id\",error_class=~\"$error_class\"} |= \"$session_key\" |= \"$cmd_id\" [5m]))",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "错误分类分布 (5m)",
+      "type": "timeseries"
     }
   ],
   "refresh": "5s",
@@ -64,42 +150,115 @@
   "style": "dark",
   "tags": [
     "logs",
-    "containers"
+    "worker",
+    "structured"
   ],
   "templating": {
     "list": [
       {
-    "allValue": ".+",
-    "current": {
-      "selected": true,
-      "text": "All",
-      "value": ".+"
-    },
+        "allValue": ".+",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": ".+"
+        },
         "datasource": {
           "type": "loki",
           "uid": "loki"
         },
         "hide": 0,
         "includeAll": true,
-        "label": "container",
+        "label": "event",
         "multi": false,
-        "name": "container",
+        "name": "event",
         "options": [],
-        "query": "label_values({job=\"docker\"}, container)",
+        "query": "label_values({service=\"datainjector-worker\"}, event)",
         "refresh": 2,
         "regex": "",
         "type": "query"
+      },
+      {
+        "allValue": ".+",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": ".+"
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "role_id",
+        "multi": false,
+        "name": "role_id",
+        "options": [],
+        "query": "label_values({service=\"datainjector-worker\"}, role_id)",
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "allValue": ".+",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": ".+"
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "error_class",
+        "multi": false,
+        "name": "error_class",
+        "options": [],
+        "query": "label_values({service=\"datainjector-worker\"}, error_class)",
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 0,
+        "label": "session_key",
+        "name": "session_key",
+        "options": [],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 0,
+        "label": "cmd_id",
+        "name": "cmd_id",
+        "options": [],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
       }
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
-  "title": "容器日志监控",
+  "title": "Worker 日志关联检索",
   "uid": "logs-observability",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

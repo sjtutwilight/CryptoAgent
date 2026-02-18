@@ -56,9 +56,20 @@ type Config struct {
 	}
 
 	Backfill struct {
-		Cooldown      time.Duration          // 相同范围补数冷却时间
-		Options       []types.BackfillOption // 可用补数通道
-		SnapshotBased bool                   // 是否基于快照补数（binance orderbook）
+		Cooldown                time.Duration          // 相同范围补数冷却时间
+		Options                 []types.BackfillOption // 可用补数通道
+		SnapshotBased           bool                   // 是否基于快照补数（binance orderbook）
+		OrderbookMode           string                 // 订单簿模式：snapshot_gate/snapshot_sidechannel
+		ResultDrivenEnabled     bool                   // 是否启用结果驱动闭环（feature flag）
+		MaxFailures             int                    // 连续失败阈值，超过进入 exhausted 冷静期
+		ExhaustCooldown         time.Duration          // exhausted 后冷静期
+		RetryBackoff            time.Duration          // attempt 之间的退避
+		BackpressureGapCooldown time.Duration          // 背压状态下 gap 触发补数的限频窗口
+		EnqueueTimeout          time.Duration          // backfill 指令入队超时
+		PersistentCompensation  bool                   // 是否启用持久化补偿
+		CompensationFile        string                 // 持久化补偿文件路径
+		ReplayInterval          time.Duration          // 持久化补偿重放周期
+		CompensationMaxPending  int                    // 持久化补偿最大积压条数
 	}
 }
 
@@ -92,6 +103,30 @@ func (c *Config) Normalise() {
 	if c.Backfill.Cooldown == 0 {
 		c.Backfill.Cooldown = 3 * time.Second
 	}
+	if c.Backfill.MaxFailures <= 0 {
+		c.Backfill.MaxFailures = 3
+	}
+	if c.Backfill.ExhaustCooldown <= 0 {
+		c.Backfill.ExhaustCooldown = 30 * time.Second
+	}
+	if c.Backfill.RetryBackoff < 0 {
+		c.Backfill.RetryBackoff = 0
+	}
+	if c.Backfill.BackpressureGapCooldown <= 0 {
+		c.Backfill.BackpressureGapCooldown = 2 * time.Second
+	}
+	if c.Backfill.EnqueueTimeout <= 0 {
+		c.Backfill.EnqueueTimeout = 200 * time.Millisecond
+	}
+	if c.Backfill.ReplayInterval <= 0 {
+		c.Backfill.ReplayInterval = 2 * time.Second
+	}
+	if c.Backfill.CompensationMaxPending <= 0 {
+		c.Backfill.CompensationMaxPending = 2000
+	}
+	if strings.TrimSpace(c.Backfill.CompensationFile) == "" {
+		c.Backfill.CompensationFile = "runtime/data/backfill_compensation.json"
+	}
 
 	switch strings.ToLower(c.Profile) {
 	case "", "generic":
@@ -100,11 +135,19 @@ func (c *Config) Normalise() {
 		if c.Keys.RangeStartField == "" {
 			c.Keys.RangeStartField = "first_update_id"
 		}
-		if c.Gate.Mode == "" {
-			c.Gate.Mode = "snapshot_hold"
-		}
 		// Binance 订单簿使用快照补数，不是范围补数
 		c.Backfill.SnapshotBased = true
+		mode := strings.ToLower(strings.TrimSpace(c.Backfill.OrderbookMode))
+		if mode == "" {
+			mode = "snapshot_gate"
+		}
+		c.Backfill.OrderbookMode = mode
+		if mode == "snapshot_sidechannel" {
+			// sidechannel 模式下必须关闭 snapshot gate，diff 主流不能被阻塞。
+			c.Gate.Mode = "none"
+		} else if c.Gate.Mode == "" {
+			c.Gate.Mode = "snapshot_hold"
+		}
 	case "chain_blocks":
 		if c.Gate.Mode == "" {
 			c.Gate.Mode = "finality"
@@ -115,6 +158,10 @@ func (c *Config) Normalise() {
 	default:
 		// 未知 profile 不做特殊处理。
 	}
+}
+
+func (c Config) SnapshotSideChannelEnabled() bool {
+	return strings.EqualFold(strings.TrimSpace(c.Backfill.OrderbookMode), "snapshot_sidechannel")
 }
 
 func (c *Config) validate() error {

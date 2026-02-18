@@ -115,13 +115,17 @@ func (s *Server) handleApplyRoles(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "roles payload required", http.StatusBadRequest)
 		return
 	}
-	if err := s.mgr.Apply(req.Roles); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	result, err := s.mgr.ApplyWithResult(req.Roles)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		s.writeJSON(w, map[string]any{
+			"status":  "failed",
+			"error":   err.Error(),
+			"results": result.Results,
+		})
 		return
 	}
-	s.writeJSON(w, map[string]any{
-		"status": "ok",
-	})
+	s.writeJSON(w, result)
 }
 
 type stopRolesRequest struct {

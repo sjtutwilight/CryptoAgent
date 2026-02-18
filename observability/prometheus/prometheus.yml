@@ -77,36 +77,23 @@ scrape_configs:
 
   # ==================== Worker 监控 ====================
   
-  # Data Injector Worker metrics
-  # Worker默认在9100端口暴露metrics
+  # Data Injector Worker metrics（默认容器内地址，可由 compose 启动参数覆盖）
   - job_name: 'worker'
     scrape_interval: 15s
-    # 如果Worker运行在容器中
-    # static_configs:
-    #   - targets: ['worker:9100']
-    #     labels:
-    #       component: 'worker'
-    # 如果Worker运行在宿主机
     static_configs:
-      - targets: ['host.docker.internal:9100']
+      - targets: ['__PROM_WORKER_TARGET__']
         labels:
           component: 'worker'
           service: 'datainjector'
 
   # ==================== Backend 监控 ====================
   
-  # Spring Boot Backend metrics (通过Actuator暴露)
+  # Spring Boot Backend metrics (通过Actuator暴露，可由 compose 启动参数覆盖)
   - job_name: 'backend'
     scrape_interval: 15s
     metrics_path: '/api/actuator/prometheus'
-    # 如果Backend运行在容器中
-    # static_configs:
-    #   - targets: ['backend:8088']
-    #     labels:
-    #       component: 'backend'
-    # 如果Backend运行在宿主机
     static_configs:
-      - targets: ['host.docker.internal:8088']
+      - targets: ['__PROM_BACKEND_TARGET__']
         labels:
           component: 'backend'
           service: 'twilight-backend'
