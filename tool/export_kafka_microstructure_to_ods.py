@@ -3,11 +3,17 @@
 周期性将 Kafka 微结构 topic 增量导出为 ODS 样式目录。
 
 默认优先使用 kcat；若系统未安装 kcat，则回退到容器内 kafka-console-consumer。
+支持：
+1) 从 roles 配置自动提取 topic
+2) 多 topic 并发导出
+3) from-beginning + stop-at-log-end 批量分区读取
+4) 按 exchange_ts 时间桶拆分写出（避免跨天数据写入同一分区）
 """
 
 from __future__ import annotations
 
 import argparse
+import concurrent.futures as cf
 import datetime as dt
 import hashlib
 import json
@@ -23,9 +29,11 @@ from typing import Any, Dict, List, Optional, Tuple
 UTC = dt.timezone.utc
 
 DEFAULT_TOPICS = [
-    "perp.orderbook",
-    "spot.orderbook",
+    "perp.orderbook.diff",
+    "perp.orderbook.snapshot",
     "perp.aggtrades",
+    "spot.orderbook.diff",
+    "spot.orderbook.snapshot",
     "spot.aggtrades",
 ]
 
@@ -43,13 +51,19 @@ def parse_int_ts(value: Any) -> Optional[int]:
         return value
     if isinstance(value, float):
         return int(value)
-    if isinstance(value, str) and value.isdigit():
-        return int(value)
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            return int(float(text))
+        except ValueError:
+            return None
     return None
 
 
 def pick_event_ts_ms(record: Dict[str, Any]) -> Optional[int]:
-    for key in ("exchange_ts", "event_time", "ingest_ts"):
+    for key in ("exchange_ts", "event_time", "ingest_ts", "time", "trade_time"):
         ts = parse_int_ts(record.get(key))
         if ts is not None:
             return ts
@@ -61,18 +75,22 @@ def iso_from_ms(ms: int) -> str:
 
 
 def topic_domain(topic: str) -> str:
+    market = "stream"
+    if topic.startswith("spot."):
+        market = "spot"
+    elif topic.startswith("perp."):
+        market = "perp"
+
     if "orderbook" in topic:
-        if topic.startswith("spot."):
-            return "cex.spot.orderbook"
-        return "cex.perp.orderbook"
+        return f"cex.{market}.orderbook" if market != "stream" else "cex.stream.orderbook"
     if "aggtrades" in topic:
-        if topic.startswith("spot."):
-            return "cex.spot.trades"
-        return "cex.perp.trades"
+        return f"cex.{market}.trades" if market != "stream" else "cex.stream.trades"
     return "cex.stream"
 
 
 def topic_grain(topic: str) -> str:
+    if "orderbook.snapshot" in topic:
+        return "orderbook_snapshot"
     if "orderbook" in topic:
         return "orderbook_diff"
     if "aggtrades" in topic:
@@ -168,16 +186,82 @@ def to_rel_posix(path: Path, root: Path) -> str:
 def parse_message_lines(output: str) -> List[Dict[str, Any]]:
     records: List[Dict[str, Any]] = []
     for line in output.splitlines():
-        if "@@{" not in line:
+        payload = line.strip()
+        if not payload:
             continue
-        _, payload = line.split("@@", 1)
+        if "@@" in payload:
+            _, payload = payload.split("@@", 1)
+            payload = payload.strip()
+        if not payload or payload[0] not in "[{":
+            continue
+
         try:
             obj = json.loads(payload)
         except json.JSONDecodeError:
             continue
+
         if isinstance(obj, dict):
             records.append(obj)
+        elif isinstance(obj, list):
+            for item in obj:
+                if isinstance(item, dict):
+                    records.append(item)
     return records
+
+
+def dedupe_keep_order(values: List[str]) -> List[str]:
+    seen = set()
+    out: List[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        out.append(value)
+    return out
+
+
+def parse_topic_csv(raw: str) -> List[str]:
+    return [x.strip() for x in raw.split(",") if x.strip()]
+
+
+def resolve_input_path(raw_path: str, root_dir: Path) -> Path:
+    path = Path(raw_path)
+    if path.is_absolute():
+        return path
+    if path.exists():
+        return path.resolve()
+    return (root_dir / path).resolve()
+
+
+def load_topics_from_roles(roles_config_path: Path) -> List[str]:
+    payload = json.loads(roles_config_path.read_text(encoding="utf-8"))
+    roles = payload.get("roles")
+    if not isinstance(roles, list):
+        return []
+
+    topics: List[str] = []
+    for role in roles:
+        if not isinstance(role, dict):
+            continue
+
+        sink = role.get("sink")
+        if not isinstance(sink, dict):
+            continue
+        sink_with = sink.get("with")
+        if not isinstance(sink_with, dict):
+            continue
+
+        topic = sink_with.get("topic")
+        if isinstance(topic, str) and topic.strip():
+            topics.append(topic.strip())
+
+        topic_map = sink_with.get("topic_map")
+        if isinstance(topic_map, dict):
+            for mapped in topic_map.values():
+                if isinstance(mapped, str) and mapped.strip():
+                    topics.append(mapped.strip())
+
+    return dedupe_keep_order(topics)
 
 
 def run_subprocess(cmd: List[str], timeout_seconds: Optional[float] = None) -> Tuple[str, str, int]:
@@ -213,7 +297,7 @@ def consume_with_kcat(
         topic,
         "-q",
         "-f",
-        "%k@@%s\n",
+        "%s\\n",
         "-c",
         str(max_messages),
         "-X",
@@ -244,8 +328,7 @@ def consume_with_docker_console(
         f"--group {shlex.quote(group_id)} "
         f"--timeout-ms {int(poll_timeout_ms)} "
         f"--max-messages {int(max_messages)} "
-        "--property print.key=true "
-        "--property key.separator=@@"
+        "--property print.key=false"
     )
     if from_beginning:
         inner += " --from-beginning"
@@ -254,10 +337,150 @@ def consume_with_docker_console(
     return parse_message_lines(stdout + "\n" + stderr)
 
 
+def get_topic_offsets_with_docker_console(
+    kafka_container: str,
+    bootstrap_server_in_container: str,
+    topic: str,
+    time_flag: int,
+) -> Dict[int, int]:
+    inner = (
+        "kafka-run-class kafka.tools.GetOffsetShell "
+        f"--broker-list {shlex.quote(bootstrap_server_in_container)} "
+        f"--topic {shlex.quote(topic)} "
+        f"--time {int(time_flag)}"
+    )
+    cmd = ["docker", "exec", kafka_container, "bash", "-lc", inner]
+    stdout, stderr, rc = run_subprocess(cmd)
+    if rc != 0:
+        return {}
+
+    result: Dict[int, int] = {}
+    for line in (stdout + "\n" + stderr).splitlines():
+        parts = line.strip().split(":")
+        if len(parts) != 3:
+            continue
+        _, partition_raw, offset_raw = parts
+        try:
+            partition = int(partition_raw)
+            offset = int(offset_raw)
+        except ValueError:
+            continue
+        if partition >= 0 and offset >= 0:
+            result[partition] = offset
+    return result
+
+
+def get_topic_offset_ranges_with_docker_console(
+    kafka_container: str,
+    bootstrap_server_in_container: str,
+    topic: str,
+) -> Dict[int, Tuple[int, int]]:
+    earliest = get_topic_offsets_with_docker_console(
+        kafka_container=kafka_container,
+        bootstrap_server_in_container=bootstrap_server_in_container,
+        topic=topic,
+        time_flag=-2,
+    )
+    latest = get_topic_offsets_with_docker_console(
+        kafka_container=kafka_container,
+        bootstrap_server_in_container=bootstrap_server_in_container,
+        topic=topic,
+        time_flag=-1,
+    )
+
+    ranges: Dict[int, Tuple[int, int]] = {}
+    for partition, end in latest.items():
+        start = earliest.get(partition, end)
+        if end > start >= 0:
+            ranges[partition] = (start, end)
+    return ranges
+
+
+def consume_with_docker_console_to_log_end_snapshot(
+    kafka_container: str,
+    bootstrap_server_in_container: str,
+    topic: str,
+    offset_ranges: Dict[int, Tuple[int, int]],
+    batch_size: int,
+    intra_topic_concurrency: int,
+    poll_timeout_ms: int,
+    batch_retry: int,
+) -> List[Dict[str, Any]]:
+    safe_batch_size = max(1, int(batch_size))
+    safe_timeout_ms = max(15000, int(poll_timeout_ms))
+    jobs: List[Tuple[int, int, int]] = []  # (partition, offset, max_messages)
+
+    for partition in sorted(offset_ranges.keys()):
+        start, end_offset = offset_ranges[partition]
+        start = int(start)
+        end_offset = int(end_offset)
+        if end_offset <= start:
+            continue
+        while start < end_offset:
+            chunk = min(safe_batch_size, end_offset - start)
+            jobs.append((partition, start, chunk))
+            start += chunk
+
+    if not jobs:
+        return []
+
+    def consume_partition_chunk(partition: int, offset: int, max_messages: int) -> List[Dict[str, Any]]:
+        attempts = max(1, int(batch_retry) + 1)
+        for attempt in range(1, attempts + 1):
+            inner = (
+                "kafka-console-consumer "
+                f"--bootstrap-server {shlex.quote(bootstrap_server_in_container)} "
+                f"--topic {shlex.quote(topic)} "
+                f"--partition {partition} "
+                f"--offset {offset} "
+                f"--max-messages {max_messages} "
+                f"--timeout-ms {safe_timeout_ms} "
+                "--property print.key=false"
+            )
+            cmd = ["docker", "exec", kafka_container, "bash", "-lc", inner]
+            stdout, stderr, _ = run_subprocess(cmd)
+            records = parse_message_lines(stdout + "\n" + stderr)
+            if records or attempt >= attempts:
+                return records
+            time.sleep(min(0.5 * attempt, 2.0))
+        return []
+
+    max_workers = max(1, min(int(intra_topic_concurrency), len(jobs)))
+    if max_workers <= 1:
+        records: List[Dict[str, Any]] = []
+        for partition, offset, max_messages in jobs:
+            records.extend(consume_partition_chunk(partition, offset, max_messages))
+        return records
+
+    chunk_results: List[Optional[List[Dict[str, Any]]]] = [None] * len(jobs)
+    with cf.ThreadPoolExecutor(max_workers=max_workers) as pool:
+        future_map = {
+            pool.submit(consume_partition_chunk, partition, offset, max_messages): idx
+            for idx, (partition, offset, max_messages) in enumerate(jobs)
+        }
+        for future in cf.as_completed(future_map):
+            idx = future_map[future]
+            chunk_results[idx] = future.result()
+
+    records: List[Dict[str, Any]] = []
+    for chunk in chunk_results:
+        if chunk:
+            records.extend(chunk)
+    return records
+
+
 def resolve_backend(requested_backend: str) -> str:
     if requested_backend in {"kcat", "docker-console"}:
         return requested_backend
     return "kcat" if shutil.which("kcat") else "docker-console"
+
+
+def resolve_topic_concurrency(raw: int, topic_count: int) -> int:
+    if topic_count <= 1:
+        return 1
+    if raw > 0:
+        return max(1, min(raw, topic_count))
+    return max(1, min(topic_count, 8))
 
 
 def next_response_index(dataset_dir: Path) -> int:
@@ -304,12 +527,7 @@ def update_or_create_metadata(
 
     all_fields = sorted(existing_fields.union(fields))
     domain = topic_domain(topic)
-    table_id = (
-        f"ods_{datasource_id}_{topic}"
-        .lower()
-        .replace(".", "_")
-        .replace("-", "_")
-    )
+    table_id = f"ods_{datasource_id}_{topic}".lower().replace(".", "_").replace("-", "_")
     table = {
         "table_id": table_id,
         "partition_keys": ["datasource_id", "time_bucket"],
@@ -352,12 +570,7 @@ def update_or_create_metadata(
         "storage": {
             "format": "json",
             "path_template": "data/ods/{datasource_id}/{resource_path}/{time_bucket}/{request_fingerprint}",
-            "partition_keys": [
-                "datasource_id",
-                "resource_path",
-                "time_bucket",
-                "request_fingerprint",
-            ],
+            "partition_keys": ["datasource_id", "resource_path", "time_bucket", "request_fingerprint"],
         },
         "time": {
             "event_time": "exchange_ts",
@@ -448,36 +661,38 @@ def write_manifest(
     write_json(manifest_path, manifest)
 
 
-def compute_time_bucket(ts_min_ms: int, granularity: str) -> str:
-    dt_obj = dt.datetime.fromtimestamp(ts_min_ms / 1000.0, tz=UTC)
+def compute_time_bucket(ts_ms: int, granularity: str) -> str:
+    dt_obj = dt.datetime.fromtimestamp(ts_ms / 1000.0, tz=UTC)
     if granularity == "hour":
         return dt_obj.strftime("%Y-%m-%dT%H")
     return dt_obj.strftime("%Y-%m-%d")
 
 
-def export_topic_once(args: argparse.Namespace, topic: str, backend: str, root_dir: Path) -> int:
-    if backend == "kcat":
-        records = consume_with_kcat(
-            bootstrap_server=args.bootstrap_server,
-            group_id=args.consumer_group,
-            topic=topic,
-            max_messages=args.max_messages_per_topic,
-            poll_timeout_ms=args.poll_timeout_ms,
-            from_beginning=args.from_beginning,
-        )
-    else:
-        records = consume_with_docker_console(
-            kafka_container=args.kafka_container,
-            bootstrap_server_in_container=args.bootstrap_server_in_container,
-            group_id=args.consumer_group,
-            topic=topic,
-            max_messages=args.max_messages_per_topic,
-            poll_timeout_ms=args.poll_timeout_ms,
-            from_beginning=args.from_beginning,
-        )
+def split_records_by_time_bucket(records: List[Dict[str, Any]], granularity: str) -> Dict[str, List[Dict[str, Any]]]:
+    now_ms = int(now_utc().timestamp() * 1000)
+    buckets: Dict[str, List[Dict[str, Any]]] = {}
+    for rec in records:
+        ts = pick_event_ts_ms(rec)
+        if ts is None:
+            ts = now_ms
+        bucket = compute_time_bucket(ts, granularity)
+        if bucket not in buckets:
+            buckets[bucket] = []
+        buckets[bucket].append(rec)
+    return buckets
 
+
+def export_bucket(
+    args: argparse.Namespace,
+    topic: str,
+    root_dir: Path,
+    output_root: Path,
+    resource_path: str,
+    fingerprint: str,
+    bucket: str,
+    records: List[Dict[str, Any]],
+) -> int:
     if not records:
-        print(f"[skip] {topic}: no new records")
         return 0
 
     ts_list = [t for t in (pick_event_ts_ms(r) for r in records) if t is not None]
@@ -491,17 +706,8 @@ def export_topic_once(args: argparse.Namespace, topic: str, backend: str, root_d
 
     coverage_start_iso = iso_from_ms(ts_min)
     coverage_end_iso = iso_from_ms(ts_max)
-    time_bucket = compute_time_bucket(ts_min, args.time_bucket_granularity)
 
-    resource_path = topic_resource_path(args.resource_prefix, topic)
-    fingerprint = build_fingerprint(args.datasource_id, resource_path, args.consumer_group)
-
-    output_root_raw = Path(args.output_root)
-    if output_root_raw.is_absolute():
-        output_root = output_root_raw.resolve()
-    else:
-        output_root = (root_dir / output_root_raw).resolve()
-    dataset_dir = output_root / args.datasource_id / resource_path / time_bucket / fingerprint
+    dataset_dir = output_root / args.datasource_id / resource_path / bucket / fingerprint
     dataset_dir.mkdir(parents=True, exist_ok=True)
 
     idx = next_response_index(dataset_dir)
@@ -517,7 +723,7 @@ def export_topic_once(args: argparse.Namespace, topic: str, backend: str, root_d
         topic=topic,
         datasource_id=args.datasource_id,
         resource_path=resource_path,
-        time_bucket=time_bucket,
+        time_bucket=bucket,
         fingerprint=fingerprint,
         fields=fields,
         coverage_start_iso=coverage_start_iso,
@@ -537,7 +743,7 @@ def export_topic_once(args: argparse.Namespace, topic: str, backend: str, root_d
         datasource_id=args.datasource_id,
         topic=topic,
         group_id=args.consumer_group,
-        bucket=time_bucket,
+        bucket=bucket,
         metadata_rel=metadata_rel,
         response_rel=response_rel,
         coverage_start_iso=coverage_start_iso,
@@ -547,13 +753,89 @@ def export_topic_once(args: argparse.Namespace, topic: str, backend: str, root_d
         token=token,
     )
 
-    print(f"[ok] {topic}: {len(records)} records -> {response_path}")
+    print(f"[ok] {topic} [{bucket}]: {len(records)} records -> {response_path}")
     return len(records)
+
+
+def export_topic_once(args: argparse.Namespace, topic: str, backend: str, root_dir: Path) -> int:
+    if backend == "kcat":
+        records = consume_with_kcat(
+            bootstrap_server=args.bootstrap_server,
+            group_id=args.consumer_group,
+            topic=topic,
+            max_messages=args.max_messages_per_topic,
+            poll_timeout_ms=args.poll_timeout_ms,
+            from_beginning=args.from_beginning,
+        )
+    else:
+        if args.stop_at_log_end and args.from_beginning:
+            offset_ranges = get_topic_offset_ranges_with_docker_console(
+                kafka_container=args.kafka_container,
+                bootstrap_server_in_container=args.bootstrap_server_in_container,
+                topic=topic,
+            )
+            records = consume_with_docker_console_to_log_end_snapshot(
+                kafka_container=args.kafka_container,
+                bootstrap_server_in_container=args.bootstrap_server_in_container,
+                topic=topic,
+                offset_ranges=offset_ranges,
+                batch_size=args.topic_batch_size,
+                intra_topic_concurrency=args.intra_topic_concurrency,
+                poll_timeout_ms=args.poll_timeout_ms,
+                batch_retry=args.batch_retry,
+            )
+        else:
+            records = consume_with_docker_console(
+                kafka_container=args.kafka_container,
+                bootstrap_server_in_container=args.bootstrap_server_in_container,
+                group_id=args.consumer_group,
+                topic=topic,
+                max_messages=args.max_messages_per_topic,
+                poll_timeout_ms=args.poll_timeout_ms,
+                from_beginning=args.from_beginning,
+            )
+
+    if not records:
+        print(f"[skip] {topic}: no new records")
+        return 0
+
+    output_root_raw = Path(args.output_root)
+    if output_root_raw.is_absolute():
+        output_root = output_root_raw.resolve()
+    else:
+        output_root = (root_dir / output_root_raw).resolve()
+
+    resource_path = topic_resource_path(args.resource_prefix, topic)
+    fingerprint = build_fingerprint(args.datasource_id, resource_path, args.consumer_group)
+    buckets = split_records_by_time_bucket(records, args.time_bucket_granularity)
+
+    exported = 0
+    for bucket in sorted(buckets.keys()):
+        exported += export_bucket(
+            args=args,
+            topic=topic,
+            root_dir=root_dir,
+            output_root=output_root,
+            resource_path=resource_path,
+            fingerprint=fingerprint,
+            bucket=bucket,
+            records=buckets[bucket],
+        )
+    return exported
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Export Kafka microstructure topics to ODS-style local JSON files.")
-    parser.add_argument("--topics", default=",".join(DEFAULT_TOPICS), help="comma-separated topic list")
+    parser.add_argument(
+        "--topics",
+        default="",
+        help="comma-separated topic list; empty uses built-in defaults",
+    )
+    parser.add_argument(
+        "--roles-config",
+        default="",
+        help="optional roles json; auto-append sink topics/topic_map topics",
+    )
     parser.add_argument("--consumer-group", default="ods-microstructure-exporter", help="Kafka consumer group id")
     parser.add_argument("--backend", choices=["auto", "kcat", "docker-console"], default="auto")
     parser.add_argument("--bootstrap-server", default="localhost:9092", help="bootstrap server for kcat")
@@ -565,6 +847,30 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--poll-timeout-ms", type=int, default=5000, help="poll timeout per topic")
     parser.add_argument("--max-messages-per-topic", type=int, default=5000, help="max messages per topic per cycle")
+    parser.add_argument(
+        "--topic-batch-size",
+        type=int,
+        default=50000,
+        help="messages per batch when --from-beginning --stop-at-log-end",
+    )
+    parser.add_argument(
+        "--intra-topic-concurrency",
+        type=int,
+        default=4,
+        help="parallel batch consumers inside one topic when --from-beginning --stop-at-log-end",
+    )
+    parser.add_argument(
+        "--batch-retry",
+        type=int,
+        default=2,
+        help="retry times for one offset batch when batch returns empty",
+    )
+    parser.add_argument(
+        "--topic-concurrency",
+        type=int,
+        default=0,
+        help="parallel workers for topics per cycle (0=auto)",
+    )
     parser.add_argument("--interval-seconds", type=int, default=300, help="interval seconds between export cycles")
     parser.add_argument("--once", action="store_true", help="run one cycle and exit")
     parser.add_argument("--datasource-id", default="binance.ws", help="ODS datasource_id")
@@ -585,28 +891,80 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="consume from beginning for topics when group has no committed offsets",
     )
+    parser.add_argument(
+        "--stop-at-log-end",
+        action="store_true",
+        help="with --from-beginning and docker-console: snapshot topic end offsets and exit right after catching up",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    topics = [x.strip() for x in args.topics.split(",") if x.strip()]
+    root_dir = Path(__file__).resolve().parents[1]
+
+    if args.topics.strip():
+        topics = parse_topic_csv(args.topics)
+    else:
+        topics = list(DEFAULT_TOPICS)
+
+    if args.roles_config.strip():
+        roles_path = resolve_input_path(args.roles_config, root_dir)
+        if not roles_path.exists():
+            print(f"error: roles config not found: {roles_path}", file=sys.stderr)
+            return 1
+        try:
+            topics.extend(load_topics_from_roles(roles_path))
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"error: failed to load roles config {roles_path}: {exc}", file=sys.stderr)
+            return 1
+
+    topics = dedupe_keep_order(topics)
     if not topics:
         print("error: no topics specified", file=sys.stderr)
         return 1
 
-    root_dir = Path(__file__).resolve().parents[1]
     backend = resolve_backend(args.backend)
-    print(f"[info] backend={backend}, group={args.consumer_group}, topics={','.join(topics)}")
+    if args.stop_at_log_end and backend != "docker-console":
+        print("[warn] --stop-at-log-end is only supported on docker-console backend; fallback to normal consume")
+
+    topic_concurrency = resolve_topic_concurrency(args.topic_concurrency, len(topics))
+    print(
+        f"[info] backend={backend}, group={args.consumer_group}, "
+        f"topic_concurrency={topic_concurrency}, topics={','.join(topics)}"
+    )
 
     cycle = 0
     while True:
         cycle += 1
         total = 0
+        failed = 0
         print(f"[cycle {cycle}] start {now_iso()}")
-        for topic in topics:
-            total += export_topic_once(args, topic, backend, root_dir)
-        print(f"[cycle {cycle}] exported={total}")
+
+        if topic_concurrency <= 1 or len(topics) <= 1:
+            for topic in topics:
+                try:
+                    total += export_topic_once(args, topic, backend, root_dir)
+                except Exception as exc:
+                    failed += 1
+                    print(f"[error] {topic}: {exc}", file=sys.stderr)
+        else:
+            with cf.ThreadPoolExecutor(max_workers=topic_concurrency) as pool:
+                future_map = {
+                    pool.submit(export_topic_once, args, topic, backend, root_dir): topic
+                    for topic in topics
+                }
+                for future in cf.as_completed(future_map):
+                    topic = future_map[future]
+                    try:
+                        total += future.result()
+                    except Exception as exc:
+                        failed += 1
+                        print(f"[error] {topic}: {exc}", file=sys.stderr)
+
+        print(f"[cycle {cycle}] exported={total}, failed={failed}")
+        if failed > 0:
+            return 1
 
         if args.once:
             break

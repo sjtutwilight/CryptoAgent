@@ -19,6 +19,15 @@ func TestMetricsEndpointContainsWorkerCutoverMetrics(t *testing.T) {
 	RecordTaskStage("role-a", "caller_accepted", "event")
 	RecordWebSocketDrop("role-a", "caller_buffer", "max_messages_drop_oldest")
 	RecordOrderbookSnapshotEmitted("role-a", "periodic", "periodic")
+	SetIntegrityBufferSize("role-a", "stream-a", 12)
+	RecordIntegrityDuplicate("role-a", "stream-a")
+	SetIntegrityExpectedSeq("role-a", "stream-a", 101)
+	SetIntegritySeenMax("role-a", "stream-a", 120)
+	SetIntegrityHeadLag("role-a", "stream-a", 19)
+	SetIntegrityAwaitingSnapshot("role-a", "stream-a", true)
+	SetIntegrityGapWindows("role-a", "stream-a", 2)
+	SetIntegrityGapMissingTotal("role-a", "stream-a", 7)
+	SetIntegrityGapOldestAge("role-a", "stream-a", 3*time.Second)
 
 	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 	rec := httptest.NewRecorder()
@@ -40,6 +49,15 @@ func TestMetricsEndpointContainsWorkerCutoverMetrics(t *testing.T) {
 		"worker_task_stage_total",
 		"worker_websocket_drops_total",
 		"worker_orderbook_snapshot_emitted_total",
+		"worker_integrity_buffer_size",
+		"worker_integrity_duplicates_total",
+		"worker_integrity_expected_seq",
+		"worker_integrity_seen_max",
+		"worker_integrity_head_lag",
+		"worker_integrity_awaiting_snapshot",
+		"worker_integrity_gap_windows",
+		"worker_integrity_gap_missing_total",
+		"worker_integrity_gap_oldest_age_seconds",
 	}
 
 	for _, metricName := range required {

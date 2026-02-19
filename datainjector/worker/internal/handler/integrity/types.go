@@ -71,6 +71,12 @@ type Config struct {
 		ReplayInterval          time.Duration          // 持久化补偿重放周期
 		CompensationMaxPending  int                    // 持久化补偿最大积压条数
 	}
+
+	Feature struct {
+		HardTimeoutPriority bool // 是否启用 hard_timeout 优先判定
+		SidechannelAnchor   bool // 是否在 sidechannel snapshot 上执行本地重锚
+		GapWindowMetrics    bool // 是否使用缺失窗口视图驱动指标
+	}
 }
 
 // Normalise 根据 profile 填充默认值。

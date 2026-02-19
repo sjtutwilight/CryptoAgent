@@ -30,20 +30,20 @@ func (f rangeEvalFunc) Covers(expected uint64, evt *Event) bool {
 
 // SequenceEngine 负责顺序性控制与补数决策。
 type SequenceEngine struct {
-	cfg        Config         // 全局配置
-	rangeEval  RangeEvaluator // 范围覆盖策略
-	buffer     *reorderBuffer // 乱序缓存
-	backfill   Scheduler      // 补数调度器
-	state      engineState    // 运行时状态
-	dedupe     *deduper       // 幂等过滤器
-	gate       Gate           // 下游放行阀门
-	streamName string         // 流标识，用于日志
-	roleID     string         // role_id（来自消息 metadata）
-	sessionMu  sync.Mutex
-	sessions   map[string]*backfillSession
-	compMu     sync.Mutex
-	compLoaded bool
-	compQueue  []compensationItem
+	cfg          Config         // 全局配置
+	rangeEval    RangeEvaluator // 范围覆盖策略
+	buffer       *reorderBuffer // 乱序缓存
+	gaps         *gapWindows    // 缺失窗口
+	backfill     Scheduler      // 补数调度器
+	orchestrator *BackfillOrchestrator
+	state        engineState // 运行时状态
+	dedupe       *deduper    // 幂等过滤器
+	gate         Gate        // 下游放行阀门
+	streamName   string      // 流标识，用于日志
+	roleID       string      // role_id（来自消息 metadata）
+	compMu       sync.Mutex
+	compLoaded   bool
+	compQueue    []compensationItem
 }
 
 type compensationItem struct {
@@ -59,7 +59,6 @@ type engineState struct {
 	Initialized      bool           // 是否已初始化
 	AwaitingSnapshot bool           // 是否等待快照确认
 	WaitStart        time.Time      // 当前等待窗口的起点时间
-	LastSweep        time.Time      // 上次清理时间
 	LastCompReplay   time.Time      // 上次补偿重放时间
 	LastBackfill     backfillRecord // 最近一次补数记录
 	LastPressureFill time.Time      // 背压状态下上次触发补数时间
@@ -85,8 +84,6 @@ type backfillSession struct {
 	PendingSince  time.Time
 	CooldownUntil time.Time
 	Failures      int
-	CurrentStart  uint64
-	CurrentEnd    uint64
 	IntentStart   uint64
 	IntentEnd     uint64
 	HasIntent     bool
@@ -110,14 +107,15 @@ func NewSequenceEngine(cfg Config, eval RangeEvaluator, sched Scheduler, gate Ga
 		gate = &noopGate{}
 	}
 	return &SequenceEngine{
-		cfg:        cfg,
-		rangeEval:  eval,
-		buffer:     newReorderBuffer(cfg),
-		backfill:   sched,
-		dedupe:     dedupe,
-		gate:       gate,
-		streamName: stream,
-		sessions:   make(map[string]*backfillSession),
+		cfg:          cfg,
+		rangeEval:    eval,
+		buffer:       newReorderBuffer(cfg),
+		gaps:         newGapWindows(cfg),
+		backfill:     sched,
+		orchestrator: newBackfillOrchestrator(),
+		dedupe:       dedupe,
+		gate:         gate,
+		streamName:   stream,
 	}
 }
 
@@ -129,6 +127,7 @@ func (e *SequenceEngine) Handle(evt *Event) Decision {
 	if evt.Arrival.IsZero() {
 		evt.Arrival = time.Now()
 	}
+	defer e.reportIntegrityMetrics(evt.Arrival)
 	e.replayCompensations(evt.Arrival)
 	isSnapshot := isSnapshotEvent(evt)
 	sideChannel := e.cfg.SnapshotSideChannelEnabled()
@@ -157,6 +156,18 @@ func (e *SequenceEngine) Handle(evt *Event) Decision {
 
 	if isSnapshot {
 		if sideChannel {
+			if e.cfg.Feature.SidechannelAnchor {
+				if anchorSeq, ok := e.snapshotAnchorSeq(evt); ok {
+					_ = e.applyAnchor(anchorSeq, "snapshot_sidechannel_event", evt.Arrival)
+				} else {
+					logging.Warn(context.Background(), logging.EventIntegritySnapshotAnchor, "sidechannel snapshot missing anchor sequence", logging.Fields{
+						"role_id":       e.roleID,
+						"stream_key":    e.streamName,
+						"anchor_source": "snapshot_sidechannel_event",
+						"anchor_result": "missing",
+					})
+				}
+			}
 			return e.deliver([]*Event{evt})
 		}
 		e.state.AwaitingSnapshot = true
@@ -192,38 +203,16 @@ func (e *SequenceEngine) Handle(evt *Event) Decision {
 
 func (e *SequenceEngine) OnSnapshotApplied(lastSeq uint64) Decision {
 	now := time.Now()
+	defer e.reportIntegrityMetrics(now)
 	e.replayCompensations(now)
-	if e.cfg.SnapshotSideChannelEnabled() {
-		// sidechannel 模式下不会依赖快照回调放行 diff。
-		return Decision{}
-	}
-	e.state.AwaitingSnapshot = false
-	e.state.Initialized = true
-	if lastSeq > e.state.SeenMax {
-		e.state.SeenMax = lastSeq
-	}
-	if lastSeq != math.MaxUint64 {
-		e.state.ExpectedNext = lastSeq + 1
-		e.buffer.cleanup(lastSeq)
-	}
-	e.state.WaitStart = now
-
-	// 通知 Gate 快照已应用
-	shouldReleaseAll := e.gate.OnSnapshotApplied(lastSeq)
-
-	if shouldReleaseAll {
-		// Gate 要求释放所有缓冲消息（如 snapshotHoldGate）
-		events, next := e.buffer.drain(e.state.ExpectedNext)
-		e.state.ExpectedNext = next
-		return e.deliver(events)
-	}
-
-	// 否则正常处理（如 finalityGate 可能仍需要等待确认）
-	return Decision{}
+	return e.applyAnchor(lastSeq, "snapshot_applied", now)
 }
 
 func (e *SequenceEngine) bootstrap(evt *Event) {
 	e.state.Initialized = true
+	if e.gaps != nil {
+		e.gaps.reset()
+	}
 	if e.snapshotGateEnabled() {
 		// For snapshot-gated streams (e.g. Binance depth), keep ExpectedNext at current seq
 		// so the next out-of-order observation naturally triggers snapshot backfill flow.
@@ -240,26 +229,42 @@ func (e *SequenceEngine) bootstrap(evt *Event) {
 }
 
 func (e *SequenceEngine) onEqual(evt *Event) Decision {
-	e.state.WaitStart = evt.Arrival
-	e.state.ExpectedNext++
-	events, next := e.buffer.drain(e.state.ExpectedNext)
-	e.state.ExpectedNext = next
+	nextState, actions := stepCore(e.toCoreState(), coreInput{
+		Kind:    coreInputEqual,
+		Arrival: evt.Arrival,
+	})
+	e.applyCoreState(nextState)
+	events := e.applyCoreDrainActions(actions)
+	e.resolveGapWindows(evt.Arrival)
 	return e.deliver(append([]*Event{evt}, events...))
 }
 
 func (e *SequenceEngine) onCover(evt *Event) Decision {
-	e.buffer.cleanup(evt.Seq)
-	e.state.ExpectedNext = evt.Seq + 1
-	e.state.WaitStart = evt.Arrival
-	events, next := e.buffer.drain(e.state.ExpectedNext)
-	e.state.ExpectedNext = next
+	nextState, actions := stepCore(e.toCoreState(), coreInput{
+		Kind:    coreInputCover,
+		Seq:     evt.Seq,
+		Arrival: evt.Arrival,
+	})
+	e.applyCoreState(nextState)
+	events := e.applyCoreActionsForDelivery(actions)
+	e.resolveGapWindows(evt.Arrival)
 	return e.deliver(append([]*Event{evt}, events...))
 }
 
 func (e *SequenceEngine) onGap(evt *Event) Decision {
 	e.buffer.add(evt)
-	e.ensureWait(evt.Arrival)
+	nextState, actions := stepCore(e.toCoreState(), coreInput{
+		Kind:     coreInputGap,
+		Seq:      evt.Seq,
+		Arrival:  evt.Arrival,
+		EagerGap: e.cfg.Sequence.EagerGap,
+		MaxRange: e.cfg.Sequence.MaxRange,
+	})
+	e.applyCoreState(nextState)
 	gap := evt.Seq - e.state.ExpectedNext
+	if gap > 0 {
+		e.addGapWindow(e.state.ExpectedNext, evt.Seq-1, evt.Arrival)
+	}
 	metrics.RecordIntegrityGap(e.roleID, e.streamName)
 	logging.Info(context.Background(), logging.EventIntegrityGapDetected, "sequence gap detected", logging.Fields{
 		"role_id":      e.roleID,
@@ -268,12 +273,11 @@ func (e *SequenceEngine) onGap(evt *Event) Decision {
 		"seen_seq":     evt.Seq,
 		"gap":          gap,
 	})
-	if e.cfg.Sequence.EagerGap > 0 && gap > e.cfg.Sequence.EagerGap {
-		end := evt.Seq - 1
-		if e.cfg.Sequence.MaxRange > 0 && end-e.state.ExpectedNext+1 > e.cfg.Sequence.MaxRange {
-			end = e.state.ExpectedNext + e.cfg.Sequence.MaxRange - 1
+	for _, action := range actions {
+		if action.Kind != coreActionTriggerBackfill {
+			continue
 		}
-		e.triggerBackfillForEvent(e.state.ExpectedNext, end, evt.Arrival, evt)
+		e.triggerBackfillForEvent(action.Start, action.End, evt.Arrival, evt)
 	}
 	if !e.checkTimeout(evt.Arrival, evt) {
 		e.checkBudget(evt.Arrival)
@@ -328,6 +332,30 @@ func (e *SequenceEngine) checkTimeout(now time.Time, evt *Event) bool {
 	if e.cfg.Sequence.MaxDelay <= 0 && e.cfg.Sequence.HardTimeout <= 0 {
 		return false
 	}
+	if !e.cfg.Feature.HardTimeoutPriority {
+		return e.checkTimeoutLegacy(now, evt)
+	}
+	_, actions := stepCore(e.toCoreState(), coreInput{
+		Kind:        coreInputTimeout,
+		Now:         now,
+		MaxDelay:    e.cfg.Sequence.MaxDelay,
+		HardTimeout: e.cfg.Sequence.HardTimeout,
+		MaxRange:    e.cfg.Sequence.MaxRange,
+	})
+	for _, action := range actions {
+		switch action.Kind {
+		case coreActionAdvanceExpected:
+			e.advance(action.Target, now, action.Reason)
+			return true
+		case coreActionTriggerBackfill:
+			e.triggerBackfillForEvent(action.Start, action.End, now, evt)
+			return true
+		}
+	}
+	return false
+}
+
+func (e *SequenceEngine) checkTimeoutLegacy(now time.Time, evt *Event) bool {
 	if e.state.WaitStart.IsZero() {
 		return false
 	}
@@ -385,12 +413,14 @@ func (e *SequenceEngine) shouldThrottleBackpressureBackfill(now time.Time, evt *
 }
 
 func (e *SequenceEngine) checkBudget(now time.Time) {
-	if e.cfg.Sequence.MaxGap == 0 || e.state.SeenMax <= e.state.ExpectedNext {
-		return
-	}
-	if diff := e.state.SeenMax - e.state.ExpectedNext; diff > e.cfg.Sequence.MaxGap {
-		target := e.state.SeenMax - e.cfg.Sequence.MaxGap
-		e.advance(target, now, "max-gap")
+	_, actions := stepCore(e.toCoreState(), coreInput{
+		Kind:   coreInputBudget,
+		MaxGap: e.cfg.Sequence.MaxGap,
+	})
+	for _, action := range actions {
+		if action.Kind == coreActionAdvanceExpected {
+			e.advance(action.Target, now, action.Reason)
+		}
 	}
 }
 
@@ -456,107 +486,10 @@ func (e *SequenceEngine) triggerBackfillWithReason(start, end uint64, now time.T
 }
 
 func (e *SequenceEngine) triggerBackfillWithSession(start, end uint64, now time.Time, reason string) bool {
-	kind := e.backfillType()
-	key := types.BackfillSessionKey(e.roleID, e.streamName, kind)
-	session := e.getOrCreateSession(key, kind)
-
-	e.sessionMu.Lock()
-	defer e.sessionMu.Unlock()
-	session.RoleID = e.roleID
-	session.StreamKey = e.streamName
-	session.Type = kind
-	session.Key = key
-
-	if session.State == sessionCooldown {
-		if now.Before(session.CooldownUntil) {
-			logging.Warn(context.Background(), logging.EventIntegrityBackfillSkipped, "backfill blocked by session cooldown", logging.Fields{
-				"role_id":       e.roleID,
-				"stream_key":    e.streamName,
-				"backfill_type": kind,
-				"session_key":   key,
-				"cooldown_ms":   session.CooldownUntil.Sub(now).Milliseconds(),
-			})
-			return false
-		}
-		session.State = sessionIdle
-		session.CooldownUntil = time.Time{}
+	if e.orchestrator == nil {
+		e.orchestrator = newBackfillOrchestrator()
 	}
-	if session.State == sessionPending {
-		e.mergeSessionIntent(session, start, end)
-		metrics.RecordBackfillScheduleDedup(e.roleID, e.streamName, kind)
-		logging.Info(context.Background(), logging.EventIntegrityBackfillDedup, "backfill deduplicated into pending session", logging.Fields{
-			"role_id":       e.roleID,
-			"stream_key":    e.streamName,
-			"backfill_type": kind,
-			"session_key":   key,
-			"intent_start":  session.IntentStart,
-			"intent_end":    session.IntentEnd,
-		})
-		return false
-	}
-
-	attempt := session.Attempt + 1
-	sessionID := fmt.Sprintf("%s#%d", key, now.UnixNano())
-	cmd, ok := e.buildBackfillCmd(start, end, sessionID, attempt, now, reason)
-	if !ok {
-		return false
-	}
-	if len(cmd.Attempts) == 0 {
-		logging.Warn(context.Background(), logging.EventIntegrityBackfillSkipped, "backfill request skipped: no executable attempts", logging.Fields{
-			"role_id":     e.roleID,
-			"stream_key":  e.streamName,
-			"start":       start,
-			"end":         end,
-			"attempts":    0,
-			"snapshot":    e.cfg.Backfill.SnapshotBased,
-			"backfill_on": len(e.cfg.Backfill.Options),
-		})
-		return false
-	}
-	if err := e.backfill.Schedule(cmd); err != nil {
-		logging.Warn(context.Background(), logging.EventIntegrityBackfillEnqueue, "backfill schedule failed", logging.Fields{
-			"role_id":       e.roleID,
-			"stream_key":    e.streamName,
-			"backfill_type": cmd.Type,
-			"start":         cmd.Start,
-			"end":           cmd.End,
-			"cmd_id":        cmd.CmdID,
-			"session_id":    cmd.SessionID,
-			"session_key":   cmd.Key,
-			"error":         err.Error(),
-			"error_class":   types.BackfillErrorClass(err),
-		})
-		if e.cfg.Backfill.PersistentCompensation {
-			e.enqueueCompensation(cmd, err, now)
-		}
-		return false
-	}
-
-	e.state.LastBackfill = backfillRecord{start: start, end: end, at: now}
-	if e.snapshotGateEnabled() {
-		e.state.AwaitingSnapshot = true
-	}
-	session.State = sessionPending
-	session.Attempt = attempt
-	session.SessionID = cmd.SessionID
-	session.CmdID = cmd.CmdID
-	session.PendingSince = now
-	session.CurrentStart = start
-	session.CurrentEnd = end
-	session.HasIntent = false
-	metrics.SetBackfillSessionsInflight(e.roleID, e.streamName, kind, 1)
-	logging.Info(context.Background(), logging.EventIntegrityBackfillSession, "backfill session entered pending", logging.Fields{
-		"role_id":       e.roleID,
-		"stream_key":    e.streamName,
-		"backfill_type": kind,
-		"session_key":   key,
-		"session_id":    cmd.SessionID,
-		"cmd_id":        cmd.CmdID,
-		"attempt":       attempt,
-		"start":         cmd.Start,
-		"end":           cmd.End,
-	})
-	return true
+	return e.orchestrator.triggerWithSession(e, start, end, now, reason)
 }
 
 func (e *SequenceEngine) buildBackfillCmd(start, end uint64, sessionID string, attempt int, now time.Time, reason string) (types.BackfillCmd, bool) {
@@ -632,209 +565,47 @@ func (e *SequenceEngine) backfillType() string {
 	return types.BackfillTypeRange
 }
 
-func (e *SequenceEngine) getOrCreateSession(key, kind string) *backfillSession {
-	e.sessionMu.Lock()
-	defer e.sessionMu.Unlock()
-	if s, ok := e.sessions[key]; ok {
-		return s
-	}
-	s := &backfillSession{
-		Key:       key,
-		Type:      kind,
-		RoleID:    e.roleID,
-		StreamKey: e.streamName,
-		State:     sessionIdle,
-	}
-	e.sessions[key] = s
-	return s
-}
-
-func (e *SequenceEngine) mergeSessionIntent(session *backfillSession, start, end uint64) {
-	if session == nil {
-		return
-	}
-	if !session.HasIntent {
-		session.IntentStart = start
-		session.IntentEnd = end
-		session.HasIntent = true
-		return
-	}
-	if start < session.IntentStart {
-		session.IntentStart = start
-	}
-	if end > session.IntentEnd {
-		session.IntentEnd = end
-	}
-}
-
 func (e *SequenceEngine) OnBackfillResult(result types.BackfillResult) {
-	now := time.Now()
-	if result.FinishedAt.IsZero() {
-		result.FinishedAt = now
+	if e.orchestrator == nil {
+		e.orchestrator = newBackfillOrchestrator()
 	}
-	result.ErrorClass = types.NormalizeBackfillErrorClass(result.ErrorClass)
-	if result.Type == "" {
-		result.Type = e.backfillType()
-	}
-	if result.RoleID == "" {
-		result.RoleID = e.roleID
-	}
-	if result.StreamKey == "" {
-		result.StreamKey = e.streamName
-	}
-	if result.Key == "" {
-		result.Key = types.BackfillSessionKey(result.RoleID, result.StreamKey, result.Type)
-	}
-	if e.backfill != nil {
-		e.backfill.OnResult(result)
-	}
-	if !e.cfg.Backfill.ResultDrivenEnabled {
-		return
-	}
-
-	var (
-		triggerNext bool
-		nextStart   uint64
-		nextEnd     uint64
-		pendingFor  time.Duration
-		status      = strings.ToLower(strings.TrimSpace(result.Status))
-	)
-	if status == "" {
-		status = types.BackfillResultFail
-	}
-
-	e.sessionMu.Lock()
-	session, ok := e.sessions[result.Key]
-	if !ok {
-		e.sessionMu.Unlock()
-		return
-	}
-	if session.State != sessionPending {
-		e.sessionMu.Unlock()
-		return
-	}
-	if result.SessionID != "" && session.SessionID != "" && result.SessionID != session.SessionID {
-		e.sessionMu.Unlock()
-		return
-	}
-
-	if !session.PendingSince.IsZero() {
-		pendingFor = result.FinishedAt.Sub(session.PendingSince)
-		if pendingFor < 0 {
-			pendingFor = 0
-		}
-	}
-	session.PendingSince = time.Time{}
-	metrics.SetBackfillSessionsInflight(result.RoleID, result.StreamKey, result.Type, 0)
-
-	switch status {
-	case types.BackfillResultSuccess:
-		session.Failures = 0
-		session.State = sessionIdle
-	case types.BackfillResultTimeout, types.BackfillResultFail:
-		session.Failures++
-		threshold := e.cfg.Backfill.MaxFailures
-		if threshold <= 0 {
-			threshold = 1
-		}
-		if session.Failures >= threshold {
-			session.State = sessionCooldown
-			cooldown := e.cfg.Backfill.ExhaustCooldown
-			if cooldown <= 0 {
-				cooldown = e.cfg.Backfill.Cooldown
-			}
-			session.CooldownUntil = result.FinishedAt.Add(cooldown)
-			session.Failures = 0
-		} else {
-			session.State = sessionIdle
-		}
-	default:
-		session.State = sessionIdle
-	}
-
-	logging.Info(context.Background(), logging.EventIntegrityBackfillResult, "backfill result applied to session", logging.Fields{
-		"role_id":       result.RoleID,
-		"stream_key":    result.StreamKey,
-		"backfill_type": result.Type,
-		"session_key":   result.Key,
-		"session_id":    result.SessionID,
-		"cmd_id":        result.CmdID,
-		"status":        status,
-		"error_class":   result.ErrorClass,
-		"pending_ms":    pendingFor.Milliseconds(),
-		"state":         session.State,
-	})
-
-	if session.State == sessionIdle && session.HasIntent {
-		triggerNext = true
-		nextStart = session.IntentStart
-		nextEnd = session.IntentEnd
-		session.HasIntent = false
-	}
-	e.sessionMu.Unlock()
-
-	metrics.RecordBackfillResult(result.RoleID, result.Type, status, result.ErrorClass)
-	if pendingFor > 0 {
-		metrics.RecordBackfillPendingDuration(result.RoleID, result.StreamKey, result.Type, status, pendingFor)
-	}
-	if triggerNext {
-		e.triggerBackfillWithReason(nextStart, nextEnd, result.FinishedAt, "session_intent")
-	}
+	e.orchestrator.onBackfillResult(e, result)
 }
 
 func (e *SequenceEngine) resolvePendingTimeout(now time.Time) {
-	if !e.cfg.Backfill.ResultDrivenEnabled {
-		return
+	if e.orchestrator == nil {
+		e.orchestrator = newBackfillOrchestrator()
 	}
-	timeout := e.cfg.Sequence.HardTimeout
-	if timeout <= 0 {
-		timeout = 3 * time.Second
-	}
-	expired := make([]types.BackfillResult, 0)
-	e.sessionMu.Lock()
-	for _, session := range e.sessions {
-		if session == nil || session.State != sessionPending || session.PendingSince.IsZero() {
-			continue
-		}
-		if now.Sub(session.PendingSince) < timeout {
-			continue
-		}
-		expired = append(expired, types.BackfillResult{
-			CmdID:      session.CmdID,
-			SessionID:  session.SessionID,
-			Key:        session.Key,
-			RoleID:     session.RoleID,
-			StreamKey:  session.StreamKey,
-			Type:       session.Type,
-			Attempt:    session.Attempt,
-			Status:     types.BackfillResultTimeout,
-			ErrorClass: "timeout",
-			FinishedAt: now,
-		})
-	}
-	e.sessionMu.Unlock()
-
-	for _, result := range expired {
-		e.OnBackfillResult(result)
-	}
+	e.orchestrator.resolvePendingTimeout(e, now)
 }
 
 func (e *SequenceEngine) advance(target uint64, now time.Time, reason string) {
-	if target <= e.state.ExpectedNext {
+	nextState, actions := stepCore(e.toCoreState(), coreInput{
+		Kind:   coreInputAdvance,
+		Target: target,
+		Now:    now,
+	})
+	if nextState.ExpectedNext == e.state.ExpectedNext {
 		return
 	}
-	if target > 0 {
-		e.buffer.cleanup(target - 1)
+	for _, action := range actions {
+		if action.Kind == coreActionCleanupLE {
+			e.buffer.cleanup(action.LE)
+		}
 	}
-	logging.Info(context.Background(), logging.EventIntegrityAdvance, "advance expected sequence", logging.Fields{
+	eventName := logging.EventIntegrityAdvance
+	if reason == "hard-timeout" {
+		eventName = logging.EventIntegrityTimeoutAdvance
+	}
+	logging.Info(context.Background(), eventName, "advance expected sequence", logging.Fields{
 		"role_id":       e.roleID,
 		"stream_key":    e.streamName,
 		"expected_prev": e.state.ExpectedNext,
-		"expected_new":  target,
+		"expected_new":  nextState.ExpectedNext,
 		"reason":        reason,
 	})
-	e.state.ExpectedNext = target
-	e.state.WaitStart = now
+	e.applyCoreState(nextState)
+	e.resolveGapWindows(now)
 }
 
 func (e *SequenceEngine) captureIdentity(evt *Event) {
@@ -852,7 +623,9 @@ func (e *SequenceEngine) captureIdentity(evt *Event) {
 }
 
 func (e *SequenceEngine) runSweep(now time.Time) {
-	e.state.LastSweep = now
+	if e.gaps != nil {
+		e.gaps.sweep(now)
+	}
 	removed := e.buffer.sweep(now)
 	if len(removed) == 0 {
 		return
@@ -901,6 +674,18 @@ func (e *SequenceEngine) replayCompensations(now time.Time) {
 
 	remaining := make([]compensationItem, 0, len(e.compQueue))
 	for _, item := range e.compQueue {
+		if e.cfg.Backfill.ResultDrivenEnabled && e.orchestrator != nil && e.orchestrator.isPending(item.Cmd) {
+			remaining = append(remaining, item)
+			logging.Info(context.Background(), logging.EventIntegrityBackfillSkipped, "skip compensation replay while session pending", logging.Fields{
+				"role_id":       e.roleID,
+				"stream_key":    item.Cmd.StreamKey,
+				"backfill_type": item.Cmd.Type,
+				"start":         item.Cmd.Start,
+				"end":           item.Cmd.End,
+				"reason":        "session_pending",
+			})
+			continue
+		}
 		if err := e.backfill.Schedule(item.Cmd); err != nil {
 			item.RetryCount++
 			item.UpdatedAt = now
@@ -1021,6 +806,7 @@ func (e *SequenceEngine) deliver(events []*Event) Decision {
 		}
 		if e.dedupe != nil && e.dedupe.ShouldDrop(evt) {
 			// 幂等器判定重复，直接跳过后续流程
+			metrics.RecordIntegrityDuplicate(e.roleID, e.streamName)
 			continue
 		}
 		// Gate 作为控制面，判断是否应该下发
@@ -1031,6 +817,196 @@ func (e *SequenceEngine) deliver(events []*Event) Decision {
 		}
 	}
 	return Decision{Deliver: out}
+}
+
+func (e *SequenceEngine) applyAnchor(lastSeq uint64, source string, now time.Time) Decision {
+	expectedPrev := e.state.ExpectedNext
+	e.state.AwaitingSnapshot = false
+	e.state.Initialized = true
+	if lastSeq > e.state.SeenMax {
+		e.state.SeenMax = lastSeq
+	}
+	if lastSeq != math.MaxUint64 {
+		e.state.ExpectedNext = lastSeq + 1
+		e.buffer.cleanup(lastSeq)
+	}
+	e.state.WaitStart = now
+	e.resolveGapWindows(now)
+
+	logging.Info(context.Background(), logging.EventIntegritySnapshotAnchor, "snapshot anchor applied", logging.Fields{
+		"role_id":       e.roleID,
+		"stream_key":    e.streamName,
+		"expected_prev": expectedPrev,
+		"expected_new":  e.state.ExpectedNext,
+		"anchor_source": source,
+		"anchor_seq":    lastSeq,
+		"anchor_result": "applied",
+	})
+
+	if e.cfg.SnapshotSideChannelEnabled() {
+		return Decision{}
+	}
+
+	shouldReleaseAll := e.gate.OnSnapshotApplied(lastSeq)
+	if !shouldReleaseAll {
+		return Decision{}
+	}
+	events, next := e.buffer.drain(e.state.ExpectedNext)
+	e.state.ExpectedNext = next
+	return e.deliver(events)
+}
+
+func (e *SequenceEngine) snapshotAnchorSeq(evt *Event) (uint64, bool) {
+	if evt == nil {
+		return 0, false
+	}
+	if evt.Seq > 0 {
+		return evt.Seq, true
+	}
+	if evt.Message == nil || evt.Message.Metadata == nil {
+		return 0, false
+	}
+	for _, key := range []string{"snapshot_last_seq", "last_update_id", "final_update_id", "seq"} {
+		if raw, ok := evt.Message.Metadata[key]; ok {
+			if seq, err := toUint64(raw); err == nil {
+				return seq, true
+			}
+		}
+	}
+	return 0, false
+}
+
+func (e *SequenceEngine) toCoreState() coreState {
+	return coreState{
+		ExpectedNext:     e.state.ExpectedNext,
+		SeenMax:          e.state.SeenMax,
+		Initialized:      e.state.Initialized,
+		AwaitingSnapshot: e.state.AwaitingSnapshot,
+		WaitStart:        e.state.WaitStart,
+	}
+}
+
+func (e *SequenceEngine) applyCoreState(next coreState) {
+	e.state.ExpectedNext = next.ExpectedNext
+	e.state.SeenMax = next.SeenMax
+	e.state.Initialized = next.Initialized
+	e.state.AwaitingSnapshot = next.AwaitingSnapshot
+	e.state.WaitStart = next.WaitStart
+}
+
+func (e *SequenceEngine) applyCoreDrainActions(actions []coreAction) []*Event {
+	var drained []*Event
+	for _, action := range actions {
+		if action.Kind != coreActionDrainFrom {
+			continue
+		}
+		events, next := e.buffer.drain(action.From)
+		e.state.ExpectedNext = next
+		drained = append(drained, events...)
+	}
+	return drained
+}
+
+func (e *SequenceEngine) applyCoreActionsForDelivery(actions []coreAction) []*Event {
+	var drained []*Event
+	for _, action := range actions {
+		switch action.Kind {
+		case coreActionCleanupLE:
+			e.buffer.cleanup(action.LE)
+		case coreActionDrainFrom:
+			events, next := e.buffer.drain(action.From)
+			e.state.ExpectedNext = next
+			drained = append(drained, events...)
+		}
+	}
+	return drained
+}
+
+func (e *SequenceEngine) reportIntegrityMetrics(now time.Time) {
+	roleID, streamKey := e.metricLabels()
+	metrics.SetIntegrityBufferSize(roleID, streamKey, e.bufferSize())
+	metrics.SetIntegrityExpectedSeq(roleID, streamKey, e.state.ExpectedNext)
+	metrics.SetIntegritySeenMax(roleID, streamKey, e.state.SeenMax)
+	metrics.SetIntegrityAwaitingSnapshot(roleID, streamKey, e.state.AwaitingSnapshot)
+
+	var headLag uint64
+	if e.state.SeenMax > e.state.ExpectedNext {
+		headLag = e.state.SeenMax - e.state.ExpectedNext
+	}
+	metrics.SetIntegrityHeadLag(roleID, streamKey, headLag)
+	stats := gapWindowStats{}
+	if e.cfg.Feature.GapWindowMetrics {
+		stats = e.gapWindowStats(now)
+	} else if headLag > 0 {
+		stats.OpenCount = 1
+		stats.Missing = headLag
+		if !e.state.WaitStart.IsZero() && !now.IsZero() {
+			stats.OldestAge = now.Sub(e.state.WaitStart)
+		}
+	}
+	metrics.SetIntegrityGapWindows(roleID, streamKey, stats.OpenCount)
+	metrics.SetIntegrityGapMissingTotal(roleID, streamKey, stats.Missing)
+	metrics.SetIntegrityGapOldestAge(roleID, streamKey, stats.OldestAge)
+}
+
+func (e *SequenceEngine) metricLabels() (string, string) {
+	roleID := e.roleID
+	if roleID == "" {
+		roleID = "unknown"
+	}
+	streamKey := e.streamName
+	if streamKey == "" {
+		streamKey = "default"
+	}
+	return roleID, streamKey
+}
+
+func (e *SequenceEngine) bufferSize() int {
+	if e.buffer == nil {
+		return 0
+	}
+	return e.buffer.size()
+}
+
+func (e *SequenceEngine) addGapWindow(start, end uint64, now time.Time) {
+	if e.gaps == nil {
+		return
+	}
+	e.gaps.add(start, end, now)
+}
+
+func (e *SequenceEngine) resolveGapWindows(now time.Time) {
+	if e.gaps == nil {
+		return
+	}
+	if e.state.ExpectedNext > 0 {
+		e.gaps.resolveTo(e.state.ExpectedNext - 1)
+	}
+	e.gaps.sweep(now)
+}
+
+func (e *SequenceEngine) gapWindowStats(now time.Time) gapWindowStats {
+	if e.gaps == nil {
+		return gapWindowStats{}
+	}
+	return e.gaps.stats(now)
+}
+
+func (e *SequenceEngine) logSessionTransition(session *backfillSession, from, to backfillSessionState, reason string, now time.Time) {
+	if session == nil || from == to {
+		return
+	}
+	logging.Info(context.Background(), logging.EventIntegritySessionState, "backfill session state transition", logging.Fields{
+		"role_id":       session.RoleID,
+		"stream_key":    session.StreamKey,
+		"backfill_type": session.Type,
+		"session_key":   session.Key,
+		"session_id":    session.SessionID,
+		"from_state":    from,
+		"to_state":      to,
+		"reason":        reason,
+		"at":            now.UnixMilli(),
+	})
 }
 
 func isSnapshotEvent(evt *Event) bool {

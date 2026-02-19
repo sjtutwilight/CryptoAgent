@@ -125,3 +125,12 @@ func (b *reorderBuffer) sweep(now time.Time) []uint64 {
 	}
 	return out
 }
+
+func (b *reorderBuffer) size() int {
+	if b == nil {
+		return 0
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return len(b.buckets)
+}

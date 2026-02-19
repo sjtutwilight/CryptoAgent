@@ -49,6 +49,10 @@ func ParseConfig(cfg map[string]any) (Config, error) {
 	out.Backfill.ReplayInterval = util.ToDuration(util.GetInt(cfg, "backfill_replay_interval_ms", 2000), time.Millisecond)
 	out.Backfill.CompensationMaxPending = util.GetInt(cfg, "backfill_compensation_max_pending", 2000)
 
+	out.Feature.HardTimeoutPriority = util.GetBool(cfg, "hard_timeout_priority_enabled", false)
+	out.Feature.SidechannelAnchor = util.GetBool(cfg, "sidechannel_anchor_enabled", false)
+	out.Feature.GapWindowMetrics = util.GetBool(cfg, "gap_window_metrics_enabled", false)
+
 	out.Normalise()
 	if err := out.validate(); err != nil {
 		return Config{}, err

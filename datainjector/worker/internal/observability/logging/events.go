@@ -31,6 +31,9 @@ const (
 	EventIntegrityBackfillDedup   = "integrity.backfill.dedup"
 	EventIntegrityBackfillResult  = "integrity.backfill.result"
 	EventIntegrityBackfillSession = "integrity.backfill.session"
+	EventIntegritySnapshotAnchor  = "integrity.snapshot.anchor"
+	EventIntegrityTimeoutAdvance  = "integrity.timeout.advance"
+	EventIntegritySessionState    = "integrity.session.state"
 
 	EventWSConnect            = "ws.connect"
 	EventWSClose              = "ws.close"
