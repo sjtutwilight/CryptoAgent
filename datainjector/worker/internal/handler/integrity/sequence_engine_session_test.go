@@ -150,6 +150,28 @@ func TestSequenceEngineCooldownRecovery(t *testing.T) {
 	}
 }
 
+func TestSequenceEngineSessionSingleflightIsScopedBySessionKey(t *testing.T) {
+	sched := &captureScheduler{}
+	engine := newResultDrivenEngineForTest(sched)
+	now := time.Now()
+
+	engine.roleID = "role-a"
+	engine.streamName = "stream-a"
+	if ok := engine.triggerBackfill(100, 110, now); !ok {
+		t.Fatalf("expected stream-a trigger success")
+	}
+
+	// 不同 stream_key 应该允许并发 in-flight，不受 stream-a pending 限制。
+	engine.streamName = "stream-b"
+	if ok := engine.triggerBackfill(200, 210, now.Add(time.Millisecond)); !ok {
+		t.Fatalf("expected stream-b trigger success")
+	}
+
+	if got := len(sched.calls); got != 2 {
+		t.Fatalf("expected two schedules for different session keys, got %d", got)
+	}
+}
+
 func TestSequenceEngineOrderbookSideChannelDoesNotBlockDiff(t *testing.T) {
 	sched := &captureScheduler{}
 	cfg := Config{}
@@ -163,6 +185,7 @@ func TestSequenceEngineOrderbookSideChannelDoesNotBlockDiff(t *testing.T) {
 		},
 	}}
 	cfg.Sequence.EagerGap = 1
+	cfg.Feature.SidechannelAnchor = true
 	cfg.Normalise()
 
 	engine := NewSequenceEngine(cfg, nil, sched, nil, nil, "stream-ob")
@@ -215,5 +238,98 @@ func TestSequenceEngineOrderbookSideChannelDoesNotBlockDiff(t *testing.T) {
 	}
 	if engine.state.AwaitingSnapshot {
 		t.Fatalf("sidechannel snapshot should not switch engine to awaiting state")
+	}
+}
+
+func TestSequenceEngineSideChannelSnapshotAppliesAnchor(t *testing.T) {
+	sched := &captureScheduler{}
+	cfg := Config{}
+	cfg.Profile = "binance_depth"
+	cfg.Keys.SeqField = "seq"
+	cfg.Backfill.OrderbookMode = "snapshot_sidechannel"
+	cfg.Backfill.Options = []types.BackfillOption{{
+		Transport: types.BackfillTransportHTTP,
+		Params: map[string]any{
+			"method": "GET",
+		},
+	}}
+	cfg.Sequence.EagerGap = 1
+	cfg.Feature.SidechannelAnchor = true
+	cfg.Normalise()
+
+	engine := NewSequenceEngine(cfg, nil, sched, nil, nil, "stream-ob")
+	engine.roleID = "role-ob"
+
+	_ = engine.Handle(&Event{
+		Seq:     100,
+		Arrival: time.Now(),
+		Message: &types.Message{Metadata: map[string]any{"seq": uint64(100)}, Payload: []byte(`{}`)},
+	})
+	_ = engine.Handle(&Event{
+		Seq:     103,
+		Arrival: time.Now().Add(10 * time.Millisecond),
+		Message: &types.Message{Metadata: map[string]any{"seq": uint64(103)}, Payload: []byte(`{}`)},
+	})
+
+	// sidechannel snapshot 将本地序列重锚到 105，并清理旧 buffer。
+	decision := engine.Handle(&Event{
+		Seq:     105,
+		Arrival: time.Now().Add(20 * time.Millisecond),
+		Message: &types.Message{Metadata: map[string]any{"seq": uint64(105), "snapshot": true}, Payload: []byte(`{}`)},
+	})
+	if len(decision.Deliver) != 1 {
+		t.Fatalf("expected snapshot pass-through, got %d", len(decision.Deliver))
+	}
+	if engine.state.ExpectedNext != 106 {
+		t.Fatalf("expected anchor to set expected=106, got %d", engine.state.ExpectedNext)
+	}
+	if size := engine.buffer.size(); size != 0 {
+		t.Fatalf("expected old buffer cleaned after anchor, size=%d", size)
+	}
+}
+
+func TestSequenceEngineSnapshotAppliedReleasesBufferedInOrder(t *testing.T) {
+	sched := &captureScheduler{}
+	cfg := Config{}
+	cfg.Profile = "binance_depth"
+	cfg.Keys.SeqField = "seq"
+	cfg.Backfill.OrderbookMode = "snapshot_gate"
+	cfg.Backfill.Options = []types.BackfillOption{{
+		Transport: types.BackfillTransportHTTP,
+		Params: map[string]any{
+			"method": "GET",
+		},
+	}}
+	cfg.Normalise()
+
+	engine := NewSequenceEngine(cfg, nil, sched, &snapshotHoldGate{}, nil, "stream-ob")
+	engine.roleID = "role-ob"
+
+	first := engine.Handle(&Event{
+		Seq:     100,
+		Arrival: time.Now(),
+		Message: &types.Message{Metadata: map[string]any{"seq": uint64(100)}, Payload: []byte(`{}`)},
+	})
+	if len(first.Deliver) != 0 {
+		t.Fatalf("expected first diff held before snapshot")
+	}
+	_ = engine.Handle(&Event{
+		Seq:     103,
+		Arrival: time.Now().Add(10 * time.Millisecond),
+		Message: &types.Message{Metadata: map[string]any{"seq": uint64(103)}, Payload: []byte(`{}`)},
+	})
+
+	_ = engine.OnSnapshotApplied(101)
+	if engine.state.ExpectedNext != 102 {
+		t.Fatalf("expected anchor expected=102, got %d", engine.state.ExpectedNext)
+	}
+
+	out := engine.Handle(&Event{
+		Seq:     102,
+		Arrival: time.Now().Add(20 * time.Millisecond),
+		Message: &types.Message{Metadata: map[string]any{"seq": uint64(102)}, Payload: []byte(`{}`)},
+	})
+	if len(out.Deliver) != 2 {
+		t.Fatalf("expected seq 102 + drained 103 delivered, got %d", len(out.Deliver))
 	}
 }

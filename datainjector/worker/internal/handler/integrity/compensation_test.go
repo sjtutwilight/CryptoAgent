@@ -48,3 +48,45 @@ func TestCompensationQueuePersistAndReplay(t *testing.T) {
 		t.Fatalf("expected compensation queue drained, got %d", got)
 	}
 }
+
+func TestCompensationReplaySkippedWhenSessionPending(t *testing.T) {
+	sched := &captureScheduler{}
+	cfg := Config{}
+	cfg.Keys.SeqField = "seq"
+	cfg.Backfill.ResultDrivenEnabled = true
+	cfg.Backfill.PersistentCompensation = true
+	cfg.Backfill.CompensationFile = t.TempDir() + "/comp.json"
+	cfg.Backfill.ReplayInterval = time.Millisecond
+	cfg.Backfill.MaxFailures = 1
+	cfg.Backfill.ExhaustCooldown = 50 * time.Millisecond
+	cfg.Backfill.Options = []types.BackfillOption{{
+		Transport: types.BackfillTransportHTTP,
+		RPCMethod: "eth_getBlockByNumber",
+	}}
+	cfg.Normalise()
+
+	engine := NewSequenceEngine(cfg, nil, sched, nil, nil, "stream-a")
+	engine.roleID = "role-a"
+	engine.streamName = "stream-a"
+
+	now := time.Now()
+	if ok := engine.triggerBackfill(1, 2, now); !ok {
+		t.Fatalf("expected triggerBackfill success")
+	}
+	if got := len(sched.calls); got != 1 {
+		t.Fatalf("expected one scheduled command, got %d", got)
+	}
+
+	engine.enqueueCompensation(sched.calls[0], types.ErrBackfillEnqueueTimeout, now)
+	if got := len(engine.compQueue); got != 1 {
+		t.Fatalf("expected one compensation item, got %d", got)
+	}
+
+	engine.replayCompensations(now.Add(2 * time.Millisecond))
+	if got := len(engine.compQueue); got != 1 {
+		t.Fatalf("expected compensation item retained while pending, got %d", got)
+	}
+	if got := len(sched.calls); got != 1 {
+		t.Fatalf("expected no extra schedule while pending, got %d", got)
+	}
+}

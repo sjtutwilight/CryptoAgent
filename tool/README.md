@@ -57,10 +57,19 @@ Ops spec: `tool/OPS.md`
 
 ### Kafka 微结构增量导出到 ODS
 
-将 `perp/spot` 的 `orderbook/aggtrades` topic 周期性导出到 `runtime/data/ods`：
+将 `perp/spot` 六个微结构 topic（`orderbook.diff`、`orderbook.snapshot`、`aggtrades`）导出到 `runtime/data/ods`。
+脚本会按 `exchange_ts` 自动拆分到 `YYYY-MM-DD` 分区，避免跨天数据混到同一天目录。
 
 ```bash
 python3 tool/export_kafka_microstructure_to_ods.py --once
+```
+
+按角色配置自动提取 topic：
+
+```bash
+python3 tool/export_kafka_microstructure_to_ods.py \
+  --roles-config datainjector/worker/configs/aave/roles_aave_full_stable.json \
+  --once
 ```
 
 持续运行（每 5 分钟增量导出一次）：
@@ -73,6 +82,20 @@ python3 tool/export_kafka_microstructure_to_ods.py --interval-seconds 300
 
 ```bash
 python3 tool/export_kafka_microstructure_to_ods.py --from-beginning --once
+```
+
+全量快速导出（多 topic 并发 + topic 内批量并发，追到当前末尾立即退出）：
+
+```bash
+python3 tool/export_kafka_microstructure_to_ods.py \
+  --roles-config datainjector/worker/configs/aave/roles_aave_full_stable.json \
+  --consumer-group ods-microstructure-exporter-full-$(date +%Y%m%d-%H%M%S) \
+  --from-beginning --stop-at-log-end --once \
+  --topic-concurrency 6 \
+  --intra-topic-concurrency 6 \
+  --topic-batch-size 100000 \
+  --poll-timeout-ms 30000 \
+  --batch-retry 3
 ```
 
 Notes:

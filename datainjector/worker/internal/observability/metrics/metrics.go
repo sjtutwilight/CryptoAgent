@@ -193,6 +193,83 @@ var (
 		[]string{"role_id", "stream_key"},
 	)
 
+	// IntegrityExpectedSeq 当前期望序列号
+	IntegrityExpectedSeq = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "worker",
+			Subsystem: "integrity",
+			Name:      "expected_seq",
+			Help:      "完整性模块当前期望序列号",
+		},
+		[]string{"role_id", "stream_key"},
+	)
+
+	// IntegritySeenMax 当前已见最大序列号
+	IntegritySeenMax = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "worker",
+			Subsystem: "integrity",
+			Name:      "seen_max",
+			Help:      "完整性模块当前已见最大序列号",
+		},
+		[]string{"role_id", "stream_key"},
+	)
+
+	// IntegrityHeadLag 当前头部落后长度（seen_max - expected_seq）
+	IntegrityHeadLag = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "worker",
+			Subsystem: "integrity",
+			Name:      "head_lag",
+			Help:      "完整性模块当前头部落后长度",
+		},
+		[]string{"role_id", "stream_key"},
+	)
+
+	// IntegrityAwaitingSnapshot 是否处于等待快照状态（0/1）
+	IntegrityAwaitingSnapshot = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "worker",
+			Subsystem: "integrity",
+			Name:      "awaiting_snapshot",
+			Help:      "完整性模块是否等待快照（0/1）",
+		},
+		[]string{"role_id", "stream_key"},
+	)
+
+	// IntegrityGapWindows 当前打开的缺失窗口数量
+	IntegrityGapWindows = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "worker",
+			Subsystem: "integrity",
+			Name:      "gap_windows",
+			Help:      "完整性模块当前缺失窗口数量",
+		},
+		[]string{"role_id", "stream_key"},
+	)
+
+	// IntegrityGapMissingTotal 当前缺失总长度
+	IntegrityGapMissingTotal = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "worker",
+			Subsystem: "integrity",
+			Name:      "gap_missing_total",
+			Help:      "完整性模块当前缺失总长度",
+		},
+		[]string{"role_id", "stream_key"},
+	)
+
+	// IntegrityGapOldestAgeSeconds 最老缺口年龄
+	IntegrityGapOldestAgeSeconds = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "worker",
+			Subsystem: "integrity",
+			Name:      "gap_oldest_age_seconds",
+			Help:      "完整性模块最老缺口年龄（秒）",
+		},
+		[]string{"role_id", "stream_key"},
+	)
+
 	// OrderbookSnapshotEmitted 订单簿 snapshot 发射计数
 	OrderbookSnapshotEmitted = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -437,6 +514,13 @@ func Init() {
 			IntegrityGaps,
 			IntegrityBufferSize,
 			IntegrityDuplicates,
+			IntegrityExpectedSeq,
+			IntegritySeenMax,
+			IntegrityHeadLag,
+			IntegrityAwaitingSnapshot,
+			IntegrityGapWindows,
+			IntegrityGapMissingTotal,
+			IntegrityGapOldestAgeSeconds,
 			OrderbookSnapshotEmitted,
 			// Handler
 			HandlerLatency,
@@ -534,17 +618,69 @@ func RecordHTTPRequest(roleID, endpoint, method string, statusCode int, duration
 
 // RecordIntegrityGap 记录序列号gap
 func RecordIntegrityGap(roleID, streamKey string) {
+	roleID, streamKey = normalizeIntegrityLabels(roleID, streamKey)
 	IntegrityGaps.WithLabelValues(roleID, streamKey).Inc()
 }
 
 // SetIntegrityBufferSize 设置缓冲区大小
 func SetIntegrityBufferSize(roleID, streamKey string, size int) {
+	roleID, streamKey = normalizeIntegrityLabels(roleID, streamKey)
 	IntegrityBufferSize.WithLabelValues(roleID, streamKey).Set(float64(size))
 }
 
 // RecordIntegrityDuplicate 记录重复消息
 func RecordIntegrityDuplicate(roleID, streamKey string) {
+	roleID, streamKey = normalizeIntegrityLabels(roleID, streamKey)
 	IntegrityDuplicates.WithLabelValues(roleID, streamKey).Inc()
+}
+
+// SetIntegrityExpectedSeq 设置期望序列号
+func SetIntegrityExpectedSeq(roleID, streamKey string, seq uint64) {
+	roleID, streamKey = normalizeIntegrityLabels(roleID, streamKey)
+	IntegrityExpectedSeq.WithLabelValues(roleID, streamKey).Set(float64(seq))
+}
+
+// SetIntegritySeenMax 设置已见最大序列号
+func SetIntegritySeenMax(roleID, streamKey string, seq uint64) {
+	roleID, streamKey = normalizeIntegrityLabels(roleID, streamKey)
+	IntegritySeenMax.WithLabelValues(roleID, streamKey).Set(float64(seq))
+}
+
+// SetIntegrityHeadLag 设置头部落后长度
+func SetIntegrityHeadLag(roleID, streamKey string, lag uint64) {
+	roleID, streamKey = normalizeIntegrityLabels(roleID, streamKey)
+	IntegrityHeadLag.WithLabelValues(roleID, streamKey).Set(float64(lag))
+}
+
+// SetIntegrityAwaitingSnapshot 设置等待快照状态
+func SetIntegrityAwaitingSnapshot(roleID, streamKey string, awaiting bool) {
+	roleID, streamKey = normalizeIntegrityLabels(roleID, streamKey)
+	val := 0.0
+	if awaiting {
+		val = 1
+	}
+	IntegrityAwaitingSnapshot.WithLabelValues(roleID, streamKey).Set(val)
+}
+
+// SetIntegrityGapWindows 设置缺失窗口数量
+func SetIntegrityGapWindows(roleID, streamKey string, windows int) {
+	roleID, streamKey = normalizeIntegrityLabels(roleID, streamKey)
+	IntegrityGapWindows.WithLabelValues(roleID, streamKey).Set(float64(windows))
+}
+
+// SetIntegrityGapMissingTotal 设置缺失总长度
+func SetIntegrityGapMissingTotal(roleID, streamKey string, missing uint64) {
+	roleID, streamKey = normalizeIntegrityLabels(roleID, streamKey)
+	IntegrityGapMissingTotal.WithLabelValues(roleID, streamKey).Set(float64(missing))
+}
+
+// SetIntegrityGapOldestAge 设置最老缺口年龄
+func SetIntegrityGapOldestAge(roleID, streamKey string, age time.Duration) {
+	roleID, streamKey = normalizeIntegrityLabels(roleID, streamKey)
+	if age < 0 {
+		age = 0
+	}
+	IntegrityGapOldestAgeSeconds.WithLabelValues(roleID, streamKey).Set(age.Seconds())
 }
 
 // RecordOrderbookSnapshotEmitted 记录订单簿 snapshot 发射
@@ -559,6 +695,16 @@ func RecordOrderbookSnapshotEmitted(roleID, source, reason string) {
 		reason = "unknown"
 	}
 	OrderbookSnapshotEmitted.WithLabelValues(roleID, source, reason).Inc()
+}
+
+func normalizeIntegrityLabels(roleID, streamKey string) (string, string) {
+	if roleID == "" {
+		roleID = "unknown"
+	}
+	if streamKey == "" {
+		streamKey = "default"
+	}
+	return roleID, streamKey
 }
 
 // RecordHandlerLatency 记录Handler延迟

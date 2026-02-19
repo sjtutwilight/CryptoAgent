@@ -101,7 +101,7 @@
     {
       "role_id": "rec-binance-perp-aave-orderbook-snapshot",
       "emitter": "polling",
-      "polling_interval": 10,
+      "polling_interval": 30,
       "caller": "native_call",
       "caller_config": {
         "protocol": "http",
@@ -306,9 +306,9 @@
             "stream_key_field": "binance_symbol",
             "eager_gap": 5,
             "max_gap": 30,
-            "max_delay_ms": 500,
-            "hard_timeout_ms": 2000,
-            "backfill_cooldown_ms": 1000,
+            "max_delay_ms": 2000,
+            "hard_timeout_ms": 10000,
+            "backfill_cooldown_ms": 15000,
             "backfill": {
               "http": {
                 "enabled": true,
@@ -351,7 +351,7 @@
     {
       "role_id": "rec-binance-spot-aave-orderbook-snapshot",
       "emitter": "polling",
-      "polling_interval": 10,
+      "polling_interval": 30,
       "caller": "native_call",
       "caller_config": {
         "protocol": "http",
@@ -468,9 +468,9 @@
             "stream_key_field": "symbol",
             "eager_gap": 3,
             "max_gap": 20,
-            "max_delay_ms": 500,
-            "hard_timeout_ms": 2000,
-            "backfill_cooldown_ms": 1000,
+            "max_delay_ms": 2000,
+            "hard_timeout_ms": 10000,
+            "backfill_cooldown_ms": 15000,
             "backfill": {
               "http": {
                 "enabled": true,

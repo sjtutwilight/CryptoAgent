@@ -223,7 +223,7 @@
             "backfill_cooldown_ms": 8000,
             "backfill": {
               "http": {
-                "enabled": true,
+                "enabled": false,
                 "transport": "rest",
                 "endpoint": "https://fapi.binance.com/fapi/v1/aggTrades",
                 "method": "GET",
@@ -473,7 +473,7 @@
             "backfill_cooldown_ms": 8000,
             "backfill": {
               "http": {
-                "enabled": true,
+                "enabled": false,
                 "transport": "rest",
                 "endpoint": "https://api.binance.com/api/v3/aggTrades",
                 "method": "GET",
