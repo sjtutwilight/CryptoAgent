@@ -431,6 +431,73 @@ services:
     networks:
       - infra
 
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: obs-tempo
+    env_file: *default-env-files
+    ports:
+      - "${TEMPO_PORT}:3200"
+    deploy:
+      resources:
+        limits:
+          cpus: "${TEMPO_CPUS}"
+          memory: "${TEMPO_MEM}"
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ../../observability/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    networks:
+      - infra
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.102.1
+    container_name: obs-otel-collector
+    env_file: *default-env-files
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    ports:
+      # 仅映射到本机回环，避免开放到局域网
+      - "127.0.0.1:${OTEL_COLLECTOR_OTLP_HTTP_PORT}:4318"
+      - "127.0.0.1:${OTEL_COLLECTOR_OTLP_GRPC_PORT}:4317"
+      - "127.0.0.1:${OTEL_COLLECTOR_METRICS_PORT}:8888"
+      - "127.0.0.1:${OTEL_COLLECTOR_HEALTH_PORT}:13133"
+    deploy:
+      resources:
+        limits:
+          cpus: "${OTEL_COLLECTOR_CPUS}"
+          memory: "${OTEL_COLLECTOR_MEM}"
+    volumes:
+      - ../../observability/otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - ../../runtime/data/otel-audit:/var/lib/otelcol/audit
+    depends_on:
+      - loki
+      - tempo
+    networks:
+      - infra
+
+  codex-otel-metrics:
+    image: python:3.11-slim
+    container_name: obs-codex-otel-metrics
+    env_file: *default-env-files
+    command:
+      - python
+      - /app/automation/ops/codex/metrics_exporter.py
+      - --snapshot
+      - /runtime/data/codex_otel/snapshots/latest.json
+      - --port
+      - "${CODEX_OTEL_METRICS_EXPORTER_PORT}"
+    ports:
+      - "127.0.0.1:${CODEX_OTEL_METRICS_EXPORTER_PORT}:${CODEX_OTEL_METRICS_EXPORTER_PORT}"
+    deploy:
+      resources:
+        limits:
+          cpus: "${CODEX_OTEL_METRICS_EXPORTER_CPUS}"
+          memory: "${CODEX_OTEL_METRICS_EXPORTER_MEM}"
+    volumes:
+      - ../../automation:/app/automation:ro
+      - ../../runtime/data:/runtime/data
+    networks:
+      - infra
+
   grafana:
     image: grafana/grafana:latest
     container_name: obs-grafana
@@ -799,6 +866,7 @@ volumes:
   prometheus-data:
   grafana-data:
   loki-data:
+  tempo-data:
   redisinsight-data:
   minio-data:
   starrocks-fe-meta:

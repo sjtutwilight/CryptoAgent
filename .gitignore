@@ -16,6 +16,7 @@ build/
 
 # Runtime data (raw outputs, scratch, checkpoints)
 runtime/data/
+datainjector/worker/runtime/quality_gate/
 
 # Node modules
 node_modules/

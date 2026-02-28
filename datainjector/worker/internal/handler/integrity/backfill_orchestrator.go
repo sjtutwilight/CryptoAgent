@@ -14,7 +14,7 @@ import (
 
 type BackfillOrchestrator struct {
 	sessionMu sync.Mutex
-	sessions  map[string]*backfillSession
+	sessions  map[string]*backfillSession // sessionKey -> 单飞会话状态
 }
 
 func newBackfillOrchestrator() *BackfillOrchestrator {
@@ -36,6 +36,7 @@ func (o *BackfillOrchestrator) triggerWithSession(e *SequenceEngine, start, end 
 	session.Key = key
 
 	if session.State == sessionCooldown {
+		// exhausted 冷却期内直接拒绝新请求，防止下游持续雪崩。
 		if now.Before(session.CooldownUntil) {
 			logging.Warn(context.Background(), logging.EventIntegrityBackfillSkipped, "backfill blocked by session cooldown", logging.Fields{
 				"role_id":       e.roleID,
@@ -52,6 +53,7 @@ func (o *BackfillOrchestrator) triggerWithSession(e *SequenceEngine, start, end 
 		e.logSessionTransition(session, prevState, session.State, "cooldown_elapsed", now)
 	}
 	if session.State == sessionPending {
+		// 已有 in-flight 请求时不再重复下发，只合并意图区间供下一轮调度。
 		o.mergeSessionIntent(session, start, end)
 		metrics.RecordBackfillScheduleDedup(e.roleID, e.streamName, kind)
 		logging.Info(context.Background(), logging.EventIntegrityBackfillDedup, "backfill deduplicated into pending session", logging.Fields{
@@ -104,6 +106,7 @@ func (o *BackfillOrchestrator) triggerWithSession(e *SequenceEngine, start, end 
 
 	e.state.LastBackfill = backfillRecord{start: start, end: end, at: now}
 	if e.snapshotGateEnabled() {
+		// snapshot gate 场景下，触发补数后进入等待快照状态，防止 diff 继续透传。
 		e.state.AwaitingSnapshot = true
 	}
 	prevState := session.State
@@ -148,6 +151,7 @@ func (o *BackfillOrchestrator) onBackfillResult(e *SequenceEngine, result types.
 		result.Key = types.BackfillSessionKey(result.RoleID, result.StreamKey, result.Type)
 	}
 	if e.backfill != nil {
+		// 无论是否开启结果驱动，都先通知 scheduler 释放 inflight。
 		e.backfill.OnResult(result)
 	}
 	if !e.cfg.Backfill.ResultDrivenEnabled {
@@ -176,6 +180,7 @@ func (o *BackfillOrchestrator) onBackfillResult(e *SequenceEngine, result types.
 		return
 	}
 	if result.SessionID != "" && session.SessionID != "" && result.SessionID != session.SessionID {
+		// 过期/乱序结果直接忽略，避免把当前 pending 会话错误改写为 idle。
 		o.sessionMu.Unlock()
 		return
 	}
@@ -230,6 +235,7 @@ func (o *BackfillOrchestrator) onBackfillResult(e *SequenceEngine, result types.
 	e.logSessionTransition(session, prevState, session.State, status, result.FinishedAt)
 
 	if session.State == sessionIdle && session.HasIntent {
+		// 当前会话回到 idle 后，立即触发合并意图，形成串行“接力”。
 		triggerNext = true
 		nextStart = session.IntentStart
 		nextEnd = session.IntentEnd
@@ -263,6 +269,7 @@ func (o *BackfillOrchestrator) resolvePendingTimeout(e *SequenceEngine, now time
 		if now.Sub(session.PendingSince) < timeout {
 			continue
 		}
+		// 将超时 pending 主动转成 timeout 结果，统一复用 onBackfillResult 状态收敛逻辑。
 		expired = append(expired, types.BackfillResult{
 			CmdID:      session.CmdID,
 			SessionID:  session.SessionID,
@@ -310,6 +317,7 @@ func (o *BackfillOrchestrator) mergeSessionIntent(session *backfillSession, star
 		session.HasIntent = true
 		return
 	}
+	// pending 期间多次触发时，持续扩展成最小覆盖区间。
 	if start < session.IntentStart {
 		session.IntentStart = start
 	}

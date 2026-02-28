@@ -1,0 +1,142 @@
+version: 3
+workdir: .
+
+allow:
+  depOnAnyVendor: true
+
+excludeFiles:
+  - '^.*_test\\.go$'
+
+components:
+  root:          { in: '.' }
+  cmd:           { in: 'cmd/**' }
+  api:           { in: 'internal/api/**' }
+  role:          { in: 'internal/role/**' }
+  emitter:       { in: 'internal/emitter/**' }
+  caller:        { in: 'internal/caller/**' }
+  handler:       { in: 'internal/handler/**' }
+  sink:          { in: 'internal/sink/**' }
+  protocol:      { in: 'internal/protocol/**' }
+  queue:         { in: 'internal/queue/**' }
+  config:        { in: 'internal/config/**' }
+  observability: { in: 'internal/observability/**' }
+  resource:      { in: 'internal/resource/**' }
+  manifest:      { in: 'internal/manifest/**' }
+  types:         { in: 'internal/types/**' }
+  util:          { in: 'internal/util/**' }
+
+commonComponents:
+  - types
+  - util
+  - observability
+
+deps:
+  root:
+    anyProjectDeps: true
+
+  cmd:
+    mayDependOn:
+      - cmd
+      - api
+      - role
+      - config
+      - types
+      - util
+      - observability
+
+  api:
+    mayDependOn:
+      - api
+      - role
+      - config
+      - types
+      - util
+      - observability
+
+  role:
+    mayDependOn:
+      - role
+      - emitter
+      - caller
+      - handler
+      - sink
+      - queue
+      - config
+      - resource
+      - protocol
+      - manifest
+
+  emitter:
+    mayDependOn:
+      - emitter
+      - caller
+      - queue
+      - config
+      - resource
+      - protocol
+
+  caller:
+    mayDependOn:
+      - caller
+      - protocol
+      - config
+      - resource
+      - manifest
+
+  handler:
+    mayDependOn:
+      - handler
+      - caller
+      - sink
+      - queue
+      - config
+      - resource
+      - protocol
+      - manifest
+
+  sink:
+    mayDependOn:
+      - sink
+      - config
+      - resource
+      - protocol
+      - manifest
+
+  protocol:
+    mayDependOn:
+      - protocol
+      - config
+
+  queue:
+    mayDependOn:
+      - queue
+      - config
+
+  config:
+    mayDependOn:
+      - config
+      - manifest
+
+  observability:
+    mayDependOn:
+      - observability
+      - config
+
+  resource:
+    mayDependOn:
+      - resource
+      - config
+
+  manifest:
+    mayDependOn:
+      - manifest
+      - config
+
+  types:
+    mayDependOn:
+      - types
+
+  util:
+    mayDependOn:
+      - util
+      - config

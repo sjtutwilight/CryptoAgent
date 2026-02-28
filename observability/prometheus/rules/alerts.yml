@@ -421,6 +421,41 @@ groups:
           summary: "内存使用率过高"
           description: "实例 {{ $labels.instance }} 内存使用率超过90%"
 
+  # ==================== Codex OTel 告警 ====================
+  - name: codex_otel_alerts
+    rules:
+      # OTel 导出失败：Collector 到 Loki/Tempo 的日志发送失败
+      - alert: CodexOTLPExportFailed
+        expr: increase(otelcol_exporter_send_failed_log_records{job="otel-collector"}[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          component: codex-otel
+        annotations:
+          summary: "Codex OTel 日志导出失败"
+          description: "过去 5 分钟 Collector 检测到日志导出失败，失败条数 {{ $value }}"
+
+      # tool_error 突增：由分析流程产出的聚合指标
+      - alert: CodexToolErrorBurst
+        expr: increase(codex_tool_error_total[10m]) > 20
+        for: 2m
+        labels:
+          severity: warning
+          component: codex-otel
+        annotations:
+          summary: "Codex tool_error 突增"
+          description: "过去 10 分钟 tool_error 增量 {{ $value }}，请检查失败热点"
+
+      # 长时无产出会话：由分析流程输出的会话延迟指标
+      - alert: CodexSessionNoOutputTooLong
+        expr: max_over_time(codex_session_no_output_duration_seconds[15m]) > 600
+        for: 5m
+        labels:
+          severity: warning
+          component: codex-otel
+        annotations:
+          summary: "Codex 会话长时无产出"
+          description: "会话首个有效产出时延超过 10 分钟，当前值 {{ $value }} 秒"
 
 
 

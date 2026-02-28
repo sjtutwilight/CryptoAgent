@@ -214,8 +214,8 @@ func (e *SequenceEngine) bootstrap(evt *Event) {
 		e.gaps.reset()
 	}
 	if e.snapshotGateEnabled() {
-		// For snapshot-gated streams (e.g. Binance depth), keep ExpectedNext at current seq
-		// so the next out-of-order observation naturally triggers snapshot backfill flow.
+		// snapshot_gate 流（例如 Binance depth）在初始化时不前推 expected，
+		// 让后续首个乱序观测自然触发 snapshot backfill 流程。
 		e.state.ExpectedNext = evt.Seq
 	} else {
 		if evt.Seq == math.MaxUint64 {

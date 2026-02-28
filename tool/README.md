@@ -40,6 +40,28 @@ Ops spec: `tool/OPS.md`
 ./tool/ops.sh flink:job perp
 ./tool/ops.sh flink:cancel kline
 ./tool/test.sh scenario:run binance_kline --stages=infra,ingress
+./tool/ops.sh codex:otel analyze --input runtime/data/otel-audit/codex-otel-events.jsonl
+```
+
+### Codex OTel 闭环命令
+
+```bash
+# 分析 OTel 事件并产出指标/建议
+./tool/ops.sh codex:otel analyze \
+  --input runtime/data/otel-audit/codex-otel-events.jsonl \
+  --window-hours 24
+
+# 审核建议
+./tool/ops.sh codex:otel review \
+  --id SUGG-xxxx --to approved --actor yg --reason "证据充分"
+
+# 实施后回归
+./tool/ops.sh codex:otel regress \
+  --id SUGG-xxxx \
+  --before runtime/data/codex_otel/snapshots/before.json \
+  --after runtime/data/codex_otel/snapshots/after.json \
+  --actor yg \
+  --reason "实施后复核"
 ```
 
 ### Git 分支提效命令

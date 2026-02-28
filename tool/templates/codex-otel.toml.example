@@ -1,0 +1,21 @@
+# Codex OTel 配置模板（可观测优先）
+# 使用方式：复制到 ~/.codex/config.toml 或当前项目的 codex 配置文件。
+
+[otel]
+environment = "prod"
+exporter = "otlp-http"
+trace_exporter = "otlp-http"
+# 关键配置：开启原始提示词采集，满足“可观测第一”诉求
+log_user_prompt = true
+
+[otel.exporter.otlp-http]
+# Collector HTTP 入口（与 docker.env 的 OTEL_COLLECTOR_OTLP_HTTP_PORT 对齐）
+endpoint = "http://127.0.0.1:4318/v1/logs"
+protocol = "binary"
+# 如需鉴权可在此透传 Header
+headers = { "x-codex-source" = "dataplatform" }
+
+[otel.trace_exporter.otlp-http]
+endpoint = "http://127.0.0.1:4318/v1/traces"
+protocol = "binary"
+headers = { "x-codex-source" = "dataplatform" }

@@ -24,6 +24,13 @@ TOPIC_NO_GROWTH_FAIL_CYCLES="${TOPIC_NO_GROWTH_FAIL_CYCLES:-3}"
 ERROR_SCAN_WINDOW_SECONDS="${ERROR_SCAN_WINDOW_SECONDS:-120}"
 
 ERROR_REGEX="${ERROR_REGEX:-panic|fatal|segmentation fault|concurrent write to websocket connection|role\\.stop|ws\\.read\\.error|handler\\.error|sink\\.error|pipeline\\.error|caller\\.error|websocket .*failed}"
+# caller.error 阈值：支持“连续轮次 + 时间窗口累计”双触发
+CALLER_ERROR_CONSEC_FAIL_CYCLES="${CALLER_ERROR_CONSEC_FAIL_CYCLES:-2}"
+CALLER_ERROR_BURST_THRESHOLD="${CALLER_ERROR_BURST_THRESHOLD:-3}"
+CALLER_ERROR_COUNT_WINDOW_SECONDS="${CALLER_ERROR_COUNT_WINDOW_SECONDS:-600}"
+CALLER_ERROR_COUNT_THRESHOLD="${CALLER_ERROR_COUNT_THRESHOLD:-10}"
+# caller.error 降噪规则：仅忽略 retryable=true 且命中超时关键词的错误
+CALLER_TIMEOUT_NOISE_REGEX="${CALLER_TIMEOUT_NOISE_REGEX:-context deadline exceeded|client\\.timeout exceeded|timeout exceeded while awaiting headers|deadline exceeded}"
 # 收敛正则：避免把 trace/span 等十六进制或长数字中的“429”误判为风控
 # 仅匹配独立 429/418 或典型字段（status_code/code），并保留常见文本提示
 BINANCE_RISK_REGEX="${BINANCE_RISK_REGEX:-(\b429\b|\b418\b|status_code[^0-9A-Za-z]*429|code[^0-9A-Za-z]*-?1003|too many requests|too_many_requests|ip banned|banned until|rate limit|ratelimit)}"
@@ -92,11 +99,14 @@ declare -A NO_GROWTH_CYCLES
 CONSEC_FAIL_CYCLES=0
 LAST_HEALTHY=true
 LAST_ERROR_HITS=""
+LAST_CALLER_ERROR_EFFECTIVE_HITS=""
+LAST_CALLER_ERROR_NOISE_HITS=""
 LAST_BINANCE_RISK_HITS=""
 RISK_CRITICAL_THIS_CYCLE=false
 RISK_CRITICAL_REASON=""
 POST_FIX_VERIFY_REASON=""
 LAST_REASON_TEXT=""
+CONSEC_CALLER_ERROR_CYCLES=0
 
 TOTAL_CYCLES=0
 HEALTHY_CYCLES=0
@@ -232,19 +242,129 @@ sum_topic_offsets() {
 
 get_recent_error_hits() {
   local interval="$1"
-  docker logs --since "${interval}s" "$WORKER_CONTAINER" 2>&1 | grep -Ei "$ERROR_REGEX" | tail -n 50 || true
+  docker logs --since "${interval}s" "$WORKER_CONTAINER" 2>&1 | grep -Ei "$ERROR_REGEX" | tail -n 500 || true
 }
 
-print_recent_errors() {
+is_retryable_timeout_caller_error_line() {
+  local line="$1"
+  [[ "$line" == *"\"event\":\"caller.error\""* ]] || return 1
+  printf '%s\n' "$line" | grep -Eiq '"retryable":[[:space:]]*true' || return 1
+  printf '%s\n' "$line" | grep -Eiq -- "$CALLER_TIMEOUT_NOISE_REGEX" || return 1
+  return 0
+}
+
+count_effective_caller_error_hits() {
   local interval="$1"
-  local hits
+  local hits line count
+  count=0
+  hits="$(docker logs --since "${interval}s" "$WORKER_CONTAINER" 2>&1 | grep -E '"event":"caller\.error"' || true)"
+  [[ -n "$hits" ]] || {
+    echo 0
+    return 0
+  }
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    if is_retryable_timeout_caller_error_line "$line"; then
+      continue
+    fi
+    count=$((count + 1))
+  done <<< "$hits"
+  echo "$count"
+}
+
+evaluate_recent_errors() {
+  local interval="$1"
+  local update_consecutive="${2:-true}"
+  local hits line
+  local non_caller_text=""
+  local caller_effective_text=""
+  local caller_noise_text=""
+  local caller_effective_count=0
+  local caller_noise_count=0
+  local caller_effective_long_count=0
+  local should_fail=false
+  local -a trigger_reasons=()
+
   hits="$(get_recent_error_hits "$interval")"
-  LAST_ERROR_HITS="$hits"
+  LAST_ERROR_HITS=""
+  LAST_CALLER_ERROR_EFFECTIVE_HITS=""
+  LAST_CALLER_ERROR_NOISE_HITS=""
+
   if [[ -n "$hits" ]]; then
-    log "检测到高信号错误日志："
-    printf '%s\n' "$hits" | tail -n 20 | sed 's/^/  /' | tee -a "$LOG_FILE"
+    while IFS= read -r line; do
+      [[ -n "$line" ]] || continue
+      if [[ "$line" == *"\"event\":\"caller.error\""* ]]; then
+        if is_retryable_timeout_caller_error_line "$line"; then
+          caller_noise_count=$((caller_noise_count + 1))
+          caller_noise_text+="${line}"$'\n'
+        else
+          caller_effective_count=$((caller_effective_count + 1))
+          caller_effective_text+="${line}"$'\n'
+        fi
+        continue
+      fi
+
+      # 纯文本 caller error 与结构化 caller.error 重复，避免重复计数导致误报。
+      if [[ "$line" == *"caller error"* ]]; then
+        continue
+      fi
+
+      non_caller_text+="${line}"$'\n'
+    done <<< "$hits"
+  fi
+
+  if [[ "$update_consecutive" == "true" ]]; then
+    if (( caller_effective_count > 0 )); then
+      CONSEC_CALLER_ERROR_CYCLES=$((CONSEC_CALLER_ERROR_CYCLES + 1))
+    else
+      CONSEC_CALLER_ERROR_CYCLES=0
+    fi
+  fi
+
+  caller_effective_long_count="$(count_effective_caller_error_hits "$CALLER_ERROR_COUNT_WINDOW_SECONDS")"
+
+  LAST_CALLER_ERROR_EFFECTIVE_HITS="$(printf '%s' "$caller_effective_text" | sed '/^$/d' | tail -n 50)"
+  LAST_CALLER_ERROR_NOISE_HITS="$(printf '%s' "$caller_noise_text" | sed '/^$/d' | tail -n 50)"
+  LAST_ERROR_HITS="$(printf '%s\n%s' "$non_caller_text" "$caller_effective_text" | sed '/^$/d' | tail -n 50)"
+
+  if [[ -n "$LAST_CALLER_ERROR_NOISE_HITS" ]]; then
+    log "caller.error 降噪：忽略 retryable=true 的超时类错误 ${caller_noise_count} 条"
+  fi
+
+  if [[ -n "$non_caller_text" ]]; then
+    should_fail=true
+    trigger_reasons+=("非caller.error高信号错误")
+  fi
+
+  if (( caller_effective_count > 0 )); then
+    log "caller.error 统计: window=${interval}s effective=${caller_effective_count}, consecutive=${CONSEC_CALLER_ERROR_CYCLES}, long_window=${CALLER_ERROR_COUNT_WINDOW_SECONDS}s/${caller_effective_long_count}"
+  fi
+
+  if (( caller_effective_count >= CALLER_ERROR_BURST_THRESHOLD )); then
+    should_fail=true
+    trigger_reasons+=("caller.error窗口内${caller_effective_count}次(阈值${CALLER_ERROR_BURST_THRESHOLD})")
+  fi
+  if (( caller_effective_long_count >= CALLER_ERROR_COUNT_THRESHOLD )); then
+    should_fail=true
+    trigger_reasons+=("caller.error${CALLER_ERROR_COUNT_WINDOW_SECONDS}s内${caller_effective_long_count}次(阈值${CALLER_ERROR_COUNT_THRESHOLD})")
+  fi
+  if [[ "$update_consecutive" == "true" ]] && (( CONSEC_CALLER_ERROR_CYCLES >= CALLER_ERROR_CONSEC_FAIL_CYCLES )); then
+    should_fail=true
+    trigger_reasons+=("caller.error连续${CONSEC_CALLER_ERROR_CYCLES}轮(阈值${CALLER_ERROR_CONSEC_FAIL_CYCLES})")
+  fi
+
+  if [[ "$should_fail" == "true" ]]; then
+    if (( ${#trigger_reasons[@]} > 0 )); then
+      log "检测到高信号错误日志触发条件: $(join_reasons "${trigger_reasons[@]}")"
+    else
+      log "检测到高信号错误日志："
+    fi
+    if [[ -n "$LAST_ERROR_HITS" ]]; then
+      printf '%s\n' "$LAST_ERROR_HITS" | tail -n 20 | sed 's/^/  /' | tee -a "$LOG_FILE"
+    fi
     return 1
   fi
+
   return 0
 }
 
@@ -405,7 +525,7 @@ post_codex_hard_verify() {
     return 1
   fi
 
-  if ! print_recent_errors "$POST_FIX_OBSERVE_SECONDS"; then
+  if ! evaluate_recent_errors "$POST_FIX_OBSERVE_SECONDS" "false"; then
     POST_FIX_VERIFY_REASON="仍有高信号错误日志"
     return 1
   fi
@@ -655,11 +775,21 @@ EOF
 recover_runtime() {
   local reason="$1"
   local apply_resp
+  local stop_resp=""
 
   log "触发自愈: $reason"
   if ! ensure_worker_up; then
     log "自愈失败: worker 启动失败"
     return 1
+  fi
+
+  # diff 连续无增量时，先停掉 diff role，避免 apply=unchanged 无法重建卡死状态机。
+  if [[ "$reason" == *"topic无新数据:perp.orderbook.diff"* ]] || [[ "$reason" == *"topic无新数据:spot.orderbook.diff"* ]]; then
+    stop_resp="$(printf '%s' '{"role_ids":["rec-binance-perp-aave-orderbook-diff","rec-binance-spot-aave-orderbook-diff"]}' | \
+      docker exec -i "$WORKER_CONTAINER" sh -lc \
+        "curl -sS -X POST http://127.0.0.1:8090/api/roles/stop -H 'Content-Type: application/json' --data-binary @-" || true)"
+    log "diff roles stop 响应: $stop_resp"
+    sleep 2
   fi
 
   apply_resp="$(apply_roles || true)"
@@ -755,7 +885,7 @@ main_loop() {
         fi
       done
 
-      if ! print_recent_errors "$ERROR_SCAN_WINDOW_SECONDS"; then
+      if ! evaluate_recent_errors "$ERROR_SCAN_WINDOW_SECONDS" "true"; then
         healthy=false
         fail_reasons+=("高信号错误日志")
       fi

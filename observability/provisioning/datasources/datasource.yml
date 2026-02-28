@@ -23,7 +23,28 @@ datasources:
     jsonData:
       maxLines: 1000
       derivedFields:
-        # 从日志中提取 trace_id 并链接到 Tempo (如果启用)
+        # 从日志中提取 trace_id 并链接到 Tempo
         - name: TraceID
           matcherRegex: '"trace_id":"(\w+)"'
+          datasourceUid: tempo
           url: '$${__value.raw}'
+
+  # Tempo - Trace 数据源
+  - name: Tempo
+    type: tempo
+    access: proxy
+    uid: tempo
+    url: http://obs-tempo:3200
+    editable: true
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: "-1m"
+        spanEndTimeShift: "1m"
+        tags: ["service.name", "session_id", "event.name"]
+        filterByTraceID: true
+        filterBySpanID: false
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true

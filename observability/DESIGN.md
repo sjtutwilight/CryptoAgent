@@ -40,7 +40,14 @@
     - 添加日志保留策略 (7天)
   - **新增工具**: `automation/test/tools/probe_cli.py infra stack` - 日志链路/观测栈诊断（probe）
   - **验证**: Promtail 正常采集容器日志，Loki 存储正常，Grafana 连接正常
-
+- 2026-02-25: 新增 Codex OTel 观测闭环
+  - **新增组件**: OTel Collector、Tempo、Codex Metrics Exporter
+  - **新增能力**: Codex 行为事件采集、决策效率分析、建议审核与回归评估
+  - **新增资产**:
+    - `observability/otel-collector/config.yaml`
+    - `observability/tempo/tempo.yaml`
+    - `observability/provisioning/dashboards/codex-observability-dashboard.json`
+    - `automation/ops/codex/otel_analytics.py`
 
 
 

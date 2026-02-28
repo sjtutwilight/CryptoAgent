@@ -33,6 +33,7 @@ Commands:
   sqlite:clean      Metadata cleanup helper
 
   starrocks:query   Query StarRocks via container
+  codex:otel       Codex OTel 分析/审核/回归工具
 USAGE
 }
 
@@ -112,6 +113,9 @@ main() {
       ;;
     starrocks:query)
       "$OPS_DIR/starrocks/query.sh" "$@"
+      ;;
+    codex:otel)
+      python3 "$OPS_DIR/codex/otel_analytics.py" "$@"
       ;;
     -h|--help|help)
       usage

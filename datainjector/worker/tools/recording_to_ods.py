@@ -172,7 +172,7 @@ def main() -> int:
     parser.add_argument("--input-dir", required=True, help="recording_run directory")
     parser.add_argument(
         "--output-root",
-        default="python_experiment/data/ods",
+        default="crypto_research_lab/data/ods",
         help="ODS root directory",
     )
     parser.add_argument("--datasource-id", default="binance.usdm.ws", help="target datasource_id")
@@ -198,7 +198,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--registry-path",
-        default="python_experiment/data/ods/_catalog/ods_dataset_registry.jsonl",
+        default="crypto_research_lab/data/ods/_catalog/ods_dataset_registry.jsonl",
         help="ODS dataset registry file",
     )
     parser.add_argument(

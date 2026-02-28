@@ -2,6 +2,7 @@ package integrity
 
 import "time"
 
+// coreInputKind 描述纯状态机可接收的输入事件类型。
 type coreInputKind string
 
 const (
@@ -13,6 +14,7 @@ const (
 	coreInputAdvance coreInputKind = "advance"
 )
 
+// coreActionKind 描述状态机输出给外层执行层的动作。
 type coreActionKind string
 
 const (
@@ -22,6 +24,7 @@ const (
 	coreActionAdvanceExpected coreActionKind = "advance_expected"
 )
 
+// coreState 仅保留与顺序推进直接相关的最小状态。
 type coreState struct {
 	ExpectedNext     uint64
 	SeenMax          uint64
@@ -30,6 +33,7 @@ type coreState struct {
 	WaitStart        time.Time
 }
 
+// coreInput 封装 stepCore 所需上下文，便于表驱动测试覆盖分支。
 type coreInput struct {
 	Kind coreInputKind
 
@@ -45,6 +49,7 @@ type coreInput struct {
 	MaxGap      uint64
 }
 
+// coreAction 是纯状态机输出，由 SequenceEngine 解释并执行副作用。
 type coreAction struct {
 	Kind coreActionKind
 
@@ -56,11 +61,14 @@ type coreAction struct {
 	Reason string
 }
 
+// stepCore 是纯函数状态机：输入当前状态与事件，输出下一状态与待执行动作。
+// 约束：不访问 buffer、scheduler、metrics，所有副作用通过 action 交给外层。
 func stepCore(state coreState, in coreInput) (coreState, []coreAction) {
 	next := state
 	actions := make([]coreAction, 0, 2)
 	switch in.Kind {
 	case coreInputEqual:
+		// 命中 expected，推进 expected，并尝试从新 expected 开始连续 drain。
 		next.WaitStart = in.Arrival
 		next.ExpectedNext++
 		actions = append(actions, coreAction{
@@ -68,6 +76,7 @@ func stepCore(state coreState, in coreInput) (coreState, []coreAction) {
 			From: next.ExpectedNext,
 		})
 	case coreInputCover:
+		// 覆盖 expected（如 Binance U/u），清理 <=Seq 的缓存后直接跳到 Seq+1。
 		actions = append(actions, coreAction{
 			Kind: coreActionCleanupLE,
 			LE:   in.Seq,
@@ -79,6 +88,7 @@ func stepCore(state coreState, in coreInput) (coreState, []coreAction) {
 			From: next.ExpectedNext,
 		})
 	case coreInputGap:
+		// 发现 gap 时只记录等待窗口；是否立即补数由 EagerGap / MaxRange 决定。
 		if next.Initialized && next.WaitStart.IsZero() {
 			next.WaitStart = in.Arrival
 		}
@@ -102,6 +112,7 @@ func stepCore(state coreState, in coreInput) (coreState, []coreAction) {
 			return next, actions
 		}
 		elapsed := in.Now.Sub(next.WaitStart)
+		// hard timeout 优先：宁可前跳也避免长期卡死。
 		if in.HardTimeout > 0 && elapsed > in.HardTimeout {
 			target := next.SeenMax
 			if target <= next.ExpectedNext {
@@ -114,6 +125,7 @@ func stepCore(state coreState, in coreInput) (coreState, []coreAction) {
 			})
 			return next, actions
 		}
+		// soft timeout：优先触发补数，保持顺序语义。
 		if in.MaxDelay > 0 && elapsed > in.MaxDelay {
 			end := next.SeenMax
 			if in.MaxRange > 0 {
@@ -128,6 +140,7 @@ func stepCore(state coreState, in coreInput) (coreState, []coreAction) {
 			return next, actions
 		}
 	case coreInputBudget:
+		// SeenMax 与 ExpectedNext 差距过大时执行预算前跳，避免缓存无界增长。
 		if in.MaxGap == 0 || next.SeenMax <= next.ExpectedNext {
 			return next, actions
 		}
@@ -139,6 +152,7 @@ func stepCore(state coreState, in coreInput) (coreState, []coreAction) {
 			})
 		}
 	case coreInputAdvance:
+		// 外部强制推进（例如 hard-timeout 已决策），同步清理旧缓存。
 		if in.Target <= next.ExpectedNext {
 			return next, actions
 		}

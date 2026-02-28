@@ -1,0 +1,2413 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-02-28T02:28:12Z",
+  "tools": {
+    "golangci-lint": {
+      "violations": [
+        {
+          "id": "errcheck|internal/caller/batch_file_caller.go:244:11|Error return value of `os.Remove` is not checked",
+          "file": "internal/caller/batch_file_caller.go",
+          "line": 244,
+          "column": 11,
+          "rule": "errcheck",
+          "message": "Error return value of `os.Remove` is not checked"
+        },
+        {
+          "id": "errcheck|internal/caller/batch_file_caller.go:286:28|Error return value of `currentWriter.Close` is not checked",
+          "file": "internal/caller/batch_file_caller.go",
+          "line": 286,
+          "column": 28,
+          "rule": "errcheck",
+          "message": "Error return value of `currentWriter.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/caller/batch_file_caller.go:312:25|Error return value of `currentWriter.Close` is not checked",
+          "file": "internal/caller/batch_file_caller.go",
+          "line": 312,
+          "column": 25,
+          "rule": "errcheck",
+          "message": "Error return value of `currentWriter.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/caller/batch_file_caller.go:369:22|Error return value of `currentWriter.Close` is not checked",
+          "file": "internal/caller/batch_file_caller.go",
+          "line": 369,
+          "column": 22,
+          "rule": "errcheck",
+          "message": "Error return value of `currentWriter.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/caller/metadata_clickhouse.go:251:23|Error return value of `resp.Body.Close` is not checked",
+          "file": "internal/caller/metadata_clickhouse.go",
+          "line": 251,
+          "column": 23,
+          "rule": "errcheck",
+          "message": "Error return value of `resp.Body.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/caller/metadata_clickhouse.go:268:23|Error return value of `resp.Body.Close` is not checked",
+          "file": "internal/caller/metadata_clickhouse.go",
+          "line": 268,
+          "column": 23,
+          "rule": "errcheck",
+          "message": "Error return value of `resp.Body.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/caller/metadata_kafka.go:106:18|Error return value of `conn.Close` is not checked",
+          "file": "internal/caller/metadata_kafka.go",
+          "line": 106,
+          "column": 18,
+          "rule": "errcheck",
+          "message": "Error return value of `conn.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/caller/metadata_kafka.go:257:18|Error return value of `conn.Close` is not checked",
+          "file": "internal/caller/metadata_kafka.go",
+          "line": 257,
+          "column": 18,
+          "rule": "errcheck",
+          "message": "Error return value of `conn.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/caller/metadata_postgres.go:164:18|Error return value of `rows.Close` is not checked",
+          "file": "internal/caller/metadata_postgres.go",
+          "line": 164,
+          "column": 18,
+          "rule": "errcheck",
+          "message": "Error return value of `rows.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/caller/metadata_postgres.go:200:18|Error return value of `rows.Close` is not checked",
+          "file": "internal/caller/metadata_postgres.go",
+          "line": 200,
+          "column": 18,
+          "rule": "errcheck",
+          "message": "Error return value of `rows.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/caller/metadata_postgres.go:242:18|Error return value of `rows.Close` is not checked",
+          "file": "internal/caller/metadata_postgres.go",
+          "line": 242,
+          "column": 18,
+          "rule": "errcheck",
+          "message": "Error return value of `rows.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/caller/native_call_websocket_shared_test.go:58:20|Error return value of `conn.Close` is not checked",
+          "file": "internal/caller/native_call_websocket_shared_test.go",
+          "line": 58,
+          "column": 20,
+          "rule": "errcheck",
+          "message": "Error return value of `conn.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/emitter/kafka_command.go:73:22|Error return value of `k.reader.Close` is not checked",
+          "file": "internal/emitter/kafka_command.go",
+          "line": 73,
+          "column": 22,
+          "rule": "errcheck",
+          "message": "Error return value of `k.reader.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/manifest/generator.go:107:18|Error return value of `file.Close` is not checked",
+          "file": "internal/manifest/generator.go",
+          "line": 107,
+          "column": 18,
+          "rule": "errcheck",
+          "message": "Error return value of `file.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/manifest/generator.go:133:18|Error return value of `file.Close` is not checked",
+          "file": "internal/manifest/generator.go",
+          "line": 133,
+          "column": 18,
+          "rule": "errcheck",
+          "message": "Error return value of `file.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/observability/metrics/server.go:50:10|Error return value of `w.Write` is not checked",
+          "file": "internal/observability/metrics/server.go",
+          "line": 50,
+          "column": 10,
+          "rule": "errcheck",
+          "message": "Error return value of `w.Write` is not checked"
+        },
+        {
+          "id": "errcheck|internal/observability/metrics/server.go:56:10|Error return value of `w.Write` is not checked",
+          "file": "internal/observability/metrics/server.go",
+          "line": 56,
+          "column": 10,
+          "rule": "errcheck",
+          "message": "Error return value of `w.Write` is not checked"
+        },
+        {
+          "id": "errcheck|internal/protocol/http_client.go:101:23|Error return value of `resp.Body.Close` is not checked",
+          "file": "internal/protocol/http_client.go",
+          "line": 101,
+          "column": 23,
+          "rule": "errcheck",
+          "message": "Error return value of `resp.Body.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/protocol/http_client.go:122:23|Error return value of `resp.Body.Close` is not checked",
+          "file": "internal/protocol/http_client.go",
+          "line": 122,
+          "column": 23,
+          "rule": "errcheck",
+          "message": "Error return value of `resp.Body.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/protocol/websocket_test.go:129:18|Error return value of `conn.Close` is not checked",
+          "file": "internal/protocol/websocket_test.go",
+          "line": 129,
+          "column": 18,
+          "rule": "errcheck",
+          "message": "Error return value of `conn.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/protocol/websocket_test.go:237:20|Error return value of `conn.Close` is not checked",
+          "file": "internal/protocol/websocket_test.go",
+          "line": 237,
+          "column": 20,
+          "rule": "errcheck",
+          "message": "Error return value of `conn.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/protocol/websocket_test.go:263:20|Error return value of `conn.Close` is not checked",
+          "file": "internal/protocol/websocket_test.go",
+          "line": 263,
+          "column": 20,
+          "rule": "errcheck",
+          "message": "Error return value of `conn.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/protocol/websocket_test.go:290:20|Error return value of `conn.Close` is not checked",
+          "file": "internal/protocol/websocket_test.go",
+          "line": 290,
+          "column": 20,
+          "rule": "errcheck",
+          "message": "Error return value of `conn.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/role/role.go:536:21|Error return value of `closer.Close` is not checked",
+          "file": "internal/role/role.go",
+          "line": 536,
+          "column": 21,
+          "rule": "errcheck",
+          "message": "Error return value of `closer.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/role/role.go:539:16|Error return value of `h.Close` is not checked",
+          "file": "internal/role/role.go",
+          "line": 539,
+          "column": 16,
+          "rule": "errcheck",
+          "message": "Error return value of `h.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/role/role.go:543:21|Error return value of `closer.Close` is not checked",
+          "file": "internal/role/role.go",
+          "line": 543,
+          "column": 21,
+          "rule": "errcheck",
+          "message": "Error return value of `closer.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/sink/file.go:355:18|Error return value of `file.Close` is not checked",
+          "file": "internal/sink/file.go",
+          "line": 355,
+          "column": 18,
+          "rule": "errcheck",
+          "message": "Error return value of `file.Close` is not checked"
+        },
+        {
+          "id": "errcheck|internal/sink/file.go:438:17|Error return value of `os.Remove` is not checked",
+          "file": "internal/sink/file.go",
+          "line": 438,
+          "column": 17,
+          "rule": "errcheck",
+          "message": "Error return value of `os.Remove` is not checked"
+        },
+        {
+          "id": "errcheck|send_task.go:37:20|Error return value of `writer.Close` is not checked",
+          "file": "send_task.go",
+          "line": 37,
+          "column": 20,
+          "rule": "errcheck",
+          "message": "Error return value of `writer.Close` is not checked"
+        },
+        {
+          "id": "gocognit|internal/caller/batch_file_caller.go:262:1|cognitive complexity 39 of func `(*BatchFileCaller).fetchAll` is high (> 35)",
+          "file": "internal/caller/batch_file_caller.go",
+          "line": 262,
+          "column": 1,
+          "rule": "gocognit",
+          "message": "cognitive complexity 39 of func `(*BatchFileCaller).fetchAll` is high (> 35)"
+        },
+        {
+          "id": "gocognit|internal/caller/native_call_http.go:55:1|cognitive complexity 56 of func `NewHTTPCall` is high (> 35)",
+          "file": "internal/caller/native_call_http.go",
+          "line": 55,
+          "column": 1,
+          "rule": "gocognit",
+          "message": "cognitive complexity 56 of func `NewHTTPCall` is high (> 35)"
+        },
+        {
+          "id": "gocognit|internal/caller/native_call_websocket_config.go:16:1|cognitive complexity 86 of func `NewWebSocketCall` is high (> 35)",
+          "file": "internal/caller/native_call_websocket_config.go",
+          "line": 16,
+          "column": 1,
+          "rule": "gocognit",
+          "message": "cognitive complexity 86 of func `NewWebSocketCall` is high (> 35)"
+        },
+        {
+          "id": "gocognit|internal/caller/native_call_websocket_config.go:295:1|cognitive complexity 50 of func `(*WebSocketCall).refreshSubscribeRequestLocked` is high (> 35)",
+          "file": "internal/caller/native_call_websocket_config.go",
+          "line": 295,
+          "column": 1,
+          "rule": "gocognit",
+          "message": "cognitive complexity 50 of func `(*WebSocketCall).refreshSubscribeRequestLocked` is high (> 35)"
+        },
+        {
+          "id": "gocognit|internal/config/config.go:457:1|cognitive complexity 36 of func `applyRoleTemplate` is high (> 35)",
+          "file": "internal/config/config.go",
+          "line": 457,
+          "column": 1,
+          "rule": "gocognit",
+          "message": "cognitive complexity 36 of func `applyRoleTemplate` is high (> 35)"
+        },
+        {
+          "id": "gocognit|internal/handler/hyperliquid_handlers.go:227:1|cognitive complexity 41 of func `(*hyperliquidAssetCtxHandler).Handle` is high (> 35)",
+          "file": "internal/handler/hyperliquid_handlers.go",
+          "line": 227,
+          "column": 1,
+          "rule": "gocognit",
+          "message": "cognitive complexity 41 of func `(*hyperliquidAssetCtxHandler).Handle` is high (> 35)"
+        },
+        {
+          "id": "gocognit|internal/handler/integrity/sequence_engine.go:1065:1|cognitive complexity 56 of func `buildRangeRequests` is high (> 35)",
+          "file": "internal/handler/integrity/sequence_engine.go",
+          "line": 1065,
+          "column": 1,
+          "rule": "gocognit",
+          "message": "cognitive complexity 56 of func `buildRangeRequests` is high (> 35)"
+        },
+        {
+          "id": "gocognit|internal/handler/integrity/sequence_engine.go:1175:1|cognitive complexity 37 of func `buildRangeWindowRequests` is high (> 35)",
+          "file": "internal/handler/integrity/sequence_engine.go",
+          "line": 1175,
+          "column": 1,
+          "rule": "gocognit",
+          "message": "cognitive complexity 37 of func `buildRangeWindowRequests` is high (> 35)"
+        },
+        {
+          "id": "gocognit|internal/handler/integrity/sequencer_core.go:66:1|cognitive complexity 38 of func `stepCore` is high (> 35)",
+          "file": "internal/handler/integrity/sequencer_core.go",
+          "line": 66,
+          "column": 1,
+          "rule": "gocognit",
+          "message": "cognitive complexity 38 of func `stepCore` is high (> 35)"
+        },
+        {
+          "id": "gocognit|internal/handler/parser/hyperliquid/decode.go:157:1|cognitive complexity 87 of func `DecodeMetaAndAssetCtxs` is high (> 35)",
+          "file": "internal/handler/parser/hyperliquid/decode.go",
+          "line": 157,
+          "column": 1,
+          "rule": "gocognit",
+          "message": "cognitive complexity 87 of func `DecodeMetaAndAssetCtxs` is high (> 35)"
+        },
+        {
+          "id": "gocognit|internal/role/role.go:80:1|cognitive complexity 124 of func `Build` is high (> 35)",
+          "file": "internal/role/role.go",
+          "line": 80,
+          "column": 1,
+          "rule": "gocognit",
+          "message": "cognitive complexity 124 of func `Build` is high (> 35)"
+        },
+        {
+          "id": "gocognit|internal/role/role.go:523:1|cognitive complexity 87 of func `(*Role).Start` is high (> 35)",
+          "file": "internal/role/role.go",
+          "line": 523,
+          "column": 1,
+          "rule": "gocognit",
+          "message": "cognitive complexity 87 of func `(*Role).Start` is high (> 35)"
+        },
+        {
+          "id": "gocognit|internal/role/role.go:900:1|cognitive complexity 122 of func `(*Role).executeBackfillAttempt` is high (> 35)",
+          "file": "internal/role/role.go",
+          "line": 900,
+          "column": 1,
+          "rule": "gocognit",
+          "message": "cognitive complexity 122 of func `(*Role).executeBackfillAttempt` is high (> 35)"
+        },
+        {
+          "id": "gocognit|internal/role/role.go:1518:1|cognitive complexity 36 of func `(*Role).consume` is high (> 35)",
+          "file": "internal/role/role.go",
+          "line": 1518,
+          "column": 1,
+          "rule": "gocognit",
+          "message": "cognitive complexity 36 of func `(*Role).consume` is high (> 35)"
+        },
+        {
+          "id": "gocognit|internal/sink/kafka.go:68:1|cognitive complexity 57 of func `parseKafkaConfig` is high (> 35)",
+          "file": "internal/sink/kafka.go",
+          "line": 68,
+          "column": 1,
+          "rule": "gocognit",
+          "message": "cognitive complexity 57 of func `parseKafkaConfig` is high (> 35)"
+        },
+        {
+          "id": "gocyclo|internal/caller/batch_file_caller.go:76:1|cyclomatic complexity 28 of func `NewBatchFileCaller` is high (> 18)",
+          "file": "internal/caller/batch_file_caller.go",
+          "line": 76,
+          "column": 1,
+          "rule": "gocyclo",
+          "message": "cyclomatic complexity 28 of func `NewBatchFileCaller` is high (> 18)"
+        },
+        {
+          "id": "gocyclo|internal/caller/native_call_websocket_buffer.go:11:1|cyclomatic complexity 22 of func `(*WebSocketCall).bufferMessage` is high (> 18)",
+          "file": "internal/caller/native_call_websocket_buffer.go",
+          "line": 11,
+          "column": 1,
+          "rule": "gocyclo",
+          "message": "cyclomatic complexity 22 of func `(*WebSocketCall).bufferMessage` is high (> 18)"
+        },
+        {
+          "id": "gocyclo|internal/config/config.go:125:1|cyclomatic complexity 20 of func `Load` is high (> 18)",
+          "file": "internal/config/config.go",
+          "line": 125,
+          "column": 1,
+          "rule": "gocyclo",
+          "message": "cyclomatic complexity 20 of func `Load` is high (> 18)"
+        },
+        {
+          "id": "gocyclo|internal/config/config.go:197:1|cyclomatic complexity 31 of func `(*RoleConfig).Validate` is high (> 18)",
+          "file": "internal/config/config.go",
+          "line": 197,
+          "column": 1,
+          "rule": "gocyclo",
+          "message": "cyclomatic complexity 31 of func `(*RoleConfig).Validate` is high (> 18)"
+        },
+        {
+          "id": "gocyclo|internal/config/config.go:523:1|cyclomatic complexity 35 of func `applyPipelineTemplate` is high (> 18)",
+          "file": "internal/config/config.go",
+          "line": 523,
+          "column": 1,
+          "rule": "gocyclo",
+          "message": "cyclomatic complexity 35 of func `applyPipelineTemplate` is high (> 18)"
+        },
+        {
+          "id": "gocyclo|internal/handler/binance_handlers.go:492:1|cyclomatic complexity 21 of func `parseAggTradePayload` is high (> 18)",
+          "file": "internal/handler/binance_handlers.go",
+          "line": 492,
+          "column": 1,
+          "rule": "gocyclo",
+          "message": "cyclomatic complexity 21 of func `parseAggTradePayload` is high (> 18)"
+        },
+        {
+          "id": "gocyclo|internal/handler/integrity/backfill_orchestrator.go:135:1|cyclomatic complexity 25 of func `(*BackfillOrchestrator).onBackfillResult` is high (> 18)",
+          "file": "internal/handler/integrity/backfill_orchestrator.go",
+          "line": 135,
+          "column": 1,
+          "rule": "gocyclo",
+          "message": "cyclomatic complexity 25 of func `(*BackfillOrchestrator).onBackfillResult` is high (> 18)"
+        },
+        {
+          "id": "gocyclo|internal/handler/integrity/config_parser.go:63:1|cyclomatic complexity 20 of func `parseBackfillOptions` is high (> 18)",
+          "file": "internal/handler/integrity/config_parser.go",
+          "line": 63,
+          "column": 1,
+          "rule": "gocyclo",
+          "message": "cyclomatic complexity 20 of func `parseBackfillOptions` is high (> 18)"
+        },
+        {
+          "id": "gocyclo|internal/handler/integrity/sequence_engine.go:1284:1|cyclomatic complexity 24 of func `buildSnapshotRequests` is high (> 18)",
+          "file": "internal/handler/integrity/sequence_engine.go",
+          "line": 1284,
+          "column": 1,
+          "rule": "gocyclo",
+          "message": "cyclomatic complexity 24 of func `buildSnapshotRequests` is high (> 18)"
+        },
+        {
+          "id": "gocyclo|internal/handler/integrity/sequencer_core_test.go:8:1|cyclomatic complexity 28 of func `TestStepCoreTable` is high (> 18)",
+          "file": "internal/handler/integrity/sequencer_core_test.go",
+          "line": 8,
+          "column": 1,
+          "rule": "gocyclo",
+          "message": "cyclomatic complexity 28 of func `TestStepCoreTable` is high (> 18)"
+        },
+        {
+          "id": "gocyclo|internal/handler/integrity/types.go:83:1|cyclomatic complexity 27 of func `(*Config).Normalise` is high (> 18)",
+          "file": "internal/handler/integrity/types.go",
+          "line": 83,
+          "column": 1,
+          "rule": "gocyclo",
+          "message": "cyclomatic complexity 27 of func `(*Config).Normalise` is high (> 18)"
+        },
+        {
+          "id": "gocyclo|internal/handler/parser/binance_parser.go:191:1|cyclomatic complexity 23 of func `(*BinanceParser).handleKlineMap` is high (> 18)",
+          "file": "internal/handler/parser/binance_parser.go",
+          "line": 191,
+          "column": 1,
+          "rule": "gocyclo",
+          "message": "cyclomatic complexity 23 of func `(*BinanceParser).handleKlineMap` is high (> 18)"
+        },
+        {
+          "id": "gocyclo|internal/handler/parser/hyperliquid_parser.go:34:1|cyclomatic complexity 20 of func `(*HyperliquidParser).Handle` is high (> 18)",
+          "file": "internal/handler/parser/hyperliquid_parser.go",
+          "line": 34,
+          "column": 1,
+          "rule": "gocyclo",
+          "message": "cyclomatic complexity 20 of func `(*HyperliquidParser).Handle` is high (> 18)"
+        },
+        {
+          "id": "gocyclo|internal/resource/config.go:49:1|cyclomatic complexity 22 of func `ParseHTTPPoolConfig` is high (> 18)",
+          "file": "internal/resource/config.go",
+          "line": 49,
+          "column": 1,
+          "rule": "gocyclo",
+          "message": "cyclomatic complexity 22 of func `ParseHTTPPoolConfig` is high (> 18)"
+        },
+        {
+          "id": "revive|cmd/worker/main.go:1:1|package-comments: should have a package comment",
+          "file": "cmd/worker/main.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/api/server.go:1:9|var-naming: avoid meaningless package names",
+          "file": "internal/api/server.go",
+          "line": 1,
+          "column": 9,
+          "rule": "revive",
+          "message": "var-naming: avoid meaningless package names"
+        },
+        {
+          "id": "revive|internal/api/server.go:14:6|exported: exported type Server should have comment or be unexported",
+          "file": "internal/api/server.go",
+          "line": 14,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type Server should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/api/server.go:25:1|exported: exported function NewServer should have comment or be unexported",
+          "file": "internal/api/server.go",
+          "line": 25,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function NewServer should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/api/server.go:44:57|unused-parameter: parameter 'r' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/api/server.go",
+          "line": 44,
+          "column": 57,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'r' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/api/server.go:55:1|exported: exported method Server.Start should have comment or be unexported",
+          "file": "internal/api/server.go",
+          "line": 55,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method Server.Start should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/api/server.go:64:1|exported: exported method Server.Stop should have comment or be unexported",
+          "file": "internal/api/server.go",
+          "line": 64,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method Server.Stop should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/caller/balance_snapshot.go:1:1|package-comments: should have a package comment",
+          "file": "internal/caller/balance_snapshot.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/caller/balance_snapshot.go:145:63|unused-parameter: parameter 'args' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/caller/balance_snapshot.go",
+          "line": 145,
+          "column": 63,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'args' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/caller/caller.go:16:1|exported: comment on exported type Factory should be of the form \"Factory ...\" (with optional leading article)",
+          "file": "internal/caller/caller.go",
+          "line": 16,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: comment on exported type Factory should be of the form \"Factory ...\" (with optional leading article)"
+        },
+        {
+          "id": "revive|internal/caller/caller.go:24:1|exported: exported function Register should have comment or be unexported",
+          "file": "internal/caller/caller.go",
+          "line": 24,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function Register should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/caller/caller.go:30:1|exported: exported function New should have comment or be unexported",
+          "file": "internal/caller/caller.go",
+          "line": 30,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function New should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/caller/metadata_clickhouse.go:20:39|unused-parameter: parameter 'class' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/caller/metadata_clickhouse.go",
+          "line": 20,
+          "column": 39,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'class' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/caller/metadata_clickhouse.go:122:66|unused-parameter: parameter 'args' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/caller/metadata_clickhouse.go",
+          "line": 122,
+          "column": 66,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'args' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/caller/metadata_kafka.go:19:34|unused-parameter: parameter 'class' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/caller/metadata_kafka.go",
+          "line": 19,
+          "column": 34,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'class' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/caller/metadata_kafka.go:101:61|unused-parameter: parameter 'args' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/caller/metadata_kafka.go",
+          "line": 101,
+          "column": 61,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'args' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/caller/metadata_kafka.go:239:2|redefines-builtin-id: redefinition of the built-in function max",
+          "file": "internal/caller/metadata_kafka.go",
+          "line": 239,
+          "column": 2,
+          "rule": "revive",
+          "message": "redefines-builtin-id: redefinition of the built-in function max"
+        },
+        {
+          "id": "revive|internal/caller/metadata_kafka.go:242:4|redefines-builtin-id: redefinition of the built-in function max",
+          "file": "internal/caller/metadata_kafka.go",
+          "line": 242,
+          "column": 4,
+          "rule": "revive",
+          "message": "redefines-builtin-id: redefinition of the built-in function max"
+        },
+        {
+          "id": "revive|internal/caller/metadata_postgres.go:14:2|blank-imports: a blank import should be only in a main or test package, or have a comment justifying it",
+          "file": "internal/caller/metadata_postgres.go",
+          "line": 14,
+          "column": 2,
+          "rule": "revive",
+          "message": "blank-imports: a blank import should be only in a main or test package, or have a comment justifying it"
+        },
+        {
+          "id": "revive|internal/caller/metadata_postgres.go:20:37|unused-parameter: parameter 'class' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/caller/metadata_postgres.go",
+          "line": 20,
+          "column": 37,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'class' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/caller/metadata_postgres.go:112:64|unused-parameter: parameter 'args' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/caller/metadata_postgres.go",
+          "line": 112,
+          "column": 64,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'args' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/caller/native_call_factory.go:11:1|exported: exported function NewNativeCall should have comment or be unexported",
+          "file": "internal/caller/native_call_factory.go",
+          "line": 11,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function NewNativeCall should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/caller/native_call_http.go:21:6|exported: exported type HTTPCall should have comment or be unexported",
+          "file": "internal/caller/native_call_http.go",
+          "line": 21,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type HTTPCall should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/caller/native_call_http.go:35:6|exported: exported type CallError should have comment or be unexported",
+          "file": "internal/caller/native_call_http.go",
+          "line": 35,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type CallError should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/caller/native_call_http.go:188:1|exported: exported method HTTPCall.CallOnce should have comment or be unexported",
+          "file": "internal/caller/native_call_http.go",
+          "line": 188,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method HTTPCall.CallOnce should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/caller/native_call_websocket.go:15:6|exported: exported type WebSocketCall should have comment or be unexported",
+          "file": "internal/caller/native_call_websocket.go",
+          "line": 15,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type WebSocketCall should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/caller/native_call_websocket.go:95:1|exported: exported method WebSocketCall.CallOnce should have comment or be unexported",
+          "file": "internal/caller/native_call_websocket.go",
+          "line": 95,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method WebSocketCall.CallOnce should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/caller/native_call_websocket.go:131:1|exported: exported method WebSocketCall.Close should have comment or be unexported",
+          "file": "internal/caller/native_call_websocket.go",
+          "line": 131,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method WebSocketCall.Close should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/caller/native_call_websocket_config.go:435:10|indent-error-flow: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary)",
+          "file": "internal/caller/native_call_websocket_config.go",
+          "line": 435,
+          "column": 10,
+          "rule": "revive",
+          "message": "indent-error-flow: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary)"
+        },
+        {
+          "id": "revive|internal/caller/sdk_local_get_block.go:31:6|exported: exported type LocalGetBlock should have comment or be unexported",
+          "file": "internal/caller/sdk_local_get_block.go",
+          "line": 31,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type LocalGetBlock should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/caller/sdk_local_get_block.go:84:1|exported: exported method LocalGetBlock.CallOnce should have comment or be unexported",
+          "file": "internal/caller/sdk_local_get_block.go",
+          "line": 84,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method LocalGetBlock.CallOnce should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:1:1|package-comments: should have a package comment",
+          "file": "internal/config/config.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/config/config.go:11:6|exported: exported type RoleConfig should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 11,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type RoleConfig should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:48:6|exported: exported type Config should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 48,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type Config should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:68:6|exported: exported type StatusReporterConfig should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 68,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type StatusReporterConfig should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:74:6|exported: exported type HandlerConfig should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 74,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type HandlerConfig should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:79:6|exported: exported type SinkConfig should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 79,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type SinkConfig should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:84:6|exported: exported type APIServerConfig should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 84,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type APIServerConfig should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:90:6|exported: exported type LoggingConfig should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 90,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type LoggingConfig should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:95:6|exported: exported type TracingConfig should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 95,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type TracingConfig should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:103:6|exported: exported type DataSourceConfig should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 103,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type DataSourceConfig should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:111:6|exported: exported type AuthConfig should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 111,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type AuthConfig should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:118:6|exported: exported type RateLimitProfile should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 118,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type RateLimitProfile should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:123:6|exported: exported type RateLimitProfiles should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 123,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type RateLimitProfiles should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:178:6|exported: exported type RoleRegistry should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 178,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type RoleRegistry should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:182:1|exported: exported function LoadRoles should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 182,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function LoadRoles should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:292:1|exported: exported method RoleConfig.StrictTaskFinalizationEnabled should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 292,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method RoleConfig.StrictTaskFinalizationEnabled should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:296:1|exported: exported method RoleConfig.WSBoundedBufferEnabled should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 296,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method RoleConfig.WSBoundedBufferEnabled should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:300:1|exported: exported method RoleConfig.BackfillResultDrivenEnabled should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 300,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method RoleConfig.BackfillResultDrivenEnabled should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:304:1|exported: exported method RoleConfig.BackfillPersistentCompEnabled should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 304,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method RoleConfig.BackfillPersistentCompEnabled should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:315:1|exported: exported method RoleConfig.PollingDuration should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 315,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method RoleConfig.PollingDuration should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:319:1|exported: exported function ApplyDataSourcesToRoles should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 319,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function ApplyDataSourcesToRoles should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:349:6|exported: exported type RoleTemplateConfig should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 349,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type RoleTemplateConfig should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:376:6|exported: exported type PipelineConfig should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 376,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type PipelineConfig should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:399:1|exported: exported function ApplyRoleTemplates should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 399,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function ApplyRoleTemplates should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:428:1|exported: exported function ApplyPipelineTemplates should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 428,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function ApplyPipelineTemplates should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:617:6|exported: exported type RoleValidationError should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 617,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type RoleValidationError should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/config/config.go:622:1|exported: exported function ValidateRoles should have comment or be unexported",
+          "file": "internal/config/config.go",
+          "line": 622,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function ValidateRoles should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/emitter/kafka_command.go:1:1|package-comments: should have a package comment",
+          "file": "internal/emitter/kafka_command.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/emitter/kafka_command.go:16:6|exported: exported type KafkaCommandConfig should have comment or be unexported",
+          "file": "internal/emitter/kafka_command.go",
+          "line": 16,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type KafkaCommandConfig should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/emitter/kafka_command.go:31:6|exported: exported type KafkaCommand should have comment or be unexported",
+          "file": "internal/emitter/kafka_command.go",
+          "line": 31,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type KafkaCommand should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/emitter/kafka_command.go:37:1|exported: exported function NewKafkaCommand should have comment or be unexported",
+          "file": "internal/emitter/kafka_command.go",
+          "line": 37,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function NewKafkaCommand should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/emitter/kafka_command.go:72:1|exported: exported method KafkaCommand.Start should have comment or be unexported",
+          "file": "internal/emitter/kafka_command.go",
+          "line": 72,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method KafkaCommand.Start should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/binance_handlers.go:1:1|package-comments: should have a package comment",
+          "file": "internal/handler/binance_handlers.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/handler/handler.go:43:24|unused-parameter: parameter 'cfg' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/handler/handler.go",
+          "line": 43,
+          "column": 24,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'cfg' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/handler/handler.go:48:1|exported: exported method NoopHandler.Handle should have comment or be unexported",
+          "file": "internal/handler/handler.go",
+          "line": 48,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method NoopHandler.Handle should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/integrity/backfill_orchestrator.go:1:1|package-comments: should have a package comment",
+          "file": "internal/handler/integrity/backfill_orchestrator.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/handler/integrity/backfill_orchestrator.go:15:6|exported: exported type BackfillOrchestrator should have comment or be unexported",
+          "file": "internal/handler/integrity/backfill_orchestrator.go",
+          "line": 15,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type BackfillOrchestrator should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/integrity/compensation_test.go:15:34|unused-parameter: parameter 'cmd' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/handler/integrity/compensation_test.go",
+          "line": 15,
+          "column": 34,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'cmd' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/handler/integrity/compensation_test.go:16:40|unused-parameter: parameter 'name' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/handler/integrity/compensation_test.go",
+          "line": 16,
+          "column": 40,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'name' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/handler/integrity/compensation_test.go:17:34|unused-parameter: parameter 'result' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/handler/integrity/compensation_test.go",
+          "line": 17,
+          "column": 34,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'result' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/handler/integrity/gate.go:20:31|unused-parameter: parameter 'evt' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/handler/integrity/gate.go",
+          "line": 20,
+          "column": 31,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'evt' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/handler/integrity/gate.go:24:32|unused-parameter: parameter 'evt' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/handler/integrity/gate.go",
+          "line": 24,
+          "column": 32,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'evt' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/handler/integrity/handler.go:12:6|exported: type name will be used as integrity.IntegrityHandler by other packages, and that stutters; consider calling this Handler",
+          "file": "internal/handler/integrity/handler.go",
+          "line": 12,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: type name will be used as integrity.IntegrityHandler by other packages, and that stutters; consider calling this Handler"
+        },
+        {
+          "id": "revive|internal/handler/integrity/handler.go:18:1|exported: exported function NewIntegrityHandler should have comment or be unexported",
+          "file": "internal/handler/integrity/handler.go",
+          "line": 18,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function NewIntegrityHandler should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/integrity/handler.go:46:1|exported: exported method IntegrityHandler.SetBackfillTarget should have comment or be unexported",
+          "file": "internal/handler/integrity/handler.go",
+          "line": 46,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method IntegrityHandler.SetBackfillTarget should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/integrity/handler.go:54:1|exported: exported method IntegrityHandler.Handle should have comment or be unexported",
+          "file": "internal/handler/integrity/handler.go",
+          "line": 54,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method IntegrityHandler.Handle should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/integrity/handler.go:67:1|exported: exported method IntegrityHandler.OnSnapshotApplied should have comment or be unexported",
+          "file": "internal/handler/integrity/handler.go",
+          "line": 67,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method IntegrityHandler.OnSnapshotApplied should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/integrity/handler.go:74:1|exported: exported method IntegrityHandler.OnBackfillResult should have comment or be unexported",
+          "file": "internal/handler/integrity/handler.go",
+          "line": 74,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method IntegrityHandler.OnBackfillResult should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/integrity/handler.go:126:35|unused-parameter: parameter 'rangeField' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/handler/integrity/handler.go",
+          "line": 126,
+          "column": 35,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'rangeField' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/handler/integrity/scheduler.go:140:1|exported: exported method ChannelTarget.Handle should have comment or be unexported",
+          "file": "internal/handler/integrity/scheduler.go",
+          "line": 140,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method ChannelTarget.Handle should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/integrity/sequence_engine.go:92:6|exported: exported type Decision should have comment or be unexported",
+          "file": "internal/handler/integrity/sequence_engine.go",
+          "line": 92,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type Decision should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/integrity/sequence_engine.go:96:1|exported: exported function NewSequenceEngine should have comment or be unexported",
+          "file": "internal/handler/integrity/sequence_engine.go",
+          "line": 96,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function NewSequenceEngine should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/integrity/sequence_engine.go:122:1|exported: exported method SequenceEngine.Handle should have comment or be unexported",
+          "file": "internal/handler/integrity/sequence_engine.go",
+          "line": 122,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method SequenceEngine.Handle should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/integrity/sequence_engine.go:204:1|exported: exported method SequenceEngine.OnSnapshotApplied should have comment or be unexported",
+          "file": "internal/handler/integrity/sequence_engine.go",
+          "line": 204,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method SequenceEngine.OnSnapshotApplied should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/integrity/sequence_engine.go:471:9|indent-error-flow: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary)",
+          "file": "internal/handler/integrity/sequence_engine.go",
+          "line": 471,
+          "column": 9,
+          "rule": "revive",
+          "message": "indent-error-flow: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary)"
+        },
+        {
+          "id": "revive|internal/handler/integrity/sequence_engine.go:568:1|exported: exported method SequenceEngine.OnBackfillResult should have comment or be unexported",
+          "file": "internal/handler/integrity/sequence_engine.go",
+          "line": 568,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method SequenceEngine.OnBackfillResult should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/integrity/sequence_engine_session_test.go:20:43|unused-parameter: parameter 'name' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/handler/integrity/sequence_engine_session_test.go",
+          "line": 20,
+          "column": 43,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'name' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/handler/integrity/sequencer_core_test.go:68:31|unused-parameter: parameter 'next' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/handler/integrity/sequencer_core_test.go",
+          "line": 68,
+          "column": 31,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'next' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/handler/integrity/sequencer_core_test.go:88:31|unused-parameter: parameter 'next' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/handler/integrity/sequencer_core_test.go",
+          "line": 88,
+          "column": 31,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'next' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/handler/integrity/types.go:169:1|exported: exported method Config.SnapshotSideChannelEnabled should have comment or be unexported",
+          "file": "internal/handler/integrity/types.go",
+          "line": 169,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method Config.SnapshotSideChannelEnabled should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/parser/balance_parser.go:1:1|package-comments: should have a package comment",
+          "file": "internal/handler/parser/balance_parser.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/handler/parser/binance/decode.go:1:1|package-comments: should have a package comment",
+          "file": "internal/handler/parser/binance/decode.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/handler/parser/binance/types.go:66:6|exported: exported type CombinedMarkIndexMessage should have comment or be unexported",
+          "file": "internal/handler/parser/binance/types.go",
+          "line": 66,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type CombinedMarkIndexMessage should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/parser/binance/types.go:79:6|exported: exported type LiquidationOrder should have comment or be unexported",
+          "file": "internal/handler/parser/binance/types.go",
+          "line": 79,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type LiquidationOrder should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/parser/binance/types.go:95:6|exported: exported type CombinedLiquidationMessage should have comment or be unexported",
+          "file": "internal/handler/parser/binance/types.go",
+          "line": 95,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type CombinedLiquidationMessage should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/parser/binance/types.go:114:6|exported: exported type CombinedAggTradeMessage should have comment or be unexported",
+          "file": "internal/handler/parser/binance/types.go",
+          "line": 114,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type CombinedAggTradeMessage should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/parser/dex_parser.go:1:9|var-naming: avoid package names that conflict with Go standard library package names",
+          "file": "internal/handler/parser/dex_parser.go",
+          "line": 1,
+          "column": 9,
+          "rule": "revive",
+          "message": "var-naming: avoid package names that conflict with Go standard library package names"
+        },
+        {
+          "id": "revive|internal/handler/parser/hyperliquid/decode.go:1:1|package-comments: should have a package comment",
+          "file": "internal/handler/parser/hyperliquid/decode.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/handler/registry.go:10:6|exported: exported type Factory should have comment or be unexported",
+          "file": "internal/handler/registry.go",
+          "line": 10,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type Factory should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/registry.go:14:1|exported: exported function Register should have comment or be unexported",
+          "file": "internal/handler/registry.go",
+          "line": 14,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function Register should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/handler/registry.go:18:1|exported: exported function New should have comment or be unexported",
+          "file": "internal/handler/registry.go",
+          "line": 18,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function New should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/manifest/config.go:1:1|package-comments: should have a package comment",
+          "file": "internal/manifest/config.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/manifest/config.go:9:6|exported: type name will be used as manifest.ManifestFieldConfig by other packages, and that stutters; consider calling this FieldConfig",
+          "file": "internal/manifest/config.go",
+          "line": 9,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: type name will be used as manifest.ManifestFieldConfig by other packages, and that stutters; consider calling this FieldConfig"
+        },
+        {
+          "id": "revive|internal/observability/logging/events.go:1:1|package-comments: should have a package comment",
+          "file": "internal/observability/logging/events.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/observability/logging/events.go:4:2|exported: exported const EventRoleStart should have comment (or a comment on this block) or be unexported",
+          "file": "internal/observability/logging/events.go",
+          "line": 4,
+          "column": 2,
+          "rule": "revive",
+          "message": "exported: exported const EventRoleStart should have comment (or a comment on this block) or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/logging/logging.go:13:6|exported: exported type Config should have comment or be unexported",
+          "file": "internal/observability/logging/logging.go",
+          "line": 13,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type Config should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/logging/logging.go:18:6|exported: exported type Fields should have comment or be unexported",
+          "file": "internal/observability/logging/logging.go",
+          "line": 18,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type Fields should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/logging/logging.go:23:1|exported: exported function Init should have comment or be unexported",
+          "file": "internal/observability/logging/logging.go",
+          "line": 23,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function Init should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/logging/logging.go:32:1|exported: exported function Info should have comment or be unexported",
+          "file": "internal/observability/logging/logging.go",
+          "line": 32,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function Info should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/logging/logging.go:36:1|exported: exported function Warn should have comment or be unexported",
+          "file": "internal/observability/logging/logging.go",
+          "line": 36,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function Warn should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/logging/logging.go:40:1|exported: exported function Error should have comment or be unexported",
+          "file": "internal/observability/logging/logging.go",
+          "line": 40,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function Error should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/metrics/metrics.go:755:1|exported: exported function RecordTaskStage should have comment or be unexported",
+          "file": "internal/observability/metrics/metrics.go",
+          "line": 755,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function RecordTaskStage should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/metrics/metrics.go:759:1|exported: exported function RecordWebSocketDrop should have comment or be unexported",
+          "file": "internal/observability/metrics/metrics.go",
+          "line": 759,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function RecordWebSocketDrop should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/metrics/metrics.go:766:1|exported: exported function RecordBackfillEnqueue should have comment or be unexported",
+          "file": "internal/observability/metrics/metrics.go",
+          "line": 766,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function RecordBackfillEnqueue should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/metrics/metrics.go:773:1|exported: exported function SetBackfillCompensationBacklog should have comment or be unexported",
+          "file": "internal/observability/metrics/metrics.go",
+          "line": 773,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function SetBackfillCompensationBacklog should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/metrics/metrics.go:780:1|exported: exported function SetBackfillSessionsInflight should have comment or be unexported",
+          "file": "internal/observability/metrics/metrics.go",
+          "line": 780,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function SetBackfillSessionsInflight should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/metrics/metrics.go:797:1|exported: exported function RecordBackfillScheduleDedup should have comment or be unexported",
+          "file": "internal/observability/metrics/metrics.go",
+          "line": 797,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function RecordBackfillScheduleDedup should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/metrics/metrics.go:810:1|exported: exported function RecordBackfillResult should have comment or be unexported",
+          "file": "internal/observability/metrics/metrics.go",
+          "line": 810,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function RecordBackfillResult should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/metrics/metrics.go:826:1|exported: exported function RecordBackfillPendingDuration should have comment or be unexported",
+          "file": "internal/observability/metrics/metrics.go",
+          "line": 826,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function RecordBackfillPendingDuration should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/metrics/metrics_presence_test.go:1:9|var-naming: avoid package names that conflict with Go standard library package names",
+          "file": "internal/observability/metrics/metrics_presence_test.go",
+          "line": 1,
+          "column": 9,
+          "rule": "revive",
+          "message": "var-naming: avoid package names that conflict with Go standard library package names"
+        },
+        {
+          "id": "revive|internal/observability/metrics/server.go:48:56|unused-parameter: parameter 'r' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/observability/metrics/server.go",
+          "line": 48,
+          "column": 56,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'r' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/observability/metrics/server.go:54:55|unused-parameter: parameter 'r' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/observability/metrics/server.go",
+          "line": 54,
+          "column": 55,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'r' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/observability/status/reporter.go:1:1|package-comments: should have a package comment",
+          "file": "internal/observability/status/reporter.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/observability/status/reporter.go:33:6|exported: exported type Reporter should have comment or be unexported",
+          "file": "internal/observability/status/reporter.go",
+          "line": 33,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type Reporter should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/tracing/config.go:1:1|package-comments: should have a package comment",
+          "file": "internal/observability/tracing/config.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/observability/tracing/config.go:8:6|exported: exported type Config should have comment or be unexported",
+          "file": "internal/observability/tracing/config.go",
+          "line": 8,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type Config should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/tracing/config.go:21:1|exported: exported function Init should have comment or be unexported",
+          "file": "internal/observability/tracing/config.go",
+          "line": 21,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function Init should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/tracing/config.go:39:1|exported: exported function ShouldSample should have comment or be unexported",
+          "file": "internal/observability/tracing/config.go",
+          "line": 39,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function ShouldSample should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/tracing/tracing.go:11:6|exported: exported type TraceContext should have comment or be unexported",
+          "file": "internal/observability/tracing/tracing.go",
+          "line": 11,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type TraceContext should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/tracing/tracing.go:21:1|exported: exported function ContextWithTrace should have comment or be unexported",
+          "file": "internal/observability/tracing/tracing.go",
+          "line": 21,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function ContextWithTrace should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/tracing/tracing.go:25:1|exported: exported function FromContext should have comment or be unexported",
+          "file": "internal/observability/tracing/tracing.go",
+          "line": 25,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function FromContext should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/tracing/tracing.go:37:1|exported: exported function NewRoot should have comment or be unexported",
+          "file": "internal/observability/tracing/tracing.go",
+          "line": 37,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function NewRoot should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/tracing/tracing.go:45:1|exported: exported function NewChild should have comment or be unexported",
+          "file": "internal/observability/tracing/tracing.go",
+          "line": 45,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function NewChild should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/tracing/tracing.go:55:1|exported: exported function ParseTraceParent should have comment or be unexported",
+          "file": "internal/observability/tracing/tracing.go",
+          "line": 55,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function ParseTraceParent should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/tracing/tracing.go:74:1|exported: exported method TraceContext.TraceParent should have comment or be unexported",
+          "file": "internal/observability/tracing/tracing.go",
+          "line": 74,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method TraceContext.TraceParent should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/tracing/tracing.go:82:1|exported: exported function InjectMetadata should have comment or be unexported",
+          "file": "internal/observability/tracing/tracing.go",
+          "line": 82,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function InjectMetadata should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/tracing/tracing.go:92:1|exported: exported function ExtractMetadata should have comment or be unexported",
+          "file": "internal/observability/tracing/tracing.go",
+          "line": 92,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function ExtractMetadata should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/tracing/tracing.go:107:1|exported: exported function ParseBaggage should have comment or be unexported",
+          "file": "internal/observability/tracing/tracing.go",
+          "line": 107,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function ParseBaggage should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/tracing/tracing.go:129:1|exported: exported function FormatBaggage should have comment or be unexported",
+          "file": "internal/observability/tracing/tracing.go",
+          "line": 129,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function FormatBaggage should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/observability/tracing/tracing.go:143:1|exported: exported function WithBaggage should have comment or be unexported",
+          "file": "internal/observability/tracing/tracing.go",
+          "line": 143,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function WithBaggage should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/protocol/http_client.go:1:1|package-comments: should have a package comment",
+          "file": "internal/protocol/http_client.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/protocol/http_client.go:14:6|exported: exported type HTTPClientConfig should have comment or be unexported",
+          "file": "internal/protocol/http_client.go",
+          "line": 14,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type HTTPClientConfig should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/protocol/http_client.go:22:6|exported: exported type HTTPClient should have comment or be unexported",
+          "file": "internal/protocol/http_client.go",
+          "line": 22,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type HTTPClient should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/protocol/http_client.go:27:6|exported: exported type HTTPStatusError should have comment or be unexported",
+          "file": "internal/protocol/http_client.go",
+          "line": 27,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type HTTPStatusError should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/protocol/http_client.go:36:1|exported: exported method HTTPStatusError.Body should have comment or be unexported",
+          "file": "internal/protocol/http_client.go",
+          "line": 36,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method HTTPStatusError.Body should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/protocol/http_client.go:42:1|exported: exported function GetHTTPClient should have comment or be unexported",
+          "file": "internal/protocol/http_client.go",
+          "line": 42,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function GetHTTPClient should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/protocol/http_client.go:79:1|exported: exported method HTTPClient.Call should have comment or be unexported",
+          "file": "internal/protocol/http_client.go",
+          "line": 79,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method HTTPClient.Call should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/protocol/http_client.go:114:1|exported: exported method HTTPClient.Do should have comment or be unexported",
+          "file": "internal/protocol/http_client.go",
+          "line": 114,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method HTTPClient.Do should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/protocol/jsonrpc.go:5:6|exported: exported type JSONRPCRequest should have comment or be unexported",
+          "file": "internal/protocol/jsonrpc.go",
+          "line": 5,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type JSONRPCRequest should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/protocol/jsonrpc.go:12:6|exported: exported type JSONRPCError should have comment or be unexported",
+          "file": "internal/protocol/jsonrpc.go",
+          "line": 12,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type JSONRPCError should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/protocol/jsonrpc.go:18:6|exported: exported type JSONRPCResponse should have comment or be unexported",
+          "file": "internal/protocol/jsonrpc.go",
+          "line": 18,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type JSONRPCResponse should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/protocol/websocket.go:165:1|exported: comment on exported method WebSocketClient.Subscribe should be of the form \"Subscribe ...\"",
+          "file": "internal/protocol/websocket.go",
+          "line": 165,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: comment on exported method WebSocketClient.Subscribe should be of the form \"Subscribe ...\""
+        },
+        {
+          "id": "revive|internal/queue/queue.go:1:1|package-comments: should have a package comment",
+          "file": "internal/queue/queue.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/queue/queue.go:8:5|exported: exported var ErrClosed should have comment or be unexported",
+          "file": "internal/queue/queue.go",
+          "line": 8,
+          "column": 5,
+          "rule": "revive",
+          "message": "exported: exported var ErrClosed should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/queue/queue.go:15:24|redefines-builtin-id: redefinition of the built-in function cap",
+          "file": "internal/queue/queue.go",
+          "line": 15,
+          "column": 24,
+          "rule": "revive",
+          "message": "redefines-builtin-id: redefinition of the built-in function cap"
+        },
+        {
+          "id": "revive|internal/queue/queue.go:17:9|redefines-builtin-id: redefinition of the built-in function cap",
+          "file": "internal/queue/queue.go",
+          "line": 17,
+          "column": 9,
+          "rule": "revive",
+          "message": "redefines-builtin-id: redefinition of the built-in function cap"
+        },
+        {
+          "id": "revive|internal/queue/queue.go:22:1|exported: exported method BoundedQueue.Enqueue should have comment or be unexported",
+          "file": "internal/queue/queue.go",
+          "line": 22,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method BoundedQueue.Enqueue should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/queue/queue.go:31:1|exported: exported method BoundedQueue.Dequeue should have comment or be unexported",
+          "file": "internal/queue/queue.go",
+          "line": 31,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method BoundedQueue.Dequeue should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/queue/queue.go:44:1|exported: exported method BoundedQueue.Close should have comment or be unexported",
+          "file": "internal/queue/queue.go",
+          "line": 44,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method BoundedQueue.Close should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/resource/config.go:1:1|package-comments: should have a package comment",
+          "file": "internal/resource/config.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/role/backfill_result_test.go:1:1|package-comments: should have a package comment",
+          "file": "internal/role/backfill_result_test.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/role/manager.go:29:6|exported: exported type ManagerOption should have comment or be unexported",
+          "file": "internal/role/manager.go",
+          "line": 29,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type ManagerOption should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/role/manager.go:31:1|exported: exported function WithRoleBuilder should have comment or be unexported",
+          "file": "internal/role/manager.go",
+          "line": 31,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function WithRoleBuilder should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/role/manager.go:39:1|exported: exported function WithStartupGrace should have comment or be unexported",
+          "file": "internal/role/manager.go",
+          "line": 39,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function WithStartupGrace should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/role/manager.go:47:1|exported: exported function WithStopTimeout should have comment or be unexported",
+          "file": "internal/role/manager.go",
+          "line": 47,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function WithStopTimeout should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/role/manager.go:55:6|exported: exported type Manager should have comment or be unexported",
+          "file": "internal/role/manager.go",
+          "line": 55,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type Manager should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/role/manager.go:83:6|exported: exported type ApplyRoleResult should have comment or be unexported",
+          "file": "internal/role/manager.go",
+          "line": 83,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type ApplyRoleResult should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/role/manager.go:90:6|exported: exported type ApplyResult should have comment or be unexported",
+          "file": "internal/role/manager.go",
+          "line": 90,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type ApplyResult should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/role/manager.go:123:1|exported: exported function NewManager should have comment or be unexported",
+          "file": "internal/role/manager.go",
+          "line": 123,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function NewManager should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/role/manager.go:127:1|exported: exported function NewManagerWithOptions should have comment or be unexported",
+          "file": "internal/role/manager.go",
+          "line": 127,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function NewManagerWithOptions should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/role/manager.go:165:1|exported: exported method Manager.ApplyWithResult should have comment or be unexported",
+          "file": "internal/role/manager.go",
+          "line": 165,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method Manager.ApplyWithResult should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/role/manager.go:406:1|exported: exported method Manager.RunningRoles should have comment or be unexported",
+          "file": "internal/role/manager.go",
+          "line": 406,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method Manager.RunningRoles should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/role/manager.go:417:1|exported: exported method Manager.Shutdown should have comment or be unexported",
+          "file": "internal/role/manager.go",
+          "line": 417,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method Manager.Shutdown should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/role/manager.go:424:1|exported: exported method Manager.Stop should have comment or be unexported",
+          "file": "internal/role/manager.go",
+          "line": 424,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method Manager.Stop should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/role/role.go:27:6|exported: exported type Role should have comment or be unexported",
+          "file": "internal/role/role.go",
+          "line": 27,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type Role should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/role/role.go:76:1|exported: exported method Role.RoleID should have comment or be unexported",
+          "file": "internal/role/role.go",
+          "line": 76,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method Role.RoleID should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/role/role.go:258:20|var-declaration: should omit type time.Duration from declaration of var pollInterval; it will be inferred from the right-hand side",
+          "file": "internal/role/role.go",
+          "line": 258,
+          "column": 20,
+          "rule": "revive",
+          "message": "var-declaration: should omit type time.Duration from declaration of var pollInterval; it will be inferred from the right-hand side"
+        },
+        {
+          "id": "revive|internal/role/role.go:1509:10|indent-error-flow: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary)",
+          "file": "internal/role/role.go",
+          "line": 1509,
+          "column": 10,
+          "rule": "revive",
+          "message": "indent-error-flow: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary)"
+        },
+        {
+          "id": "revive|internal/sink/console.go:1:1|package-comments: should have a package comment",
+          "file": "internal/sink/console.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/sink/console.go:10:6|exported: exported type Sink should have comment or be unexported",
+          "file": "internal/sink/console.go",
+          "line": 10,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type Sink should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/sink/console.go:19:6|exported: exported type Console should have comment or be unexported",
+          "file": "internal/sink/console.go",
+          "line": 19,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type Console should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/sink/console.go:22:27|unused-parameter: parameter 'cfg' seems to be unused, consider removing or renaming it as _",
+          "file": "internal/sink/console.go",
+          "line": 22,
+          "column": 27,
+          "rule": "revive",
+          "message": "unused-parameter: parameter 'cfg' seems to be unused, consider removing or renaming it as _"
+        },
+        {
+          "id": "revive|internal/sink/file.go:19:6|exported: exported type FileConfig should have comment or be unexported",
+          "file": "internal/sink/file.go",
+          "line": 19,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type FileConfig should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/sink/file.go:45:6|exported: exported type FileSink should have comment or be unexported",
+          "file": "internal/sink/file.go",
+          "line": 45,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type FileSink should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/sink/file.go:190:1|exported: exported method FileSink.Close should have comment or be unexported",
+          "file": "internal/sink/file.go",
+          "line": 190,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method FileSink.Close should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/sink/kafka.go:18:6|exported: exported type KafkaConfig should have comment or be unexported",
+          "file": "internal/sink/kafka.go",
+          "line": 18,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type KafkaConfig should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/sink/kafka.go:28:6|exported: exported type Kafka should have comment or be unexported",
+          "file": "internal/sink/kafka.go",
+          "line": 28,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type Kafka should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/sink/kafka.go:214:1|exported: exported method Kafka.WriteBatch should have comment or be unexported",
+          "file": "internal/sink/kafka.go",
+          "line": 214,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method Kafka.WriteBatch should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/sink/kafka.go:265:1|exported: exported method Kafka.Close should have comment or be unexported",
+          "file": "internal/sink/kafka.go",
+          "line": 265,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method Kafka.Close should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/sink/registry.go:5:6|exported: exported type Factory should have comment or be unexported",
+          "file": "internal/sink/registry.go",
+          "line": 5,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type Factory should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/sink/registry.go:9:1|exported: exported function Register should have comment or be unexported",
+          "file": "internal/sink/registry.go",
+          "line": 9,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function Register should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/sink/registry.go:13:1|exported: exported function New should have comment or be unexported",
+          "file": "internal/sink/registry.go",
+          "line": 13,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function New should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/types/backfill.go:1:1|package-comments: should have a package comment",
+          "file": "internal/types/backfill.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/types/backfill.go:11:2|exported: exported const BackfillTransportWebSocket should have comment (or a comment on this block) or be unexported",
+          "file": "internal/types/backfill.go",
+          "line": 11,
+          "column": 2,
+          "rule": "revive",
+          "message": "exported: exported const BackfillTransportWebSocket should have comment (or a comment on this block) or be unexported"
+        },
+        {
+          "id": "revive|internal/types/backfill.go:16:2|exported: exported const BackfillTypeRange should have comment (or a comment on this block) or be unexported",
+          "file": "internal/types/backfill.go",
+          "line": 16,
+          "column": 2,
+          "rule": "revive",
+          "message": "exported: exported const BackfillTypeRange should have comment (or a comment on this block) or be unexported"
+        },
+        {
+          "id": "revive|internal/types/backfill.go:21:2|exported: exported var ErrBackfillNoTarget should have comment or be unexported",
+          "file": "internal/types/backfill.go",
+          "line": 21,
+          "column": 2,
+          "rule": "revive",
+          "message": "exported: exported var ErrBackfillNoTarget should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/types/backfill.go:27:2|exported: exported const BackfillResultSuccess should have comment (or a comment on this block) or be unexported",
+          "file": "internal/types/backfill.go",
+          "line": 27,
+          "column": 2,
+          "rule": "revive",
+          "message": "exported: exported const BackfillResultSuccess should have comment (or a comment on this block) or be unexported"
+        },
+        {
+          "id": "revive|internal/types/backfill.go:32:1|exported: exported function BackfillErrorClass should have comment or be unexported",
+          "file": "internal/types/backfill.go",
+          "line": 32,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function BackfillErrorClass should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/types/backfill.go:47:1|exported: exported function NormalizeBackfillErrorClass should have comment or be unexported",
+          "file": "internal/types/backfill.go",
+          "line": 47,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function NormalizeBackfillErrorClass should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/types/backfill.go:64:1|exported: exported function BackfillSessionKey should have comment or be unexported",
+          "file": "internal/types/backfill.go",
+          "line": 64,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported function BackfillSessionKey should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/types/backfill.go:80:6|exported: exported type BackfillCmd should have comment or be unexported",
+          "file": "internal/types/backfill.go",
+          "line": 80,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type BackfillCmd should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/types/backfill.go:95:6|exported: exported type BackfillOption should have comment or be unexported",
+          "file": "internal/types/backfill.go",
+          "line": 95,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type BackfillOption should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/types/backfill.go:113:6|exported: exported type BackfillResult should have comment or be unexported",
+          "file": "internal/types/backfill.go",
+          "line": 113,
+          "column": 6,
+          "rule": "revive",
+          "message": "exported: exported type BackfillResult should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/types/backfill.go:127:1|exported: exported method BackfillCmd.EnsureDefaults should have comment or be unexported",
+          "file": "internal/types/backfill.go",
+          "line": 127,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method BackfillCmd.EnsureDefaults should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/types/backfill.go:145:1|exported: exported method BackfillResult.EnsureDefaultsFromCmd should have comment or be unexported",
+          "file": "internal/types/backfill.go",
+          "line": 145,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method BackfillResult.EnsureDefaultsFromCmd should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/types/backfill_test.go:1:9|var-naming: avoid meaningless package names",
+          "file": "internal/types/backfill_test.go",
+          "line": 1,
+          "column": 9,
+          "rule": "revive",
+          "message": "var-naming: avoid meaningless package names"
+        },
+        {
+          "id": "revive|internal/util/config.go:1:1|package-comments: should have a package comment",
+          "file": "internal/util/config.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "revive|internal/util/file_writer.go:78:1|exported: exported method JSONLinesWriter.WriteAll should have comment or be unexported",
+          "file": "internal/util/file_writer.go",
+          "line": 78,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method JSONLinesWriter.WriteAll should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/util/file_writer.go:87:1|exported: exported method JSONLinesWriter.Close should have comment or be unexported",
+          "file": "internal/util/file_writer.go",
+          "line": 87,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method JSONLinesWriter.Close should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/util/file_writer.go:94:1|exported: exported method JSONLinesWriter.RecordCount should have comment or be unexported",
+          "file": "internal/util/file_writer.go",
+          "line": 94,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method JSONLinesWriter.RecordCount should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/util/file_writer.go:142:1|exported: exported method CSVWriter.WriteAll should have comment or be unexported",
+          "file": "internal/util/file_writer.go",
+          "line": 142,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method CSVWriter.WriteAll should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/util/file_writer.go:152:1|exported: exported method CSVWriter.Close should have comment or be unexported",
+          "file": "internal/util/file_writer.go",
+          "line": 152,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method CSVWriter.Close should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/util/file_writer.go:162:1|exported: exported method CSVWriter.RecordCount should have comment or be unexported",
+          "file": "internal/util/file_writer.go",
+          "line": 162,
+          "column": 1,
+          "rule": "revive",
+          "message": "exported: exported method CSVWriter.RecordCount should have comment or be unexported"
+        },
+        {
+          "id": "revive|internal/util/string.go:1:9|var-naming: avoid meaningless package names",
+          "file": "internal/util/string.go",
+          "line": 1,
+          "column": 9,
+          "rule": "revive",
+          "message": "var-naming: avoid meaningless package names"
+        },
+        {
+          "id": "revive|send_task.go:1:1|package-comments: should have a package comment",
+          "file": "send_task.go",
+          "line": 1,
+          "column": 1,
+          "rule": "revive",
+          "message": "package-comments: should have a package comment"
+        },
+        {
+          "id": "staticcheck|internal/caller/native_call_websocket.go:205:5|S1009: should omit nil check; len() for nil maps is defined as zero",
+          "file": "internal/caller/native_call_websocket.go",
+          "line": 205,
+          "column": 5,
+          "rule": "staticcheck",
+          "message": "S1009: should omit nil check; len() for nil maps is defined as zero"
+        },
+        {
+          "id": "staticcheck|internal/caller/native_call_websocket_message.go:215:2|S1031: unnecessary nil check around range",
+          "file": "internal/caller/native_call_websocket_message.go",
+          "line": 215,
+          "column": 2,
+          "rule": "staticcheck",
+          "message": "S1031: unnecessary nil check around range"
+        },
+        {
+          "id": "staticcheck|internal/handler/parser/hyperliquid/decode.go:269:8|S1009: should omit nil check; len() for nil maps is defined as zero",
+          "file": "internal/handler/parser/hyperliquid/decode.go",
+          "line": 269,
+          "column": 8,
+          "rule": "staticcheck",
+          "message": "S1009: should omit nil check; len() for nil maps is defined as zero"
+        },
+        {
+          "id": "staticcheck|internal/observability/metrics/metrics.go:492:25|SA1019: prometheus.NewGoCollector is deprecated: Use collectors.NewGoCollector instead. ",
+          "file": "internal/observability/metrics/metrics.go",
+          "line": 492,
+          "column": 25,
+          "rule": "staticcheck",
+          "message": "SA1019: prometheus.NewGoCollector is deprecated: Use collectors.NewGoCollector instead. "
+        },
+        {
+          "id": "staticcheck|internal/observability/metrics/metrics.go:493:25|SA1019: prometheus.NewProcessCollector is deprecated: Use collectors.NewProcessCollector instead. ",
+          "file": "internal/observability/metrics/metrics.go",
+          "line": 493,
+          "column": 25,
+          "rule": "staticcheck",
+          "message": "SA1019: prometheus.NewProcessCollector is deprecated: Use collectors.NewProcessCollector instead. "
+        },
+        {
+          "id": "staticcheck|internal/observability/tracing/config.go:36:2|SA1019: rand.Seed has been deprecated since Go 1.20 and an alternative has been available since Go 1.0: As of Go 1.20 there is no reason to call Seed with a random value. Programs that call Seed with a known value to get a specific sequence of results should use New(NewSource(seed)) to obtain a local random generator. ",
+          "file": "internal/observability/tracing/config.go",
+          "line": 36,
+          "column": 2,
+          "rule": "staticcheck",
+          "message": "SA1019: rand.Seed has been deprecated since Go 1.20 and an alternative has been available since Go 1.0: As of Go 1.20 there is no reason to call Seed with a random value. Programs that call Seed with a known value to get a specific sequence of results should use New(NewSource(seed)) to obtain a local random generator. "
+        },
+        {
+          "id": "staticcheck|internal/util/convert.go:105:2|SA4020: unreachable case clause: fmt.Stringer will always match before encoding/json.Number",
+          "file": "internal/util/convert.go",
+          "line": 105,
+          "column": 2,
+          "rule": "staticcheck",
+          "message": "SA4020: unreachable case clause: fmt.Stringer will always match before encoding/json.Number"
+        },
+        {
+          "id": "unused|internal/api/server_test.go:73:6|func apiRole is unused",
+          "file": "internal/api/server_test.go",
+          "line": 73,
+          "column": 6,
+          "rule": "unused",
+          "message": "func apiRole is unused"
+        },
+        {
+          "id": "unused|internal/caller/metadata_kafka.go:270:6|func copyIntSlice is unused",
+          "file": "internal/caller/metadata_kafka.go",
+          "line": 270,
+          "column": 6,
+          "rule": "unused",
+          "message": "func copyIntSlice is unused"
+        },
+        {
+          "id": "unused|internal/caller/native_call_common.go:257:6|func isBackfillMethod is unused",
+          "file": "internal/caller/native_call_common.go",
+          "line": 257,
+          "column": 6,
+          "rule": "unused",
+          "message": "func isBackfillMethod is unused"
+        },
+        {
+          "id": "unused|internal/caller/native_call_websocket_routing.go:10:25|func (*WebSocketCall).setAllowedStreams is unused",
+          "file": "internal/caller/native_call_websocket_routing.go",
+          "line": 10,
+          "column": 25,
+          "rule": "unused",
+          "message": "func (*WebSocketCall).setAllowedStreams is unused"
+        },
+        {
+          "id": "unused|internal/caller/native_call_websocket_routing.go:47:25|func (*WebSocketCall).clearSubscriptionRoutingState is unused",
+          "file": "internal/caller/native_call_websocket_routing.go",
+          "line": 47,
+          "column": 25,
+          "rule": "unused",
+          "message": "func (*WebSocketCall).clearSubscriptionRoutingState is unused"
+        },
+        {
+          "id": "unused|internal/caller/template_utils.go:10:5|var placeholderPattern is unused",
+          "file": "internal/caller/template_utils.go",
+          "line": 10,
+          "column": 5,
+          "rule": "unused",
+          "message": "var placeholderPattern is unused"
+        },
+        {
+          "id": "unused|internal/caller/template_utils.go:12:6|type mapTemplate is unused",
+          "file": "internal/caller/template_utils.go",
+          "line": 12,
+          "column": 6,
+          "rule": "unused",
+          "message": "type mapTemplate is unused"
+        },
+        {
+          "id": "unused|internal/caller/template_utils.go:16:6|func newMapTemplate is unused",
+          "file": "internal/caller/template_utils.go",
+          "line": 16,
+          "column": 6,
+          "rule": "unused",
+          "message": "func newMapTemplate is unused"
+        },
+        {
+          "id": "unused|internal/caller/template_utils.go:23:22|func mapTemplate.render is unused",
+          "file": "internal/caller/template_utils.go",
+          "line": 23,
+          "column": 22,
+          "rule": "unused",
+          "message": "func mapTemplate.render is unused"
+        },
+        {
+          "id": "unused|internal/caller/template_utils.go:38:6|func renderTemplateValue is unused",
+          "file": "internal/caller/template_utils.go",
+          "line": 38,
+          "column": 6,
+          "rule": "unused",
+          "message": "func renderTemplateValue is unused"
+        },
+        {
+          "id": "unused|internal/caller/template_utils.go:57:6|func renderTemplateMap is unused",
+          "file": "internal/caller/template_utils.go",
+          "line": 57,
+          "column": 6,
+          "rule": "unused",
+          "message": "func renderTemplateMap is unused"
+        },
+        {
+          "id": "unused|internal/caller/template_utils.go:69:6|func renderTemplateSlice is unused",
+          "file": "internal/caller/template_utils.go",
+          "line": 69,
+          "column": 6,
+          "rule": "unused",
+          "message": "func renderTemplateSlice is unused"
+        },
+        {
+          "id": "unused|internal/caller/template_utils.go:81:6|func renderTemplateString is unused",
+          "file": "internal/caller/template_utils.go",
+          "line": 81,
+          "column": 6,
+          "rule": "unused",
+          "message": "func renderTemplateString is unused"
+        },
+        {
+          "id": "unused|internal/caller/template_utils.go:110:6|func extractPlaceholderKey is unused",
+          "file": "internal/caller/template_utils.go",
+          "line": 110,
+          "column": 6,
+          "rule": "unused",
+          "message": "func extractPlaceholderKey is unused"
+        },
+        {
+          "id": "unused|internal/caller/template_utils.go:120:6|func lookupContextValue is unused",
+          "file": "internal/caller/template_utils.go",
+          "line": 120,
+          "column": 6,
+          "rule": "unused",
+          "message": "func lookupContextValue is unused"
+        },
+        {
+          "id": "unused|internal/caller/template_utils.go:207:6|func parseScalarBool is unused",
+          "file": "internal/caller/template_utils.go",
+          "line": 207,
+          "column": 6,
+          "rule": "unused",
+          "message": "func parseScalarBool is unused"
+        },
+        {
+          "id": "unused|internal/caller/template_utils.go:228:6|func parseScalarInt is unused",
+          "file": "internal/caller/template_utils.go",
+          "line": 228,
+          "column": 6,
+          "rule": "unused",
+          "message": "func parseScalarInt is unused"
+        },
+        {
+          "id": "unused|internal/handler/handler.go:58:2|var getInt is unused",
+          "file": "internal/handler/handler.go",
+          "line": 58,
+          "column": 2,
+          "rule": "unused",
+          "message": "var getInt is unused"
+        },
+        {
+          "id": "unused|internal/role/role.go:511:6|func getStringValue is unused",
+          "file": "internal/role/role.go",
+          "line": 511,
+          "column": 6,
+          "rule": "unused",
+          "message": "func getStringValue is unused"
+        }
+      ]
+    },
+    "go-arch-lint": {
+      "violations": []
+    }
+  }
+}

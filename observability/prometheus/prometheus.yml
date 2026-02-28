@@ -98,6 +98,35 @@ scrape_configs:
           component: 'backend'
           service: 'twilight-backend'
 
+  # ==================== OTel / Trace 监控 ====================
+
+  # OTel Collector 自监控指标（导出失败、接收吞吐等）
+  - job_name: 'otel-collector'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['otel-collector:8888']
+        labels:
+          component: 'otel-collector'
+          service: 'codex-otel'
+
+  # Tempo 指标（trace 写入/查询健康）
+  - job_name: 'tempo'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['tempo:3200']
+        labels:
+          component: 'tempo'
+          service: 'codex-otel'
+
+  # Codex OTel 聚合指标导出器（分析脚本产出）
+  - job_name: 'codex-otel-metrics'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['codex-otel-metrics:9470']
+        labels:
+          component: 'codex-otel-metrics'
+          service: 'codex-otel'
+
   # ==================== 基础设施监控 ====================
   
   # Redis 监控 (需要启用 redis-exporter)

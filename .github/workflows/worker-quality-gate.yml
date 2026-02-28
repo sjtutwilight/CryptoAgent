@@ -1,0 +1,51 @@
+name: worker-quality-gate
+
+on:
+  pull_request:
+    paths:
+      - 'datainjector/worker/**'
+      - '.github/workflows/worker-quality-gate.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'datainjector/worker/**'
+      - '.github/workflows/worker-quality-gate.yml'
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: datainjector/worker
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.7'
+
+      - name: Install quality tools
+        run: |
+          # 使用仓库内版本文件，确保本地与 CI 工具版本一致。
+          source tools/quality/tool_versions.env
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v${GOLANGCI_LINT_MIN_VERSION}
+          go install github.com/fe3dback/go-arch-lint@v${GO_ARCH_LINT_MIN_VERSION}
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Run regression smoke tests
+        run: ./tools/quality_gate_regression.sh
+
+      - name: Run quality gate
+        run: ./tools/quality_gate.sh --mode check
+
+      - name: Upload quality reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-quality-gate-report
+          path: datainjector/worker/runtime/quality_gate/

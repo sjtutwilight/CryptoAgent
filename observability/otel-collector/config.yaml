@@ -1,0 +1,68 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  # 统一接收 Codex 的 OTLP 日志与 Trace
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # 控制内存峰值，避免 Collector 自身被打爆
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 384
+    spike_limit_mib: 128
+
+  # 为缺省字段补齐默认值，保证后续分析口径一致
+  attributes/codex_defaults:
+    actions:
+      - key: service.name
+        action: upsert
+        value: codex-cli
+
+  # 批处理提升吞吐并降低下游写入抖动
+  batch:
+    send_batch_size: 1024
+    timeout: 2s
+
+exporters:
+  # Trace 导出到 Tempo
+  otlp/tempo:
+    endpoint: obs-tempo:4317
+    tls:
+      insecure: true
+
+  # Log 导出到 Loki OTLP 入口
+  otlphttp/loki:
+    endpoint: http://obs-loki:3100/otlp
+
+  # 审计导出：完整保留原始事件到本地文件
+  file/audit:
+    path: /var/lib/otelcol/audit/codex-otel-events.jsonl
+
+  # 调试导出，便于本地联调时快速确认链路
+  debug:
+    verbosity: basic
+
+service:
+  telemetry:
+    metrics:
+      address: 0.0.0.0:8888
+
+  extensions: [health_check]
+
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/codex_defaults, batch]
+      exporters: [otlphttp/loki, file/audit, debug]
+
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/tempo, debug]

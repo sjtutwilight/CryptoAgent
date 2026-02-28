@@ -76,6 +76,28 @@ graph TB
 ```
 # 数据接入层
 
+## Codex OTel 可观测闭环（新增）
+
+本仓库已新增 Codex OTel 观测闭环能力，目标是将 Codex 行为纳入统一观测并驱动脚本化/文档化优化。
+
+- 配置模板：`tool/templates/codex-otel.toml.example`（默认 `log_user_prompt=true`）
+- Collector 配置：`observability/otel-collector/config.yaml`
+- Trace 后端：`observability/tempo/tempo.yaml`
+- 决策分析 CLI：`./tool/ops.sh codex:otel ...`
+- 接入验收脚本：`./tool/codex_otel_validate.sh`
+
+典型用法：
+
+```bash
+# 分析最近事件并生成建议
+./tool/ops.sh codex:otel analyze \
+  --input runtime/data/otel-audit/codex-otel-events.jsonl \
+  --window-hours 24
+
+# 演练闭环（分析 -> 审核 -> 回归）
+python3 automation/test/tools/run_codex_otel_drill.py
+```
+
 ### 亮点
 
 - **控制面与数据面分离：** 控制面负责任务生命周期管理（下发、重试与状态管理）、全局限流、数据质量检测等。数据面通过**配置驱动的方式拉取相应数据。**

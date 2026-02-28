@@ -21,7 +21,13 @@
     "CLICKHOUSE_CONTAINER_NAME": { "type": "string" },
     "CLICKHOUSE_HTTP_PORT": { "type": "string" },
     "PROMETHEUS_PORT": { "type": "string" },
-    "GRAFANA_PORT": { "type": "string" }
+    "GRAFANA_PORT": { "type": "string" },
+    "TEMPO_PORT": { "type": "string" },
+    "OTEL_COLLECTOR_OTLP_GRPC_PORT": { "type": "string" },
+    "OTEL_COLLECTOR_OTLP_HTTP_PORT": { "type": "string" },
+    "OTEL_COLLECTOR_METRICS_PORT": { "type": "string" },
+    "OTEL_COLLECTOR_HEALTH_PORT": { "type": "string" },
+    "CODEX_OTEL_METRICS_EXPORTER_PORT": { "type": "string" }
   },
   "required": [
     "INFRA_NETWORK",

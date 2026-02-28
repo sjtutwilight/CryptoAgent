@@ -8,6 +8,8 @@
 - **Kafka**: 消息队列
 - **Flink**: 流处理引擎
 - **ClickHouse**: 时序数据库
+- **OTel Collector + Tempo**: Codex 行为日志/链路追踪
+- **Codex Metrics Exporter**: 决策效率聚合指标导出
 
 ## 架构图
 
@@ -52,6 +54,10 @@
 | Grafana | 3000 | 可视化仪表盘 (admin/admin) |
 | Prometheus | 9090 | 指标存储与查询 |
 | Loki | 3100 | 日志聚合 |
+| Tempo | 3200 | Trace 查询 |
+| OTel Collector | 4318 | OTLP HTTP 接收 |
+| OTel Collector Metrics | 8888 | Collector 自监控 |
+| Codex Metrics Exporter | 9470 | Codex 聚合指标 |
 | Worker Metrics | 9100 | Worker Prometheus端点 |
 | Backend Metrics | 8088/api/actuator/prometheus | Backend Prometheus端点 |
 | Kafka Exporter | 9308 | Kafka指标导出 |
@@ -64,7 +70,7 @@
 ### 1. 启动可观测性组件
 
 ```bash
-docker-compose up -d prometheus loki grafana promtail kafka-exporter
+docker-compose up -d prometheus loki tempo otel-collector codex-otel-metrics grafana promtail kafka-exporter
 ```
 
 ### 2. 访问Grafana
@@ -78,6 +84,7 @@ docker-compose up -d prometheus loki grafana promtail kafka-exporter
 - **Kafka 可观测性**: Topic指标、Consumer Lag
 - **Flink 可观测性**: Checkpoint、背压、资源使用
 - **ClickHouse 可观测性**: 写入延迟、Merge队列、查询性能
+- **Codex OTel 可观测性**: 会话时延、tool 成功率、低价值读取趋势、OTLP 导出健康
 
 ## 指标体系
 
@@ -145,6 +152,11 @@ Spring Boot Actuator自动暴露以下指标：
 - `BackendErrorRateHigh`: 5xx错误率 > 5%
 - `BackendHeapMemoryHigh`: 堆内存 > 85%
 
+### Codex OTel 告警
+- `CodexOTLPExportFailed`: OTel 日志导出失败
+- `CodexToolErrorBurst`: tool_error 突增
+- `CodexSessionNoOutputTooLong`: 长时无产出会话
+
 ## 日志采集
 
 Promtail配置支持以下日志源：
@@ -205,6 +217,10 @@ observability/
 ├── clickhouse/
 │   ├── prometheus.xml           # ClickHouse Prometheus配置
 │   └── sql_exporter.yml         # SQL Exporter配置
+├── tempo/
+│   └── tempo.yaml               # Tempo 配置
+├── otel-collector/
+│   └── config.yaml              # OTel Collector 配置
 ├── provisioning/
 │   ├── dashboards/
 │   │   ├── dashboard.yml        # Dashboard provider配置
@@ -212,7 +228,8 @@ observability/
 │   │   ├── backend-observability-dashboard.json
 │   │   ├── kafka-observability-dashboard.json
 │   │   ├── flink-observability-dashboard.json
-│   │   └── clickhouse-observability-dashboard.json
+│   │   ├── clickhouse-observability-dashboard.json
+│   │   └── codex-observability-dashboard.json
 │   └── datasources/
 │       └── datasource.yml       # 数据源配置
 └── 演练.md                       # 故障演练手册
@@ -262,5 +279,3 @@ curl -X POST http://localhost:9090/-/reload
 - [Grafana官方文档](https://grafana.com/docs/)
 - [Loki官方文档](https://grafana.com/docs/loki/)
 - [Spring Boot Actuator](https://docs.spring.io/spring-boot/docs/current/reference/html/actuator.html)
-
-

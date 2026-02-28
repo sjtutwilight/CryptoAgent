@@ -58,6 +58,9 @@
             "max_gap": 1000,
             "max_delay_ms": 5000,
             "hard_timeout_ms": 60000,
+            "sidechannel_anchor_enabled": true,
+            "hard_timeout_priority_enabled": true,
+            "gap_window_metrics_enabled": true,
             "backfill_cooldown_ms": 30000,
             "backfill": {
               "http": {
@@ -308,6 +311,9 @@
             "max_gap": 30,
             "max_delay_ms": 2000,
             "hard_timeout_ms": 10000,
+            "sidechannel_anchor_enabled": true,
+            "hard_timeout_priority_enabled": true,
+            "gap_window_metrics_enabled": true,
             "backfill_cooldown_ms": 15000,
             "backfill": {
               "http": {

@@ -130,12 +130,12 @@ func buildRangeEvaluator(profile, rangeField string) RangeEvaluator {
 			if evt == nil {
 				return false
 			}
-			// Primary path: standard U/u range covers expected sequence.
+			// 主路径：标准 U/u 区间覆盖 expected。
 			if evt.HasRange && evt.RangeStart <= expected && evt.Seq >= expected {
 				return true
 			}
-			// Fallback path for streams where U may not be contiguous:
-			// trust pu continuity when it matches previous expected boundary.
+			// 兜底路径：当 U 可能不连续时，使用 pu 连续性判断。
+			// 当 prev_final_update_id + 1 命中 expected 时，视为可覆盖。
 			if evt.Message == nil || evt.Message.Metadata == nil {
 				return false
 			}

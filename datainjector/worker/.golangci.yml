@@ -1,0 +1,41 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - depguard
+    - dupl
+    - gocognit
+    - gocyclo
+    - interfacebloat
+    - maintidx
+    - revive
+
+  settings:
+    dupl:
+      threshold: 180
+    gocognit:
+      min-complexity: 35
+    gocyclo:
+      min-complexity: 18
+    maintidx:
+      under: 20
+    depguard:
+      rules:
+        no_cmd_dependency:
+          files:
+            - "!**/*_test.go"
+          deny:
+            - pkg: github.com/twilight-labs/dataplatform/datainjector/worker/cmd/worker
+              desc: 业务包禁止反向依赖 cmd 入口包
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+severity:
+  default: error
