@@ -1,0 +1,2201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-native.local/schemas/prototypes/data-acquisition-v6.schema.json",
+  "title": "层级化领域工件原型 Schema v6",
+  "description": "验证递归 Domain、领域本体、意图完整的 Capability、领域 Process 与不割裂业务/技术的 Strategy。Schema 负责结构和局部条件约束；跨引用、最小 Domain 归属和图一致性由 x-semantic-rules 指定给语义校验器。",
+  "x-validator-profile": {
+    "dialect": "https://json-schema.org/draft/2020-12/schema",
+    "require_format_assertion": true,
+    "semantic_extensions": ["x-target-kinds", "x-unique-by", "x-semantic-rules"],
+    "description": "交付验证器必须启用 URI/date/date-time format assertion，并执行声明的语义扩展；x-semantic-rules 中只有声明 enforcement 的条目需要自动执行，未声明 enforcement 的条目是规范性建模指导。只做普通 JSON Schema validation 不构成完整合规。"
+  },
+  "x-semantic-rules": [
+    {
+      "id": "human_language_expression",
+      "description": "规定领域工件面向人的中文技术表达方式。本条是规范性建模指导，不声明 enforcement，不参与自动校验。",
+      "guidance": {
+        "language": "zh-CN",
+        "purpose": "领域工件首先服务于人的理解。形式化应体现在身份、约束、真值、引用和责任闭合上，而不是体现在生硬的名词堆叠或逐词翻译上。semantic ID 用于稳定的机器引用；面向人的名称和描述应按自然中文重新组织。成熟英文技术术语在更清晰时可以直接保留，不追求纯中文化。",
+        "rules": [
+          "不得根据 semantic ID 逐词翻译并按英文词序拼接中文名称。name 应表达该对象在人类语境中是什么，而不是复述 ID 的组成。",
+          "不同 semantic kind 应使用符合其词性的名称：Entity、Value Object、Aggregate 和 Role 使用名词短语；Occurrence 表达某件事已经发生；Predicate 写成可以判断真假的命题；Capability 使用动宾结构；Process 表达责任如何推进；Strategy 表达选择或实现方法。",
+          "中文句子应优先使用自然语序，明确动作、对象、范围和责任主体。避免连续堆叠多个抽象名词，使读者无法判断词性或修饰关系。",
+          "provider、payload、schema、CoverageSlice、SourceSlice、FulfillmentPlan、pagination、cursor、retry、provenance、projection、readiness 等成熟技术术语，在比中文翻译更准确或更易识别时可以直接使用。英文术语应嵌入自然中文句法，而不是形成中英文词语拼接。",
+          "name 应简短并帮助读者识别对象种类；definition 应进一步说明它是什么、解决什么区分问题、与相邻概念有何边界，不得只换一种说法重复名称。",
+          "同一工件中的同一概念应保持一致称呼。若中文译名容易产生歧义，应选择一个自然中文名称，并在 definition 中保留对应英文术语。",
+          "不得为了显得正式而使用不符合当前业务语境的词。履约、供给、处置、闭合、物化等词并非全局禁用，但只有在该领域确实采用这种表达时才使用。"
+        ],
+        "examples": [
+          {
+            "kind": "Domain",
+            "avoid": "来源观察供给",
+            "prefer": "数据源能力",
+            "reason": "前者是 source observation offer 的逐词名词堆叠，无法看出该领域负责描述 provider 能提供什么数据。"
+          },
+          {
+            "kind": "Entity",
+            "avoid": "来源观察供给",
+            "prefer": "数据源能力声明",
+            "reason": "名称明确表示这是 provider 对可提供数据及 contract 作出的稳定声明。"
+          },
+          {
+            "kind": "Occurrence",
+            "avoid": "交互尝试",
+            "prefer": "一次数据源交互已完成",
+            "reason": "Occurrence 应让读者直接看出发生了什么，而不是只提供一个抽象名词。"
+          },
+          {
+            "kind": "Predicate",
+            "avoid": "计划事实为",
+            "prefer": "关于采集计划的指定事实成立",
+            "reason": "Predicate 应当是能够判断 asserted、denied 或 unknown 的完整命题。"
+          },
+          {
+            "kind": "Capability",
+            "avoid": "封闭观察履约计划",
+            "prefer": "完成采集计划中的所有业务决策",
+            "reason": "Capability 使用动宾结构，直接说明它完成什么责任。"
+          },
+          {
+            "kind": "Entity",
+            "avoid": "封闭履约计划",
+            "prefer": "完备采集计划",
+            "definition_example": "FulfillmentPlan 是已经确定参数、pagination、retry、隔离和成功条件的不可变计划；执行器不得在运行时重新决策。",
+            "reason": "名称采用自然中文，definition 保留更清晰的英文技术术语并说明关键边界。"
+          }
+        ]
+      }
+    },
+    {
+      "id": "domain_owner_prefix",
+      "description": "每个语义 ID 必须以实际包含它且能完整定义它的最小 Domain ID 为前缀；子 Domain ID 必须继承父 Domain 前缀，domain_level 必须与递归深度一致。",
+      "enforcement": {"severity": "error", "check": "domain_owner_prefix_and_depth"}
+    },
+    {
+      "id": "typed_value_flow",
+      "description": "property、parameter、capability/facility input/output port 与过程绑定中的值必须由 value_schema 给出递归类型，并由 value_operand 明确 literal、variable、path、assertion 或受限 function 来源；capability_call.result_binding 从目标 capability.outputs 推导 record 类型，facility_call.result_binding 从目标 facility interface.outputs 推导 record 类型，后续消费必须类型相容。",
+      "enforcement": {"severity": "error", "check": "validate_typed_value_flow"}
+    },
+    {
+      "id": "knowledge_intent_separation",
+      "description": "领域工件只通过 knowledge_bases 与 knowledge_requirements 保存知识定位、版本、用途、期望结构、时效和不可用处置；禁止内嵌连接参数、来源目录、普通产品清单或 guidance 正文。",
+      "enforcement": {"severity": "error", "check": "validate_knowledge_intent_separation"}
+    },
+    {
+      "id": "important_individual_necessity",
+      "description": "命名个体必须说明 semantic_necessity，只能保留身份绑定与 assertion_refs；无法证明其被规则、契约或身份语义直接需要的描述性个体必须移出领域工件。",
+      "enforcement": {"severity": "error", "check": "validate_important_individual_necessity"}
+    },
+    {
+      "id": "reject_raw_secrets",
+      "description": "knowledge source、value operand、binding 与任何自由文本字段都不得保存 raw secret、token、password 或私钥正文；需要秘密时只能引用领域外部受管 locator。",
+      "enforcement": {"severity": "error", "check": "reject_raw_secret_material"}
+    },
+    {
+      "id": "references_resolve_and_match_kind",
+      "description": "除 Domain.dependencies.target 与 imports 的外部 artifact/symbols 外，所有 semantic reference 必须在工件内可解析且目标 kind 与字段要求一致；predicate expression 与 Assertion 的 subject 必须兼容 predicate.subject_type，bindings 必须完整匹配必填参数并拒绝未知参数。",
+      "enforcement": {"severity": "error", "check": "resolve_refs_kinds_and_bindings"}
+    },
+    {
+      "id": "single_authoritative_direction",
+      "description": "关系只保存在缺少该引用便无法完整定义自身的一侧；禁止 family/members、process/callers、claim/proves 等可反查的逆向重复。",
+      "enforcement": {"severity": "error", "check": "reject_inverse_association_pairs"}
+    },
+    {
+      "id": "individual_assertion_scope",
+      "description": "命名个体通过 assertion_refs 引用的 Assertion 必须以该个体为 subject，且只在 assertion.validity 内成立，不得被提升为所属实体类型的普遍规则；fact 是被接受为 asserted 的 assertion，不另设平行 kind。",
+      "enforcement": {"severity": "error", "check": "individual_assertion_subject_and_validity"}
+    },
+    {
+      "id": "aggregate_semantic_boundary",
+      "description": "aggregate.root 必须属于 members 且为有身份 entity；aggregate 只能用于共同不变量、责任或生命周期边界，不能作为供应商知识或文件组织容器。",
+      "enforcement": {"severity": "error", "check": "aggregate_root_membership_and_kind"}
+    },
+    {
+      "id": "family_conformance",
+      "description": "capability.family 指向的 family 必须存在；成员必须以 common_goal 为理想目标基线、满足 common_behavioral_requirements 与 specialization_requirements，并为 family contract 的 canonical outcomes 提供一一对应结果；family 不保存 members 反向列表。",
+      "enforcement": {"severity": "error", "check": "capability_family_conformance"}
+    },
+    {
+      "id": "family_member_selection_partition",
+      "description": "每个 family member 以 family_variant 单向声明自己覆盖的 specialization_axis 值；同一 family 的成员值必须无重复并完整覆盖 axis.values。对 selection_scope 的一次责任，只允许 discriminator predicate 与该值匹配的唯一成员形成 family disposition，禁止多个成员竞争同一结果权威。",
+      "enforcement": {"severity": "error", "check": "capability_family_variant_partition"}
+    },
+    {
+      "id": "capability_dependency_derivation",
+      "description": "preconditions 仅表示结果事实依赖；跨能力或设施调用必须通过 capability 上已声明的局部 alias，声明目标、必需性、typed input 与实际调用必须一致；策略候选名称不得被解释为隐藏依赖。",
+      "enforcement": {"severity": "error", "check": "validate_declared_dependency_calls"}
+    },
+    {
+      "id": "facility_requirement_completeness",
+      "description": "Facility Requirement 必须闭合 requirement_intent、typed interface、dispositions、reactions、verification 与实现排除边界；不得出现供应商、部署、协议客户端、数据库或代码结构等具体实现选择。",
+      "enforcement": {"severity": "error", "check": "validate_facility_requirement_completeness"}
+    },
+    {
+      "id": "capability_execution_boundary",
+      "description": "每个 capability 必须选择 agentic 或 deterministic_code 执行模式。Agentic 只可在 autonomy_scope 与引用的 guidance 内自主判断；确定性代码只能执行 behavior_contract 与显式 policy_inputs；两种模式都必须声明 verification。",
+      "enforcement": {"severity": "error", "check": "validate_capability_execution_boundary"}
+    },
+    {
+      "id": "intent_traceability",
+      "description": "strategy、process 与 contract 通过 capability/family 包含关系回链意图；ontology 或 Domain rule 必须由 capability/strategy.preserves 单向引用或声明为纯本体一致性规则，禁止反向 applies_to 清单。",
+      "enforcement": {"severity": "error", "check": "intent_owner_or_forward_rule_reference"}
+    },
+    {
+      "id": "process_graph_validity",
+      "description": "process step ID 在过程内唯一，after、join、checkpoint 与 resume_from 引用存在且形成可恢复的无环可达图；依赖调用 input 满足声明的 typed interface；wait_for_occurrence 具有可判定 correlation，等待多个 occurrence 时 result_binding 必须由后续互斥分支消费；apply_strategy.result_binding 只能与被引用 strategy 的 candidates 比较；正常、失败与取消终止路径都必须显式闭合所属 capability outcome 并转移未完成责任。",
+      "enforcement": {"severity": "error", "check": "process_dag_calls_and_outcome_closure"}
+    },
+    {
+      "id": "process_iteration_boundary",
+      "description": "repeat_segment 的 repeat_from 与 repeat_through 必须引用所属 process 中可达且有序的 step；重复只重入该闭区间，closure 与 resolve_outcome 必须位于区间之外，continue_while 必须是领域 expression。",
+      "enforcement": {"severity": "error", "check": "process_repeat_segment_boundaries"}
+    },
+    {
+      "id": "capability_completion_consistency",
+      "description": "semantic_signature.goal 表达期望成功条件，effects.guaranteed 必须对每个已声明 outcome 都成立；blocked、partial 与 unknown 可以是能力已形成的结果，但不得被伪装成理想 goal 已实现。conditional_occurrences 必须与 outcome 条件一致。",
+      "enforcement": {"severity": "error", "check": "capability_effects_outcomes_and_occurrences"}
+    },
+    {
+      "id": "contract_outcomes_are_observable",
+      "description": "contract.visible_outcomes.id 必须映射所属 capability 的 outcome，或映射 family 的 canonical disposition；每个 observable_when 必须能以对外可查询的有权 assertion 区分结果，observable_results 还必须包含其共同 resolved/result surface，禁止只有自由字符串标签。",
+      "enforcement": {"severity": "error", "check": "contract_outcome_projection_consistency"}
+    },
+    {
+      "id": "open_world_truth",
+      "description": "not asserted 不等于 denied；unknown 必须作为开放世界下独立真值处理；assertion pattern 省略 truth_value 时规范化为 asserted，策略不得用缺失 assertion 推导否定事实。",
+      "enforcement": {"severity": "error", "check": "open_world_truth_semantics"}
+    },
+    {
+      "id": "semantic_ids_and_local_keys_are_unique",
+      "description": "全工件 semantic ID 唯一；每个 registry 的 id/name、participant role、identity component、lifecycle region/state、outcome、decision case、dependency alias、facility disposition 和 process step 本地键唯一。",
+      "enforcement": {"severity": "error", "check": "unique_semantic_and_local_keys"}
+    },
+    {
+      "id": "element_internal_references_are_valid",
+      "description": "identity components、individual identity bindings 和 occurrence time semantics 必须引用本元素已声明且类型相容的 property；每个受控 status 投影必须对应一个 lifecycle region，allowed enum 值与该 region.states 相同，initial/from/to 属于本 region，established_by 与 transition trigger 指向 occurrence。",
+      "enforcement": {"severity": "error", "check": "validate_element_internal_references"}
+    },
+    {
+      "id": "strategy_selection_conflict",
+      "description": "Strategy 只形成关键选择：rules 中固定条件不得使用 priority，任一事实组合最多匹配一个 select；otherwise 覆盖未匹配事实；agentic guidance 也必须在 candidates 内形成唯一显式结果，且不得承载 realization mechanism。",
+      "enforcement": {"severity": "error", "check": "validate_strategy_selection_conflicts"}
+    },
+    {
+      "id": "strategy_decision_result_flow",
+      "description": "apply_strategy 必须声明 result_binding；后续 action 或互斥分支只能从该绑定取得 strategy 显式选中的 candidate。禁止先查询所属 outcome 才会建立的 assertion 来反向决定 outcome，也禁止使用没有声明来源的过程变量。",
+      "enforcement": {"severity": "error", "check": "strategy_selection_binding_and_no_outcome_cycle"}
+    },
+    {
+      "id": "outcome_evidence_and_responsibility",
+      "description": "每个 capability outcome 与 facility disposition 都必须声明可验证 evidence；失败、阻塞、部分完成、取消和 unknown 结果必须明确 remaining_responsibility，不能把未完成责任伪装成正常完成。",
+      "enforcement": {"severity": "error", "check": "validate_outcome_evidence_and_responsibility"}
+    },
+    {
+      "id": "imports_resolve_with_policy",
+      "description": "imports 中 artifact 与 version 必须可定位且 symbols 必须存在；无法解析时严格执行 on_unresolved，且不得把 import 与 Domain.dependencies 的外部契约语义混为一谈。",
+      "enforcement": {"severity": "error", "check": "validate_imports_and_unresolved_policy"}
+    }
+  ],
+  "$defs": {
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "domain_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+      "description": "Domain 的层级限定 ID。点分段表达语义层级，不表达代码包或部署结构。"
+    },
+    "semantic_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$",
+      "description": "由最小 Domain 前缀、语义种类段和本地名称组成的稳定 ID。"
+    },
+    "local_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "process_variable": {
+      "type": "string",
+      "pattern": "^\\$[a-z][a-z0-9_]*$",
+      "description": "仅在所属 process 一次执行或一次 repeat iteration 内有效的绑定；不是持久领域事实。"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "string_list": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/non_empty_string"
+      }
+    },
+    "semantic_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/semantic_id"
+      }
+    },
+    "scalar": {
+      "type": ["string", "number", "boolean", "null"]
+    },
+    "value_constraints": {
+      "type": "object",
+      "properties": {
+        "minimum": {"type": "number"},
+        "maximum": {"type": "number"},
+        "exclusive_minimum": {"type": "number"},
+        "exclusive_maximum": {"type": "number"},
+        "min_length": {"type": "integer", "minimum": 0},
+        "max_length": {"type": "integer", "minimum": 0},
+        "pattern": {"$ref": "#/$defs/non_empty_string"},
+        "format": {"enum": ["date", "date_time", "duration", "uri", "uuid"]},
+        "allowed_values": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/scalar"}
+        },
+        "min_items": {"type": "integer", "minimum": 0},
+        "max_items": {"type": "integer", "minimum": 0},
+        "unique_items": {"type": "boolean"}
+      },
+      "minProperties": 1,
+      "additionalProperties": false,
+      "description": "对 value_schema 增加可自动验证的值域约束；约束必须与 kind 相容，且上下界不得互相冲突。"
+    },
+    "record_field": {
+      "type": "object",
+      "required": ["name", "value_schema", "required", "meaning"],
+      "properties": {
+        "name": {"$ref": "#/$defs/local_id"},
+        "value_schema": {"$ref": "#/$defs/value_schema"},
+        "required": {"type": "boolean"},
+        "meaning": {"$ref": "#/$defs/non_empty_string"}
+      },
+      "additionalProperties": false,
+      "description": "递归 record 类型中的一个命名字段；required 只说明该字段在 record 值中是否必需。"
+    },
+    "value_schema": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "kind": {"enum": ["string", "integer", "decimal", "boolean", "timestamp", "date", "duration", "uri", "percentage", "rate", "null"]},
+            "constraints": {"$ref": "#/$defs/value_constraints"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "values"],
+          "properties": {
+            "kind": {"const": "enum"},
+            "values": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/scalar"}}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "target"],
+          "properties": {
+            "kind": {"enum": ["reference", "value_object"]},
+            "target": {"$ref": "#/$defs/semantic_id"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "items"],
+          "properties": {
+            "kind": {"enum": ["list", "set"]},
+            "items": {"$ref": "#/$defs/value_schema"},
+            "constraints": {"$ref": "#/$defs/value_constraints"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "fields"],
+          "properties": {
+            "kind": {"const": "record"},
+            "fields": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/record_field"}, "x-unique-by": "name"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "values"],
+          "properties": {
+            "kind": {"const": "map"},
+            "values": {"$ref": "#/$defs/value_schema"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "variants"],
+          "properties": {
+            "kind": {"const": "union"},
+            "variants": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/value_schema"}}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "ref"],
+          "properties": {
+            "kind": {"const": "schema_ref"},
+            "ref": {"$ref": "#/$defs/non_empty_string"}
+          },
+          "additionalProperties": false
+        }
+      ],
+      "description": "值的递归类型定义；它同时适用于领域属性、参数、能力端口、设施端口和知识期望结构。"
+    },
+    "typed_port": {
+      "type": "object",
+      "required": ["name", "value_schema", "required", "meaning"],
+      "properties": {
+        "name": {"$ref": "#/$defs/local_id"},
+        "value_schema": {"$ref": "#/$defs/value_schema"},
+        "required": {"type": "boolean"},
+        "meaning": {"$ref": "#/$defs/non_empty_string"}
+      },
+      "additionalProperties": false,
+      "description": "能力或设施接口上的命名 typed port；required 保留调用方是否必须提供该值的语义。"
+    },
+    "value_operand": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["literal"],
+          "properties": {"literal": {"$ref": "#/$defs/scalar"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["list"],
+          "properties": {"list": {"type": "array", "items": {"$ref": "#/$defs/value_operand"}}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["record"],
+          "properties": {"record": {"$ref": "#/$defs/value_bindings"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["variable"],
+          "properties": {"variable": {"$ref": "#/$defs/process_variable"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["path"],
+          "properties": {"path": {"type": "string", "pattern": "^\\$([.][a-zA-Z_][a-zA-Z0-9_]*|\\[[0-9*]+\\])*$"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["assertion"],
+          "properties": {"assertion": {"$ref": "#/$defs/semantic_id"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["function", "arguments"],
+          "properties": {
+            "function": {"enum": ["coalesce", "concat", "count", "duration_between", "lowercase", "normalize", "now", "sum", "uppercase"]},
+            "arguments": {"type": "array", "items": {"$ref": "#/$defs/value_operand"}}
+          },
+          "additionalProperties": false
+        }
+      ],
+      "description": "值的显式来源；函数仅允许使用封闭白名单且参数继续递归声明来源，禁止执行任意表达式或代码。"
+    },
+    "value_bindings": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"pattern": "^[a-z][a-z0-9_.-]*$"},
+      "additionalProperties": {"$ref": "#/$defs/value_operand"},
+      "description": "把开放的参数名或字段名绑定到有来源的 value_operand；语义校验器负责与目标 value_schema 对齐。"
+    },
+    "binding_value": {
+      "$ref": "#/$defs/value_operand",
+      "description": "保留给 expression.compare 的单个有来源值操作数。"
+    },
+    "bindings": {
+      "$ref": "#/$defs/value_bindings",
+      "description": "为 predicate 参数、过程变量或领域 effect 绑定类型可校验且来源明确的值。"
+    },
+    "artifact_version": {
+      "type": "object",
+      "required": ["version", "status", "change_type", "change_summary"],
+      "properties": {
+        "version": {"$ref": "#/$defs/version"},
+        "status": {"enum": ["draft", "active", "deprecated", "retired"]},
+        "change_type": {"enum": ["major", "minor", "patch"]},
+        "change_summary": {
+          "$ref": "#/$defs/non_empty_string",
+          "description": "说明本版本改变了哪些领域语义或形式化能力，不能只罗列文件字段。"
+        },
+        "effective_from": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "supersedes": {
+          "type": ["object", "null"],
+          "required": ["artifact_id", "version"],
+          "properties": {
+            "artifact_id": {"$ref": "#/$defs/semantic_id"},
+            "version": {"$ref": "#/$defs/version"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "required": ["includes", "excludes"],
+      "properties": {
+        "includes": {
+          "$ref": "#/$defs/string_list",
+          "description": "当前版本已经明确建模并承担的语义范围；它不是禁止未来扩展的封闭清单。"
+        },
+        "excludes": {
+          "$ref": "#/$defs/string_list",
+          "description": "当前 Domain 明确不承担的责任，用于防止权威越界；新增需求仍需按完整语义重新判断归属。"
+        }
+      },
+      "additionalProperties": false
+    },
+    "dependency": {
+      "type": "object",
+      "required": ["target", "meaning"],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/semantic_id",
+          "description": "当前 Domain 无法自行形成、必须从外部 Domain 契约取得的语义。Domain 内部引用不得重复登记为 dependency。"
+        },
+        "meaning": {
+          "$ref": "#/$defs/non_empty_string",
+          "description": "说明依赖事实如何限制当前 Domain 的判断或能力，不能只复述 target 名称。"
+        }
+      },
+      "additionalProperties": false
+    },
+    "import": {
+      "type": "object",
+      "required": ["artifact", "version", "symbols", "on_unresolved", "meaning"],
+      "properties": {
+        "artifact": {"$ref": "#/$defs/semantic_id"},
+        "version": {"$ref": "#/$defs/non_empty_string"},
+        "symbols": {"$ref": "#/$defs/semantic_ids"},
+        "on_unresolved": {"enum": ["reject", "blocked", "remain_unknown"]},
+        "meaning": {"$ref": "#/$defs/non_empty_string"}
+      },
+      "additionalProperties": false,
+      "description": "带版本与解析失败处置的外部符号引用；只声明 artifact、版本约束、符号清单及其用途，不代替 Domain.dependencies 的外部契约语义。"
+    },
+    "knowledge_base_reference": {
+      "type": "object",
+      "required": ["id", "source", "version", "required", "meaning"],
+      "properties": {
+        "id": {"$ref": "#/$defs/semantic_id"},
+        "source": {"$ref": "#/$defs/non_empty_string"},
+        "version": {"$ref": "#/$defs/non_empty_string"},
+        "required": {"type": "boolean"},
+        "meaning": {"$ref": "#/$defs/non_empty_string"}
+      },
+      "additionalProperties": false,
+      "description": "领域外知识库的稳定定位与版本引用；source 只允许 locator，不得内嵌连接配置、凭据或知识正文。"
+    },
+    "knowledge_requirement": {
+      "type": "object",
+      "required": ["id", "knowledge_base", "kind", "purpose", "required", "expected_schema", "on_unavailable"],
+      "properties": {
+        "id": {"$ref": "#/$defs/semantic_id"},
+        "knowledge_base": {"$ref": "#/$defs/semantic_id"},
+        "kind": {"enum": ["descriptive", "guidance", "reference_data"]},
+        "purpose": {"$ref": "#/$defs/non_empty_string"},
+        "required": {"type": "boolean"},
+        "expected_schema": {"$ref": "#/$defs/value_schema"},
+        "freshness": {
+          "type": "object",
+          "required": ["max_age"],
+          "properties": {"max_age": {"type": "string", "pattern": "^P(?!$).+"}},
+          "additionalProperties": false
+        },
+        "on_unavailable": {"enum": ["blocked", "remain_unknown", "degrade_explicitly"]}
+      },
+      "additionalProperties": false,
+      "description": "Domain 对描述性知识、Agent guidance 或参考数据的用途化需求；只规定预期结构、时效和不可用处置，不保存知识正文。"
+    },
+    "modeling_basis": {
+      "type": "object",
+      "required": ["kind", "necessity"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "real_world_phenomenon",
+            "domain_construct",
+            "external_fact_subject",
+            "normative_responsibility",
+            "record_of_occurrence"
+          ]
+        },
+        "necessity": {
+          "$ref": "#/$defs/non_empty_string",
+          "description": "解释缺少该模型后哪项身份、判断、责任或演进语义会无法表达。"
+        }
+      },
+      "additionalProperties": false
+    },
+    "property": {
+      "type": "object",
+      "required": ["name", "meaning", "value_schema", "cardinality", "mutability", "authority"],
+      "properties": {
+        "name": {"$ref": "#/$defs/local_id"},
+        "meaning": {
+          "$ref": "#/$defs/non_empty_string",
+          "description": "字段在领域中的含义及不可替代的区分作用，不能写成技术类型的同义反复。"
+        },
+        "value_schema": {"$ref": "#/$defs/value_schema"},
+        "cardinality": {"enum": ["exactly_one", "zero_or_one", "one_or_more", "zero_or_more"]},
+        "mutability": {"enum": ["immutable", "controlled", "append_only", "derived"]},
+        "authority": {
+          "$ref": "#/$defs/non_empty_string",
+          "description": "能够权威声明该属性值的 Domain、角色或外部主体；属性所在实体不自动拥有值权威。"
+        }
+      },
+      "additionalProperties": false
+    },
+    "identity_component": {
+      "type": "object",
+      "required": ["property", "comparison"],
+      "properties": {
+        "property": {"$ref": "#/$defs/local_id"},
+        "comparison": {"enum": ["exact", "normalized", "referenced_identity", "value_semantics"]}
+      },
+      "additionalProperties": false
+    },
+    "identity": {
+      "type": "object",
+      "required": ["type", "uniqueness_scope", "collision_policy"],
+      "properties": {
+        "type": {"enum": ["assigned", "composite", "external", "derived"]},
+        "components": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/identity_component"}
+        },
+        "derivation_rule": {"$ref": "#/$defs/non_empty_string"},
+        "uniqueness_scope": {"$ref": "#/$defs/domain_id"},
+        "collision_policy": {"enum": ["reject", "merge_as_same", "record_conflict", "remain_indeterminate"]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"type": {"enum": ["assigned", "composite", "external"]}}, "required": ["type"]},
+          "then": {"required": ["components"], "not": {"required": ["derivation_rule"]}}
+        },
+        {
+          "if": {"properties": {"type": {"const": "derived"}}, "required": ["type"]},
+          "then": {"required": ["components", "derivation_rule"]}
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "source_support": {
+      "type": "object",
+      "required": ["title", "uri", "authority", "retrieved_on"],
+      "properties": {
+        "title": {"$ref": "#/$defs/non_empty_string"},
+        "uri": {"type": "string", "format": "uri"},
+        "authority": {"$ref": "#/$defs/non_empty_string"},
+        "retrieved_on": {"type": "string", "format": "date"}
+      },
+      "additionalProperties": false
+    },
+    "assertion_basis": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "source", "retrieved_at", "valid_scope"],
+          "properties": {
+            "kind": {"const": "external_declaration"},
+            "source": {"$ref": "#/$defs/source_support"},
+            "retrieved_at": {"type": "string", "format": "date-time"},
+            "valid_scope": {"$ref": "#/$defs/non_empty_string"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "observed_at", "observed_by"],
+          "properties": {
+            "kind": {"const": "observation"},
+            "observed_at": {"type": "string", "format": "date-time"},
+            "observed_by": {"$ref": "#/$defs/non_empty_string"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "decided_at", "decision_authority"],
+          "properties": {
+            "kind": {"const": "decision"},
+            "decided_at": {"type": "string", "format": "date-time"},
+            "decision_authority": {"$ref": "#/$defs/non_empty_string"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "rule", "premises"],
+          "properties": {
+            "kind": {"const": "derivation"},
+            "rule": {"$ref": "#/$defs/semantic_id"},
+            "premises": {"$ref": "#/$defs/semantic_ids"}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "assertion_validity": {
+      "type": "object",
+      "required": ["scope", "temporal"],
+      "properties": {
+        "scope": {
+          "$ref": "#/$defs/non_empty_string",
+          "description": "命题成立的个体、产品、协议版本、业务范围或司法/组织边界；它不同于资料来源的 valid_scope。"
+        },
+        "temporal": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["kind", "valid_from"],
+              "properties": {
+                "kind": {"const": "interval"},
+                "valid_from": {"type": "string", "format": "date-time"},
+                "valid_until": {"type": ["string", "null"], "format": "date-time"}
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["kind", "as_of"],
+              "properties": {
+                "kind": {"const": "as_of"},
+                "as_of": {"type": "string", "format": "date-time"}
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["kind", "reason"],
+              "properties": {
+                "kind": {"const": "unknown"},
+                "reason": {"$ref": "#/$defs/non_empty_string"}
+              },
+              "additionalProperties": false
+            }
+          ],
+          "description": "命题的业务有效时间；资料 retrieved_at、observed_at 或 decided_at 只表示知识取得时间，不能代替它。"
+        }
+      },
+      "additionalProperties": false
+    },
+    "assertion": {
+      "type": "object",
+      "required": ["id", "predicate", "subject", "truth_value", "authority", "basis", "validity"],
+      "properties": {
+        "id": {"$ref": "#/$defs/semantic_id"},
+        "predicate": {"$ref": "#/$defs/semantic_id", "x-target-kinds": ["predicate"]},
+        "subject": {
+          "$ref": "#/$defs/value_operand",
+          "description": "Assertion 的显式作用对象；必须解析为与 predicate.subject_type 相容的有身份值。"
+        },
+        "bindings": {"$ref": "#/$defs/bindings"},
+        "truth_value": {
+          "enum": ["asserted", "denied", "unknown"],
+          "description": "asserted 表示在声明范围内被接受为真；denied 表示有权证据支持否定；unknown 不能由 assertion 缺失替代。"
+        },
+        "authority": {"$ref": "#/$defs/non_empty_string"},
+        "basis": {"$ref": "#/$defs/assertion_basis"},
+        "validity": {"$ref": "#/$defs/assertion_validity"},
+        "support": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              {"$ref": "#/$defs/semantic_id"},
+              {"$ref": "#/$defs/source_support"}
+            ]
+          },
+          "description": "由当前 assertion 单向引用支持它的领域对象、其他 assertion 或权威来源；支持对象不反向维护 proves。"
+        }
+      },
+      "additionalProperties": false
+    },
+    "individual": {
+      "type": "object",
+      "required": ["id", "name", "semantic_necessity", "identity_bindings"],
+      "properties": {
+        "id": {"$ref": "#/$defs/semantic_id"},
+        "name": {"$ref": "#/$defs/non_empty_string"},
+        "semantic_necessity": {
+          "$ref": "#/$defs/non_empty_string",
+          "description": "说明该命名个体被哪项身份、规则、策略或契约语义直接需要，以及移除后哪项判断将无法解释。"
+        },
+        "identity_bindings": {
+          "$ref": "#/$defs/bindings",
+          "description": "必须且只能绑定所属 entity identity.components；不得把普通属性混入身份。"
+        },
+        "assertion_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/semantic_id"},
+          "description": "单向引用 domain.assertions registry 中以该个体为 subject 的 Assertion；普通描述性信息必须经 knowledge_requirement 获取。"
+        }
+      },
+      "additionalProperties": false
+    },
+    "parameter": {
+      "type": "object",
+      "required": ["name", "value_schema", "required", "meaning"],
+      "properties": {
+        "name": {"$ref": "#/$defs/local_id"},
+        "value_schema": {"$ref": "#/$defs/value_schema"},
+        "required": {"type": "boolean"},
+        "meaning": {"$ref": "#/$defs/non_empty_string"}
+      },
+      "additionalProperties": false
+    },
+    "assertion_pattern": {
+      "type": "object",
+      "required": ["predicate", "subject"],
+      "properties": {
+        "predicate": {"$ref": "#/$defs/semantic_id", "x-target-kinds": ["predicate"]},
+        "subject": {"$ref": "#/$defs/value_operand"},
+        "bindings": {"$ref": "#/$defs/bindings"},
+        "truth_value": {
+          "enum": ["asserted", "denied", "unknown"],
+          "default": "asserted",
+          "description": "查询或条件中省略时规范化为 asserted；any recorded 必须改用一个无参数的 resolved/decided predicate，不能借省略真值表达。"
+        },
+        "freshness": {
+          "type": "object",
+          "required": ["max_age"],
+          "properties": {"max_age": {"$ref": "#/$defs/non_empty_string"}},
+          "additionalProperties": false
+        },
+        "provenance": {
+          "type": "object",
+          "properties": {
+            "authority": {"$ref": "#/$defs/non_empty_string"},
+            "capability": {"$ref": "#/$defs/semantic_id"}
+          },
+          "minProperties": 1,
+          "additionalProperties": false,
+          "description": "仅在领域要求 assertion 必须由特定权威或能力形成时锁定来源；普通结果依赖不得借此耦合具体生产者。"
+        }
+      },
+      "additionalProperties": false
+    },
+    "effect_assertion_pattern": {
+      "allOf": [
+        {"$ref": "#/$defs/assertion_pattern"},
+        {"required": ["truth_value"]}
+      ],
+      "description": "产生 effect 必须指定确定 truth_value；查询 pattern 可以省略并规范化为 asserted，但 effect 不允许依赖默认值。"
+    },
+    "expression": {
+      "oneOf": [
+        {"$ref": "#/$defs/assertion_pattern"},
+        {
+          "type": "object",
+          "required": ["all"],
+          "properties": {
+            "all": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/expression"}}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["any"],
+          "properties": {
+            "any": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/expression"}}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["not"],
+          "properties": {"not": {"$ref": "#/$defs/expression"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["compare"],
+          "properties": {
+            "compare": {
+              "type": "object",
+              "required": ["left", "operator", "right"],
+              "properties": {
+                "left": {"$ref": "#/$defs/value_operand"},
+                "operator": {"enum": ["eq", "ne", "lt", "lte", "gt", "gte", "contains", "within"]},
+                "right": {"$ref": "#/$defs/value_operand"}
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false,
+          "description": "一次性阈值比较直接留在表达式中，避免为每个数值比较制造低价值 predicate。"
+        }
+      ]
+    },
+    "predicate": {
+      "type": "object",
+      "required": ["id", "name", "definition", "modeling_basis", "subject_type", "parameters", "truth_semantics", "authority"],
+      "properties": {
+        "id": {"$ref": "#/$defs/semantic_id"},
+        "name": {"$ref": "#/$defs/non_empty_string"},
+        "definition": {"$ref": "#/$defs/non_empty_string"},
+        "modeling_basis": {"$ref": "#/$defs/modeling_basis"},
+        "subject_type": {
+          "$ref": "#/$defs/semantic_id",
+          "x-target-kinds": ["entity", "value_object", "occurrence", "relation"],
+          "description": "谓词唯一作用对象的类型。它只提供类型约束，不决定谓词归属；谓词归属由实际包含它的最小 Domain 决定。"
+        },
+        "parameters": {"type": "array", "items": {"$ref": "#/$defs/parameter"}, "x-unique-by": "name"},
+        "truth_semantics": {
+          "type": "object",
+          "required": ["world_assumption", "asserted_when", "denied_when", "unknown_when", "not_asserted_is_false"],
+          "properties": {
+            "world_assumption": {"const": "open"},
+            "asserted_when": {"$ref": "#/$defs/non_empty_string"},
+            "denied_when": {"$ref": "#/$defs/non_empty_string"},
+            "unknown_when": {"$ref": "#/$defs/non_empty_string"},
+            "not_asserted_is_false": {"const": false}
+          },
+          "additionalProperties": false
+        },
+        "authority": {"$ref": "#/$defs/non_empty_string"}
+      },
+      "additionalProperties": false
+    },
+    "rule_base": {
+      "type": "object",
+      "required": ["id", "kind", "name", "definition"],
+      "properties": {
+        "id": {"$ref": "#/$defs/semantic_id"},
+        "kind": {"enum": ["invariant", "decision", "derivation"]},
+        "name": {"$ref": "#/$defs/non_empty_string"},
+        "definition": {"$ref": "#/$defs/non_empty_string"}
+      }
+    },
+    "invariant_rule": {
+      "allOf": [
+        {"$ref": "#/$defs/rule_base"},
+        {
+          "type": "object",
+          "required": ["kind", "condition", "violation"],
+          "properties": {
+            "kind": {"const": "invariant"},
+            "condition": {"$ref": "#/$defs/expression"},
+            "violation": {
+              "type": "object",
+              "required": ["outcome", "meaning", "severity", "handling", "evidence_requirements", "recovery_condition"],
+              "properties": {
+                "outcome": {"$ref": "#/$defs/local_id"},
+                "meaning": {"$ref": "#/$defs/non_empty_string"},
+                "severity": {
+                  "enum": ["warning", "error", "critical"],
+                  "description": "违规对领域责任和外部承诺的影响等级，不表示日志级别。"
+                },
+                "handling": {
+                  "type": "object",
+                  "required": ["disposition", "responsibility"],
+                  "properties": {
+                    "disposition": {"enum": ["reject", "block", "quarantine", "compensate", "escalate", "record_and_continue"]},
+                    "responsibility": {"$ref": "#/$defs/non_empty_string"},
+                    "effects": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/effect_template"}}
+                  },
+                  "additionalProperties": false,
+                  "description": "违规成立后必须采取的结构化领域处置、责任归属和可选 effect；不描述异常类或代码分支。"
+                },
+                "evidence_requirements": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {"$ref": "#/$defs/evidence_requirement"},
+                  "x-unique-by": "id",
+                  "description": "证明违规已发生并足以执行处置的证据要求。"
+                },
+                "recovery_condition": {
+                  "$ref": "#/$defs/expression",
+                  "description": "允许解除处置或恢复责任推进的可验证领域条件。"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "decision_case": {
+      "type": "object",
+      "required": ["id", "when", "select", "reason"],
+      "properties": {
+        "id": {"$ref": "#/$defs/local_id"},
+        "when": {"$ref": "#/$defs/expression"},
+        "select": {"$ref": "#/$defs/local_id"},
+        "reason": {"$ref": "#/$defs/non_empty_string"}
+      },
+      "additionalProperties": false
+    },
+    "decision_rule": {
+      "allOf": [
+        {"$ref": "#/$defs/rule_base"},
+        {
+          "type": "object",
+          "required": ["kind", "authority", "candidates", "cases", "default"],
+          "properties": {
+            "kind": {"const": "decision"},
+            "authority": {"$ref": "#/$defs/non_empty_string"},
+            "candidates": {"$ref": "#/$defs/string_list"},
+            "cases": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/decision_case"}, "x-unique-by": "id"},
+            "default": {
+              "type": "object",
+              "required": ["select", "reason"],
+              "properties": {
+                "select": {"$ref": "#/$defs/local_id"},
+                "reason": {"$ref": "#/$defs/local_id"}
+              },
+              "additionalProperties": false
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "derivation_rule": {
+      "allOf": [
+        {"$ref": "#/$defs/rule_base"},
+        {
+          "type": "object",
+          "required": ["kind", "when", "derive"],
+          "properties": {
+            "kind": {"const": "derivation"},
+            "when": {"$ref": "#/$defs/expression"},
+            "derive": {"$ref": "#/$defs/assertion_pattern"}
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "rule": {
+      "oneOf": [
+        {"$ref": "#/$defs/invariant_rule"},
+        {"$ref": "#/$defs/decision_rule"},
+        {"$ref": "#/$defs/derivation_rule"}
+      ],
+      "description": "Rule 使用统一逻辑结构，但必须嵌入能够完整定义违规或决定语义的 entity、relation、aggregate、family、capability 或 strategy；不维护全局 applies_to 反向清单。"
+    },
+    "transition": {
+      "type": "object",
+      "required": ["id", "from", "trigger", "to"],
+      "properties": {
+        "id": {"$ref": "#/$defs/semantic_id"},
+        "from": {"$ref": "#/$defs/local_id"},
+        "trigger": {
+          "type": "object",
+          "required": ["occurrence"],
+          "properties": {
+            "occurrence": {"$ref": "#/$defs/semantic_id", "x-target-kinds": ["occurrence"]},
+            "guard": {"$ref": "#/$defs/expression"}
+          },
+          "additionalProperties": false
+        },
+        "to": {"$ref": "#/$defs/local_id"}
+      },
+      "additionalProperties": false
+    },
+    "lifecycle": {
+      "type": "object",
+      "required": ["established_by", "regions"],
+      "properties": {
+        "established_by": {
+          "$ref": "#/$defs/semantic_id",
+          "x-target-kinds": ["occurrence"],
+          "description": "使该 entity 或 relation 首次具有领域身份和 initial_state 的 occurrence；不得使用创建函数、数据库 insert 或自由字符串。"
+        },
+        "regions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/lifecycle_region"},
+          "x-unique-by": "name",
+          "description": "彼此正交、可独立演进的命名状态区域；每个区域只投影一个受控属性。"
+        }
+      },
+      "additionalProperties": false
+    },
+    "lifecycle_region": {
+      "type": "object",
+      "required": ["name", "projection_property", "initial_state", "states", "transitions"],
+      "properties": {
+        "name": {"$ref": "#/$defs/local_id"},
+        "projection_property": {"$ref": "#/$defs/local_id"},
+        "initial_state": {"$ref": "#/$defs/local_id"},
+        "states": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"$ref": "#/$defs/local_id"}},
+        "transitions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/transition"}, "x-unique-by": "id"}
+      },
+      "additionalProperties": false,
+      "description": "Lifecycle 中一个独立状态维度；projection_property 必须引用所属元素的 controlled enum property。"
+    },
+    "participant": {
+      "type": "object",
+      "required": ["role", "target", "cardinality"],
+      "properties": {
+        "role": {"$ref": "#/$defs/local_id"},
+        "target": {"$ref": "#/$defs/semantic_id", "x-target-kinds": ["entity", "value_object", "relation", "aggregate", "role"]},
+        "cardinality": {"enum": ["exactly_one", "zero_or_one", "one_or_more", "zero_or_more"]}
+      },
+      "additionalProperties": false
+    },
+    "element_base": {
+      "type": "object",
+      "required": ["id", "kind", "name", "definition", "modeling_basis", "authority"],
+      "properties": {
+        "id": {"$ref": "#/$defs/semantic_id"},
+        "kind": {"enum": ["entity", "value_object", "occurrence", "relation", "aggregate"]},
+        "name": {"$ref": "#/$defs/non_empty_string"},
+        "definition": {"$ref": "#/$defs/non_empty_string"},
+        "modeling_basis": {"$ref": "#/$defs/modeling_basis"},
+        "authority": {"$ref": "#/$defs/non_empty_string"}
+      }
+    },
+    "entity_element": {
+      "allOf": [
+        {"$ref": "#/$defs/element_base"},
+        {
+          "type": "object",
+          "required": ["kind", "identity"],
+          "properties": {
+            "kind": {"const": "entity"},
+            "distinguishing_conditions": {"$ref": "#/$defs/string_list"},
+            "properties": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/property"}, "x-unique-by": "name"},
+            "identity": {"$ref": "#/$defs/identity"},
+            "lifecycle": {"$ref": "#/$defs/lifecycle"},
+            "individuals": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/individual"},
+              "x-unique-by": "id",
+              "description": "只承载规则、策略、契约或身份语义直接需要的少量命名个体；普通描述性个体信息和运行时实例不进入规格工件。"
+            },
+            "rules": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/rule"}}
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "properties": {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "name": {"const": "status"},
+                        "mutability": {"const": "controlled"}
+                      },
+                      "required": ["name", "mutability"]
+                    }
+                  }
+                },
+                "required": ["properties"]
+              },
+              "then": {
+                "required": ["lifecycle"],
+                "description": "受控 status 是 entity lifecycle 的投影，必须由有身份 occurrence 驱动 transitions，不能只声明枚举字段。"
+              }
+            }
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "value_object_element": {
+      "allOf": [
+        {"$ref": "#/$defs/element_base"},
+        {
+          "type": "object",
+          "required": ["kind", "properties"],
+          "properties": {
+            "kind": {"const": "value_object"},
+            "properties": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/property"}, "x-unique-by": "name"},
+            "rules": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/rule"}}
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "occurrence_element": {
+      "allOf": [
+        {"$ref": "#/$defs/element_base"},
+        {
+          "type": "object",
+          "required": ["kind", "participants", "properties", "identity", "time_semantics"],
+          "properties": {
+            "kind": {"const": "occurrence"},
+            "participants": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/participant"}, "x-unique-by": "role"},
+            "properties": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/property"}, "x-unique-by": "name"},
+            "identity": {"$ref": "#/$defs/identity"},
+            "time_semantics": {
+              "type": "object",
+              "required": ["occurred_at"],
+              "properties": {
+                "occurred_at": {"$ref": "#/$defs/local_id"},
+                "recorded_at": {"$ref": "#/$defs/local_id"},
+                "known_at": {"$ref": "#/$defs/local_id"}
+              },
+              "additionalProperties": false,
+              "description": "值必须引用本 occurrence 自身 cardinality=exactly_one、value_schema.kind=timestamp 的 property；occurred_at 是领域发生时间，recorded_at/known_at 仅在确有不同时间语义时声明。"
+            },
+            "rules": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/rule"}}
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "relation_element": {
+      "allOf": [
+        {"$ref": "#/$defs/element_base"},
+        {
+          "type": "object",
+          "required": ["kind", "relation_type", "direction", "participants"],
+          "properties": {
+            "kind": {"const": "relation"},
+            "relation_type": {"$ref": "#/$defs/local_id"},
+            "direction": {"enum": ["directed", "undirected"]},
+            "participants": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/participant"}, "x-unique-by": "role"},
+            "properties": {"type": "array", "items": {"$ref": "#/$defs/property"}, "x-unique-by": "name"},
+            "identity": {"$ref": "#/$defs/identity"},
+            "lifecycle": {"$ref": "#/$defs/lifecycle"},
+            "rules": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/rule"}}
+          },
+          "anyOf": [
+            {"required": ["properties"], "properties": {"properties": {"minItems": 1}}},
+            {"required": ["identity"]},
+            {"required": ["lifecycle"]},
+            {"required": ["rules"]}
+          ],
+          "dependentSchemas": {
+            "lifecycle": {"required": ["identity"]}
+          }
+        }
+      ],
+      "unevaluatedProperties": false,
+      "description": "只有关系自身具有属性、时间、身份、生命周期或独立规则时才建模；普通引用应保存在依赖方属性上。"
+    },
+    "aggregate_element": {
+      "allOf": [
+        {"$ref": "#/$defs/element_base"},
+        {
+          "type": "object",
+          "required": ["kind", "root", "members", "rules"],
+          "properties": {
+            "kind": {"const": "aggregate"},
+            "root": {"$ref": "#/$defs/semantic_id", "x-target-kinds": ["entity"]},
+            "members": {
+              "type": "array",
+              "minItems": 2,
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/semantic_id", "x-target-kinds": ["entity", "value_object", "occurrence", "relation"]}
+            },
+            "rules": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/rule"}},
+            "reference_boundary": {"$ref": "#/$defs/non_empty_string"}
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "element": {
+      "oneOf": [
+        {"$ref": "#/$defs/entity_element"},
+        {"$ref": "#/$defs/value_object_element"},
+        {"$ref": "#/$defs/occurrence_element"},
+        {"$ref": "#/$defs/relation_element"},
+        {"$ref": "#/$defs/aggregate_element"}
+      ]
+    },
+    "ontology": {
+      "type": "object",
+      "properties": {
+        "elements": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/element"}, "x-unique-by": "id"},
+        "predicates": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/predicate"}, "x-unique-by": "id"}
+      },
+      "minProperties": 1,
+      "additionalProperties": false
+    },
+    "role": {
+      "type": "object",
+      "required": ["id", "name", "responsibilities"],
+      "properties": {
+        "id": {"$ref": "#/$defs/semantic_id"},
+        "name": {"$ref": "#/$defs/non_empty_string"},
+        "responsibilities": {"$ref": "#/$defs/string_list"}
+      },
+      "additionalProperties": false
+    },
+    "behavioral_requirements": {
+      "type": "object",
+      "required": ["required_occurrences"],
+      "properties": {
+        "required_occurrences": {
+          "$ref": "#/$defs/semantic_ids",
+          "x-target-kinds": ["occurrence"],
+          "description": "能力结果成立所必须可观察的领域 occurrence 类型；不把普通过程步骤伪造为 occurrence。"
+        },
+        "ordering": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["before", "after"],
+            "properties": {
+              "before": {"$ref": "#/$defs/semantic_id", "x-target-kinds": ["occurrence"]},
+              "after": {"$ref": "#/$defs/semantic_id", "x-target-kinds": ["occurrence"]}
+            },
+            "additionalProperties": false
+          }
+        },
+        "conditional_occurrences": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["occurrence", "when"],
+            "properties": {
+              "occurrence": {
+                "$ref": "#/$defs/semantic_id",
+                "x-target-kinds": ["occurrence"],
+                "description": "只在 when 成立的能力结果中必须可观察的 occurrence。"
+              },
+              "when": {
+                "$ref": "#/$defs/expression",
+                "description": "以 outcome 建立的领域 assertion 表达条件；不得使用进程退出码或实现异常类型代替。"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "capability_input": {
+      "$ref": "#/$defs/typed_port",
+      "description": "Capability 接受的 typed input；保留 name、required 与 meaning 语义，并用 value_schema 表达类型。"
+    },
+    "authorization": {
+      "type": "object",
+      "required": ["requester_roles", "executor_roles"],
+      "properties": {
+        "requester_roles": {"$ref": "#/$defs/semantic_ids", "x-target-kinds": ["role"]},
+        "executor_roles": {"$ref": "#/$defs/semantic_ids", "x-target-kinds": ["role"]},
+        "cancellation_roles": {"$ref": "#/$defs/semantic_ids", "x-target-kinds": ["role"]}
+      },
+      "description": "谁可请求、执行或取消；accountable owner 只由 capability.semantic_signature.accountable_role 权威声明，禁止在此双写。",
+      "additionalProperties": false
+    },
+    "effect_template": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["assert"],
+          "properties": {"assert": {"$ref": "#/$defs/effect_assertion_pattern"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["emit_occurrence"],
+          "properties": {
+            "emit_occurrence": {
+              "type": "object",
+              "required": ["type", "participants"],
+              "properties": {
+                "type": {"$ref": "#/$defs/semantic_id"},
+                "participants": {"$ref": "#/$defs/bindings"},
+                "property_bindings": {
+                  "$ref": "#/$defs/bindings",
+                  "description": "为 occurrence 的 identity 与 timestamp 等 properties 绑定值；语义校验器必须拒绝缺少必填 property 或引用未声明 property。"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["establish_entity"],
+          "properties": {
+            "establish_entity": {
+              "type": "object",
+              "required": ["type", "identity_bindings"],
+              "properties": {
+                "type": {"$ref": "#/$defs/semantic_id"},
+                "identity_bindings": {"$ref": "#/$defs/bindings"}
+              },
+              "additionalProperties": false,
+              "description": "建立 entity 身份时，其每个 lifecycle region 自动进入各自声明的 initial_state；effect 不得重复或覆盖初始状态。"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["transition_entity"],
+          "properties": {
+            "transition_entity": {
+              "type": "object",
+              "required": ["entity", "region", "transition"],
+              "properties": {
+                "entity": {"$ref": "#/$defs/value_operand"},
+                "region": {"$ref": "#/$defs/local_id"},
+                "transition": {"$ref": "#/$defs/semantic_id", "x-target-kinds": ["transition"]}
+              },
+              "additionalProperties": false,
+              "description": "以有来源的实体身份触发指定 lifecycle region 中的命名 transition；不得直接写入 status 投影。"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "effects": {
+      "type": "object",
+      "required": ["guaranteed"],
+      "properties": {
+        "guaranteed": {"$ref": "#/$defs/expression"},
+        "permitted": {"$ref": "#/$defs/expression"},
+        "forbidden": {"$ref": "#/$defs/expression"}
+      },
+      "additionalProperties": false
+    },
+    "outcome": {
+      "type": "object",
+      "required": ["id", "meaning", "responsibility_status", "establishes", "evidence"],
+      "properties": {
+        "id": {"$ref": "#/$defs/local_id"},
+        "meaning": {"$ref": "#/$defs/non_empty_string"},
+        "responsibility_status": {
+          "enum": ["completed", "failed", "blocked", "partially_completed", "unknown", "cancelled"],
+          "description": "本次 Capability 责任的闭合类别；它使失败、阻塞、部分完成、unknown 与取消结果的剩余责任能够被自动校验。"
+        },
+        "condition": {"$ref": "#/$defs/expression"},
+        "establishes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/effect_template"}},
+        "support_requirements": {
+          "$ref": "#/$defs/semantic_ids",
+          "x-target-kinds": ["entity", "value_object", "occurrence", "relation", "aggregate"],
+          "description": "列出必须作为结果 assertion 支持物的普通 ontology element 类型；支持关系只从结论指向支持物。"
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/evidence_requirement"},
+          "x-unique-by": "id",
+          "description": "区分该 outcome 并验证其责任已经按声明闭合所需的证据。"
+        },
+        "remaining_responsibility": {
+          "$ref": "#/$defs/non_empty_string",
+          "description": "失败、阻塞、部分完成、取消或 unknown 后仍由谁承担什么责任，以及恢复或再次请求的前提。"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"responsibility_status": {"not": {"const": "completed"}}},
+            "required": ["responsibility_status"]
+          },
+          "then": {"required": ["remaining_responsibility"]}
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "evidence_requirement": {
+      "type": "object",
+      "required": ["id", "meaning", "condition"],
+      "properties": {
+        "id": {"$ref": "#/$defs/local_id"},
+        "meaning": {"$ref": "#/$defs/non_empty_string"},
+        "condition": {"$ref": "#/$defs/expression"}
+      },
+      "additionalProperties": false,
+      "description": "证明 outcome、disposition、verification 或违规处置成立的可查询领域条件。"
+    },
+    "verification_requirement": {
+      "type": "object",
+      "required": ["id", "meaning", "evidence"],
+      "properties": {
+        "id": {"$ref": "#/$defs/local_id"},
+        "meaning": {"$ref": "#/$defs/non_empty_string"},
+        "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidence_requirement"}, "x-unique-by": "id"}
+      },
+      "additionalProperties": false,
+      "description": "说明某项领域责任如何被重复验证；只引用 evidence，不规定测试框架或监控产品。"
+    },
+    "strategy": {
+      "type": "object",
+      "required": ["id", "name", "version", "definition", "serves", "applicable_when", "authority", "candidates", "otherwise", "preserves", "verification"],
+      "properties": {
+        "id": {"$ref": "#/$defs/semantic_id"},
+        "name": {"$ref": "#/$defs/non_empty_string"},
+        "version": {"$ref": "#/$defs/version"},
+        "definition": {"$ref": "#/$defs/non_empty_string"},
+        "serves": {
+          "$ref": "#/$defs/string_list",
+          "description": "指出本策略服务所属 capability/family 的 goal、effect 或 outcome 本地路径；包含关系给出意图 owner，禁止另写 governs 反向映射。"
+        },
+        "applicable_when": {
+          "$ref": "#/$defs/expression",
+          "description": "业务事实与技术事实使用同一 assertion expression；具体技术限制必须引用命名个体 assertion，不能复制成策略常量。"
+        },
+        "authority": {"$ref": "#/$defs/non_empty_string"},
+        "candidates": {
+          "$ref": "#/$defs/string_list",
+          "description": "Strategy 能够形成的封闭选择结果；每个 rule、otherwise 与 agentic guidance 的结果都必须属于该集合。"
+        },
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/decision_case"},
+          "x-unique-by": "id",
+          "description": "基于固定可判定条件形成选择的无优先级规则；条件必须互斥，不能用 priority 掩盖冲突。"
+        },
+        "agentic_guidance": {
+          "type": "object",
+          "required": ["knowledge_requirements", "decision_constraints", "autonomy_scope", "must_select_one"],
+          "properties": {
+            "knowledge_requirements": {"$ref": "#/$defs/semantic_ids", "x-target-kinds": ["knowledge_requirement"]},
+            "decision_constraints": {"$ref": "#/$defs/string_list"},
+            "autonomy_scope": {"$ref": "#/$defs/string_list"},
+            "must_select_one": {"const": true}
+          },
+          "additionalProperties": false,
+          "description": "Agent 在引用的领域外 guidance 与自主边界内形成 candidates 中唯一选择的约束；不在工件中内嵌 guidance 正文。"
+        },
+        "otherwise": {
+          "type": "object",
+          "required": ["select", "reason"],
+          "properties": {
+            "select": {"$ref": "#/$defs/local_id"},
+            "reason": {"$ref": "#/$defs/non_empty_string"}
+          },
+          "additionalProperties": false,
+          "description": "没有 deterministic rule 匹配或 Agent 无法取得充分依据时仍需形成的显式选择。"
+        },
+        "preserves": {"$ref": "#/$defs/semantic_ids"},
+        "verification": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/verification_requirement"},
+          "x-unique-by": "id",
+          "description": "证明选择唯一、属于 candidates 且没有绕过 preserves 的验证要求。"
+        }
+      },
+      "oneOf": [
+        {"required": ["rules"], "not": {"required": ["agentic_guidance"]}},
+        {"required": ["agentic_guidance"], "not": {"required": ["rules"]}}
+      ],
+      "unevaluatedProperties": false
+    },
+    "capability_dependency": {
+      "type": "object",
+      "required": ["alias", "capability", "purpose", "required"],
+      "properties": {
+        "alias": {"$ref": "#/$defs/local_id"},
+        "capability": {"$ref": "#/$defs/semantic_id", "x-target-kinds": ["capability"]},
+        "purpose": {"$ref": "#/$defs/non_empty_string"},
+        "required": {"type": "boolean"}
+      },
+      "additionalProperties": false,
+      "description": "Capability 为完成自身责任而声明的能力依赖；process 只通过本地 alias 调用，避免把目标 ID 散落在执行流中。"
+    },
+    "facility_dependency": {
+      "type": "object",
+      "required": ["alias", "facility", "purpose", "required"],
+      "properties": {
+        "alias": {"$ref": "#/$defs/local_id"},
+        "facility": {"$ref": "#/$defs/semantic_id", "x-target-kinds": ["facility_requirement"]},
+        "purpose": {"$ref": "#/$defs/non_empty_string"},
+        "required": {"type": "boolean"}
+      },
+      "additionalProperties": false,
+      "description": "Capability 对领域级设施责任的依赖；facility 指向 Facility Requirement，而非某个系统、产品或部署。"
+    },
+    "capability_execution": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["mode", "autonomy_scope", "guidance_requirements", "prohibited_actions", "verification"],
+          "properties": {
+            "mode": {"const": "agentic"},
+            "autonomy_scope": {"$ref": "#/$defs/string_list"},
+            "guidance_requirements": {"$ref": "#/$defs/semantic_ids", "x-target-kinds": ["knowledge_requirement"]},
+            "prohibited_actions": {"$ref": "#/$defs/string_list"},
+            "verification": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/verification_requirement"}, "x-unique-by": "id"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["mode", "behavior_contract", "policy_inputs", "prohibited_assumptions", "verification"],
+          "properties": {
+            "mode": {"const": "deterministic_code"},
+            "behavior_contract": {"$ref": "#/$defs/string_list"},
+            "policy_inputs": {"type": "array", "items": {"$ref": "#/$defs/typed_port"}, "x-unique-by": "name"},
+            "prohibited_assumptions": {"$ref": "#/$defs/string_list"},
+            "verification": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/verification_requirement"}, "x-unique-by": "id"}
+          },
+          "additionalProperties": false
+        }
+      ],
+      "description": "Capability 的 Agent/代码执行边界。Agent 受自主范围和外部 guidance 约束；确定性代码只执行行为合同与显式策略输入；两者都必须可验证。"
+    },
+    "facility_intent": {
+      "type": "object",
+      "required": ["purpose", "responsibility", "scope"],
+      "properties": {
+        "purpose": {"$ref": "#/$defs/non_empty_string"},
+        "responsibility": {"$ref": "#/$defs/non_empty_string"},
+        "scope": {"$ref": "#/$defs/non_empty_string"}
+      },
+      "additionalProperties": false,
+      "description": "设施需求在领域中的目的、必须形成的责任和单次责任边界，不描述实现组件。"
+    },
+    "facility_interface": {
+      "type": "object",
+      "required": ["inputs", "outputs"],
+      "properties": {
+        "inputs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/typed_port"}, "x-unique-by": "name"},
+        "outputs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/typed_port"}, "x-unique-by": "name"}
+      },
+      "additionalProperties": false,
+      "description": "Facility Requirement 对调用方可见的类型化领域接口；不包含协议、SDK、地址或部署信息。"
+    },
+    "facility_disposition": {
+      "type": "object",
+      "required": ["id", "meaning", "responsibility_status", "evidence"],
+      "properties": {
+        "id": {"$ref": "#/$defs/local_id"},
+        "meaning": {"$ref": "#/$defs/non_empty_string"},
+        "responsibility_status": {
+          "enum": ["completed", "failed", "blocked", "partially_completed", "unknown", "cancelled"],
+          "description": "本次设施责任的闭合类别；非 completed disposition 必须保全 remaining_responsibility。"
+        },
+        "condition": {"$ref": "#/$defs/expression"},
+        "outputs": {"$ref": "#/$defs/value_bindings"},
+        "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidence_requirement"}, "x-unique-by": "id"},
+        "remaining_responsibility": {"$ref": "#/$defs/non_empty_string"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"responsibility_status": {"not": {"const": "completed"}}},
+            "required": ["responsibility_status"]
+          },
+          "then": {"required": ["remaining_responsibility"]}
+        }
+      ],
+      "unevaluatedProperties": false,
+      "description": "设施责任的一种可验证处置结果；未完成结果必须用 remaining_responsibility 保全后续责任。"
+    },
+    "facility_reaction": {
+      "type": "object",
+      "required": ["on_disposition", "required_response"],
+      "properties": {
+        "on_disposition": {"$ref": "#/$defs/local_id"},
+        "required_response": {"$ref": "#/$defs/non_empty_string"},
+        "responsibility_effects": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/effect_template"}}
+      },
+      "additionalProperties": false,
+      "description": "调用方收到某个 disposition 后必须采取的领域反应；不指定异常、回调或消息中间件。"
+    },
+    "facility_requirement": {
+      "type": "object",
+      "required": ["id", "name", "version", "requirement_intent", "required_execution_mode", "interface", "dispositions", "reactions", "verification", "implementation_exclusions"],
+      "properties": {
+        "id": {"$ref": "#/$defs/semantic_id"},
+        "name": {"$ref": "#/$defs/non_empty_string"},
+        "version": {"$ref": "#/$defs/version"},
+        "requirement_intent": {"$ref": "#/$defs/facility_intent"},
+        "required_execution_mode": {"enum": ["agentic", "deterministic_code"]},
+        "interface": {"$ref": "#/$defs/facility_interface"},
+        "dispositions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/facility_disposition"}, "x-unique-by": "id"},
+        "reactions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/facility_reaction"}, "x-unique-by": "on_disposition"},
+        "verification": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/verification_requirement"}, "x-unique-by": "id"},
+        "implementation_exclusions": {"$ref": "#/$defs/string_list"}
+      },
+      "additionalProperties": false,
+      "description": "领域对通用设施提出的责任合同，只表达 intent、typed interface、dispositions、reactions、verification 与实现排除边界。"
+    },
+    "process_step": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["id", "type", "action", "effects"],
+          "properties": {
+            "id": {"$ref": "#/$defs/local_id"},
+            "type": {"const": "action"},
+            "action": {"$ref": "#/$defs/local_id"},
+            "effects": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/effect_template"}},
+            "condition": {"$ref": "#/$defs/expression"},
+            "after": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/local_id"}}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "type", "correlation", "timeout"],
+          "properties": {
+            "id": {"$ref": "#/$defs/local_id"},
+            "type": {"const": "wait_for_occurrence"},
+            "occurrence": {"$ref": "#/$defs/semantic_id", "x-target-kinds": ["occurrence"]},
+            "occurrences": {
+              "type": "array",
+              "minItems": 2,
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/semantic_id", "x-target-kinds": ["occurrence"]},
+              "description": "等待任一列出的领域 occurrence；用于 delivery-or-deadline、delivery-or-revision 等开放世界下不能靠缺失事实表达的竞争事件。"
+            },
+            "result_binding": {
+              "$ref": "#/$defs/process_variable",
+              "description": "多个 occurrence 中实际先匹配者的 semantic ID，供后续 condition 作互斥分支。"
+            },
+            "correlation": {
+              "$ref": "#/$defs/value_operand",
+              "description": "从当前责任实例中取得的匹配键；只允许接收具有同一业务身份的 occurrence。"
+            },
+            "timeout": {
+              "type": "string",
+              "format": "duration",
+              "description": "等待的 ISO 8601 duration 上限；超时必须由显式失败或取消路径闭合，不能被解释为 occurrence 未发生。"
+            },
+            "condition": {"$ref": "#/$defs/expression"},
+            "after": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/local_id"}}
+          },
+          "oneOf": [
+            {"required": ["occurrence"], "not": {"anyOf": [{"required": ["occurrences"]}, {"required": ["result_binding"]}]}},
+            {"required": ["occurrences", "result_binding"], "not": {"required": ["occurrence"]}}
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "type", "dependency", "input", "result_binding"],
+          "properties": {
+            "id": {"$ref": "#/$defs/local_id"},
+            "type": {"const": "capability_call"},
+            "dependency": {"$ref": "#/$defs/local_id"},
+            "input": {"$ref": "#/$defs/value_bindings"},
+            "result_binding": {"$ref": "#/$defs/process_variable"},
+            "condition": {"$ref": "#/$defs/expression"},
+            "after": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/local_id"}}
+          },
+          "additionalProperties": false,
+          "description": "通过所属 Capability 已声明的 dependency alias 调用另一个能力，并把 typed result 绑定为过程变量。"
+        },
+        {
+          "type": "object",
+          "required": ["id", "type", "facility", "input", "result_binding"],
+          "properties": {
+            "id": {"$ref": "#/$defs/local_id"},
+            "type": {"const": "facility_call"},
+            "facility": {"$ref": "#/$defs/local_id"},
+            "input": {"$ref": "#/$defs/value_bindings"},
+            "result_binding": {"$ref": "#/$defs/process_variable"},
+            "condition": {"$ref": "#/$defs/expression"},
+            "after": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/local_id"}}
+          },
+          "additionalProperties": false,
+          "description": "通过所属 Capability 已声明的 facility alias 使用设施责任，并把 disposition 及 typed outputs 绑定为过程变量。"
+        },
+        {
+          "type": "object",
+          "required": ["id", "type", "wait_for", "mode"],
+          "properties": {
+            "id": {"$ref": "#/$defs/local_id"},
+            "type": {"const": "join"},
+            "wait_for": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"$ref": "#/$defs/local_id"}},
+            "mode": {"enum": ["all", "any"]},
+            "result_binding": {"$ref": "#/$defs/process_variable"},
+            "condition": {"$ref": "#/$defs/expression"},
+            "after": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/local_id"}}
+          },
+          "additionalProperties": false,
+          "description": "显式汇合多个已声明步骤的完成状态；mode=any 时 result_binding 标识实际完成的前驱，不能借 join 隐藏竞态语义。"
+        },
+        {
+          "type": "object",
+          "required": ["id", "type", "state", "effects"],
+          "properties": {
+            "id": {"$ref": "#/$defs/local_id"},
+            "type": {"const": "checkpoint"},
+            "state": {"$ref": "#/$defs/value_bindings"},
+            "effects": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/effect_template"}},
+            "condition": {"$ref": "#/$defs/expression"},
+            "after": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/local_id"}}
+          },
+          "additionalProperties": false,
+          "description": "在可恢复边界保存有来源的责任状态并形成领域 effect；不是数据库快照或框架 checkpoint 配置。"
+        },
+        {
+          "type": "object",
+          "required": ["id", "type", "strategy"],
+          "properties": {
+            "id": {"$ref": "#/$defs/local_id"},
+            "type": {"const": "apply_strategy"},
+            "strategy": {"$ref": "#/$defs/semantic_id", "x-target-kinds": ["strategy"]},
+            "result_binding": {
+              "$ref": "#/$defs/process_variable",
+              "description": "绑定 Strategy 通过 deterministic rules 或 agentic guidance 形成的 candidate，供后续显式分支。"
+            },
+            "condition": {"$ref": "#/$defs/expression"},
+            "after": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/local_id"}}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "type", "outcome"],
+          "properties": {
+            "id": {"$ref": "#/$defs/local_id"},
+            "type": {"const": "resolve_outcome"},
+            "outcome": {"$ref": "#/$defs/local_id"},
+            "condition": {"$ref": "#/$defs/expression"},
+            "after": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/local_id"}}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "failure_route": {
+      "type": "object",
+      "required": ["when", "resolves_outcome", "responsibility_effects"],
+      "properties": {
+        "when": {"$ref": "#/$defs/expression"},
+        "resolves_outcome": {
+          "$ref": "#/$defs/local_id",
+          "description": "失败路径闭合到所属 capability 的一个 outcome；它可以转移持续责任，但不能让本次 capability 无结果消失。"
+        },
+        "responsibility_effects": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/effect_template"}},
+        "resume_from": {
+          "$ref": "#/$defs/local_id",
+          "description": "修复失败条件后重新进入的 checkpoint step；省略表示该失败结果不可在原责任实例内恢复。"
+        }
+      },
+      "additionalProperties": false
+    },
+    "cancellation_route": {
+      "type": "object",
+      "required": ["when", "resolves_outcome", "responsibility_effects"],
+      "properties": {
+        "when": {"$ref": "#/$defs/expression"},
+        "resolves_outcome": {
+          "$ref": "#/$defs/local_id",
+          "description": "取消路径闭合到所属 capability 的一个 outcome；取消不能让已接受的责任无结果消失。"
+        },
+        "responsibility_effects": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/effect_template"}},
+        "resume_from": {
+          "$ref": "#/$defs/local_id",
+          "description": "允许恢复已取消责任时重新进入的 checkpoint step。"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Process 的显式取消闭合路线；必须形成 outcome、保全剩余责任，并可选择声明恢复点。"
+    },
+    "process_execution": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["mode"],
+          "properties": {
+            "mode": {"const": "single_pass"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["mode", "repeat_from", "repeat_through", "continue_while"],
+          "properties": {
+            "mode": {"const": "repeat_segment"},
+            "repeat_from": {
+              "$ref": "#/$defs/local_id",
+              "description": "每个领域责任周期重新进入的首个 process step。"
+            },
+            "repeat_through": {
+              "$ref": "#/$defs/local_id",
+              "description": "每个领域责任周期完成的最后 process step；closure 与 outcome resolution 不得包含在重复区间。"
+            },
+            "continue_while": {
+              "$ref": "#/$defs/expression",
+              "description": "继续承担下一周期的领域条件；开放世界下 unknown 不得自动当作 false。"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "process": {
+      "type": "object",
+      "required": ["id", "name", "version", "definition", "steps"],
+      "properties": {
+        "id": {"$ref": "#/$defs/semantic_id"},
+        "name": {"$ref": "#/$defs/non_empty_string"},
+        "version": {"$ref": "#/$defs/version"},
+        "definition": {
+          "$ref": "#/$defs/non_empty_string",
+          "description": "说明领域责任怎样推进到所属 capability 的结果；process 不是网络 protocol，也不是类或作业拓扑。"
+        },
+        "steps": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/process_step"}, "x-unique-by": "id"},
+        "execution": {
+          "$ref": "#/$defs/process_execution",
+          "description": "领域过程的进入次数语义；用于连续、周期和分页责任，不表示线程、调度器或网络 protocol。省略时表示一次进入。"
+        },
+        "skip_semantics": {
+          "const": "condition_false_satisfies_after",
+          "description": "当带 condition 的步骤不适用时，该步骤标记为 skipped，其 after 依赖视为已满足；避免可选恢复或修订步骤把后续责任永久阻塞。"
+        },
+        "failure_routes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/failure_route"}},
+        "cancellation_routes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/cancellation_route"},
+          "description": "取消请求或取消事实发生后闭合本次 Capability outcome、转移未完成责任并声明可恢复边界的路线。"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "steps": {
+                "contains": {
+                  "type": "object",
+                  "required": ["condition"]
+                }
+              }
+            },
+            "required": ["steps"]
+          },
+          "then": {"required": ["skip_semantics"]}
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "contract_outcome": {
+      "type": "object",
+      "required": ["id", "meaning", "observable_when"],
+      "properties": {
+        "id": {"$ref": "#/$defs/local_id"},
+        "meaning": {"$ref": "#/$defs/non_empty_string"},
+        "observable_when": {
+          "$ref": "#/$defs/expression",
+          "description": "把公开 outcome ID 单向映射到可由 contract audience 查询的有权 assertion；禁止依赖内部异常、策略 candidate 或自由文本状态。"
+        }
+      },
+      "additionalProperties": false
+    },
+    "external_contract": {
+      "type": "object",
+      "required": ["id", "name", "version", "accepted_intents", "audience_roles", "observable_results", "visible_outcomes", "projection"],
+      "properties": {
+        "id": {"$ref": "#/$defs/semantic_id"},
+        "name": {"$ref": "#/$defs/non_empty_string"},
+        "version": {"$ref": "#/$defs/version"},
+        "accepted_intents": {
+          "$ref": "#/$defs/string_list",
+          "description": "外部请求者可通过本合同表达且由所属 capability/family 接受的领域意图；不是 API method 或 endpoint 清单。"
+        },
+        "audience_roles": {
+          "$ref": "#/$defs/semantic_ids",
+          "x-target-kinds": ["role"],
+          "description": "能够依赖本合同观察结果和承诺的外部领域角色；不等同于认证主体或系统账户。"
+        },
+        "observable_results": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/assertion_pattern"},
+          "description": "合同 audience 可查询的共同 resolved/result assertion surface；必须有权且不暴露内部过程变量。"
+        },
+        "visible_outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/contract_outcome"},
+          "x-unique-by": "id",
+          "description": "对外稳定 outcome ID 到可观察领域事实的投影；继续保留 v5 的 outcome 可观察性与一一映射语义。"
+        },
+        "projection": {
+          "type": "object",
+          "required": ["expose", "hide"],
+          "properties": {
+            "expose": {"$ref": "#/$defs/semantic_ids", "x-target-kinds": ["entity", "value_object", "occurrence", "relation", "aggregate"]},
+            "hide": {"$ref": "#/$defs/string_list"}
+          },
+          "additionalProperties": false,
+          "description": "声明合同允许暴露的领域对象与必须隐藏的内部语义；它是外部视图边界，不复制内部模型。"
+        },
+        "service_commitments": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "measure", "target_from"],
+            "properties": {
+              "name": {"$ref": "#/$defs/non_empty_string"},
+              "measure": {"$ref": "#/$defs/non_empty_string"},
+              "target_from": {"$ref": "#/$defs/non_empty_string"}
+            },
+            "additionalProperties": false
+          },
+          "description": "从明确领域时间点起衡量、可由外部 audience 验证的服务承诺；不内嵌基础设施 SLO 配置。"
+        }
+      },
+      "additionalProperties": false
+    },
+    "family_specialization_axis": {
+      "type": "object",
+      "required": ["name", "predicate", "subject", "parameter", "values", "selection_scope", "cardinality"],
+      "properties": {
+        "name": {"$ref": "#/$defs/local_id"},
+        "predicate": {
+          "$ref": "#/$defs/semantic_id",
+          "x-target-kinds": ["predicate"],
+          "description": "其指定 parameter 的唯一 asserted binding 决定适用 family variant。"
+        },
+        "subject": {"$ref": "#/$defs/process_variable"},
+        "parameter": {"$ref": "#/$defs/local_id"},
+        "values": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/local_id"}
+        },
+        "selection_scope": {
+          "$ref": "#/$defs/process_variable",
+          "description": "必须只选择一个 member 并只形成一个 family disposition 的责任实例。"
+        },
+        "cardinality": {"const": "exactly_one"}
+      },
+      "additionalProperties": false
+    },
+    "capability_family": {
+      "type": "object",
+      "required": ["id", "name", "version", "definition", "common_intent", "common_goal", "specialization_axis", "common_behavioral_requirements", "specialization_requirements"],
+      "properties": {
+        "id": {"$ref": "#/$defs/semantic_id"},
+        "name": {"$ref": "#/$defs/non_empty_string"},
+        "version": {"$ref": "#/$defs/version"},
+        "definition": {
+          "$ref": "#/$defs/non_empty_string",
+          "description": "说明哪些结构差异显著的能力为何仍属于同一责任变体族；family 不是不可执行 capability 的别名。"
+        },
+        "common_intent": {"$ref": "#/$defs/local_id"},
+        "common_goal": {"$ref": "#/$defs/expression"},
+        "specialization_axis": {"$ref": "#/$defs/family_specialization_axis"},
+        "common_behavioral_requirements": {"$ref": "#/$defs/behavioral_requirements"},
+        "specialization_requirements": {"$ref": "#/$defs/string_list"},
+        "rules": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/rule"}},
+        "strategies": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/strategy"}},
+        "external_contracts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/external_contract"}}
+      },
+      "additionalProperties": false
+    },
+    "capability": {
+      "type": "object",
+      "required": ["id", "name", "version", "definition", "semantic_signature", "inputs", "outputs", "authorization", "execution", "effects", "outcomes"],
+      "properties": {
+        "id": {"$ref": "#/$defs/semantic_id"},
+        "name": {"$ref": "#/$defs/non_empty_string"},
+        "version": {"$ref": "#/$defs/version"},
+        "definition": {"$ref": "#/$defs/non_empty_string"},
+        "family": {
+          "$ref": "#/$defs/semantic_id",
+          "x-target-kinds": ["capability_family"],
+          "description": "成员单向引用 family；family 不保存 members。省略表示该能力不是某个已建模责任变体族的成员。"
+        },
+        "family_variant": {
+          "$ref": "#/$defs/local_id",
+          "description": "成员单向声明覆盖 family.specialization_axis.values 中的一个值；适用性由 family discriminator 派生，不与运行前置条件混写。"
+        },
+        "semantic_signature": {
+          "type": "object",
+          "required": ["intent", "scope", "accountable_role", "goal"],
+          "properties": {
+            "intent": {"$ref": "#/$defs/local_id"},
+            "scope": {"$ref": "#/$defs/non_empty_string"},
+            "accountable_role": {"$ref": "#/$defs/semantic_id", "x-target-kinds": ["role"]},
+            "goal": {"$ref": "#/$defs/expression"}
+          },
+          "additionalProperties": false
+        },
+        "inputs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/capability_input"}, "x-unique-by": "name"},
+        "outputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/typed_port"},
+          "x-unique-by": "name",
+          "description": "Capability 对调用方形成的 typed result surface；capability_call.result_binding 取得由这些端口组成的 record，后续消费必须保持类型相容。"
+        },
+        "dependencies": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/capability_dependency"},
+          "x-unique-by": "alias",
+          "description": "该 Capability 显式声明且可由 process 通过 alias 调用的其他能力责任。"
+        },
+        "facility_dependencies": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/facility_dependency"},
+          "x-unique-by": "alias",
+          "description": "该 Capability 显式声明且可由 process 通过 alias 使用的设施责任。"
+        },
+        "preconditions": {
+          "$ref": "#/$defs/expression",
+          "description": "声明能力开始所需事实，不等于必须调用产生该事实的某个 capability。"
+        },
+        "authorization": {"$ref": "#/$defs/authorization"},
+        "execution": {"$ref": "#/$defs/capability_execution"},
+        "behavioral_requirements": {"$ref": "#/$defs/behavioral_requirements"},
+        "rules": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/rule"}},
+        "preserves": {"$ref": "#/$defs/semantic_ids"},
+        "effects": {"$ref": "#/$defs/effects"},
+        "outcomes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/outcome"}, "x-unique-by": "id"},
+        "strategies": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/strategy"}},
+        "processes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/process"},
+          "x-unique-by": "id",
+          "description": "包含关系已经说明 process 服务当前 capability，故不再维护 capability.realized_by 或 process.realizes 双向字段。"
+        },
+        "external_contracts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/external_contract"}}
+      },
+      "allOf": [
+        {
+          "if": {"required": ["family"]},
+          "then": {"required": ["family_variant"]},
+          "else": {"not": {"required": ["family_variant"]}}
+        }
+      ],
+      "additionalProperties": false
+    },
+    "capability_model": {
+      "type": "object",
+      "properties": {
+        "roles": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/role"}, "x-unique-by": "id"},
+        "facility_requirements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/facility_requirement"},
+          "x-unique-by": "id",
+          "description": "当前 Capability Model 为兑现领域责任而要求的设施合同；不是现有系统资产目录。"
+        },
+        "capability_families": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/capability_family"}, "x-unique-by": "id"},
+        "capabilities": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/capability"}, "x-unique-by": "id"}
+      },
+      "minProperties": 1,
+      "additionalProperties": false
+    },
+    "domain": {
+      "type": "object",
+      "required": ["id", "domain_level", "name", "purpose", "scope"],
+      "properties": {
+        "id": {"$ref": "#/$defs/domain_id"},
+        "domain_level": {
+          "type": "string",
+          "pattern": "^lv[1-9][0-9]*$",
+          "description": "Domain 在语义树中的层级。非叶 Domain 仍可直接拥有无法下沉的 ontology 或 capability。"
+        },
+        "name": {"$ref": "#/$defs/non_empty_string"},
+        "purpose": {"$ref": "#/$defs/non_empty_string"},
+        "scope": {"$ref": "#/$defs/scope"},
+        "dependencies": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/dependency"}},
+        "knowledge_requirements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/knowledge_requirement"},
+          "x-unique-by": "id",
+          "description": "当前 Domain 在形成判断或执行 Agentic 责任前必须取得的领域外知识需求。"
+        },
+        "assertions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/assertion"},
+          "x-unique-by": "id",
+          "description": "当前 Domain 直接拥有的动态 Assertion registry；个体只通过 assertion_refs 引用这里的命题。"
+        },
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/rule"},
+          "x-unique-by": "id",
+          "description": "只承载最小完整 owner 确实是当前 Domain 的跨元素 rule；entity、relation、aggregate、family、capability 或 strategy 能完整定义时必须继续下沉。"
+        },
+        "ontology": {"$ref": "#/$defs/ontology"},
+        "capability_model": {"$ref": "#/$defs/capability_model"},
+        "domains": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/domain"},
+          "x-unique-by": "id",
+          "description": "只从父 Domain 单向包含直接子 Domain；子 Domain 不重复保存 parent。"
+        }
+      },
+      "anyOf": [
+        {"required": ["rules"]},
+        {"required": ["knowledge_requirements"]},
+        {"required": ["assertions"]},
+        {"required": ["ontology"]},
+        {"required": ["capability_model"]},
+        {"required": ["domains"]}
+      ],
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "required": ["$schema", "artifact_id", "artifact_kind", "schema_version", "artifact_version", "project", "domain"],
+  "properties": {
+    "$schema": {"const": "./data_acquisition.v6.schema.json"},
+    "artifact_id": {"$ref": "#/$defs/semantic_id"},
+    "artifact_kind": {"const": "hierarchical_domain_artifact"},
+    "schema_version": {"const": "6.0.0"},
+    "artifact_version": {"$ref": "#/$defs/artifact_version"},
+    "project": {"$ref": "#/$defs/domain_id"},
+    "imports": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/import"},
+      "x-unique-by": "artifact",
+      "description": "工件级带版本符号引用；仅在确有跨工件符号时声明，并为解析失败给出正式处置。"
+    },
+    "knowledge_bases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/knowledge_base_reference"},
+      "x-unique-by": "id",
+      "description": "领域外知识源的工件级引用 registry；Domain 通过 knowledge_requirements 按用途引用。"
+    },
+    "domain": {"$ref": "#/$defs/domain"}
+  },
+  "additionalProperties": false
+}

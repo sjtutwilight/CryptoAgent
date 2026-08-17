@@ -1,0 +1,1024 @@
+"$schema": ./data_acquisition.v6.schema.json
+artifact_id: data_acquisition.datainjector.domain_artifact
+artifact_kind: hierarchical_domain_artifact
+schema_version: 6.0.0
+artifact_version:
+  version: 1.0.0
+  status: draft
+  change_type: major
+  change_summary: 首次按新版 v6 提取 DataInjector 控制面与 Worker 的共同领域语义；目录和插件只作为实现证据，不作为领域层级。
+  effective_from: null
+  supersedes: null
+project: data_acquisition
+
+domain:
+  id: data_acquisition.datainjector
+  domain_level: lv1
+  name: 数据采集履约
+  purpose: 把采集意图闭合为不可变计划，受控地委派执行，并用覆盖、交付和完整性证据得出可追溯的任务结论。
+  scope:
+    includes:
+      - Control Plane 对采集任务的准入、计划、调度、派发、重试和最终结论
+      - Worker 对采集委派版本的应用、来源观察、语义投影、交付和运行证据
+      - 在线流连续性恢复与离线批量 Manifest 验收
+    excludes:
+      - HTTP、WebSocket、Kafka、Redis、数据库、文件和 Go channel 等实现选择
+      - 具体 provider 的 endpoint、认证材料、产品目录和 wire schema 正文
+      - 数据消费后的分析、交易、订单簿计算和长期数仓治理
+
+  ontology:
+    elements:
+      - id: data_acquisition.datainjector.acquisition_plan
+        kind: value_object
+        name: 完备采集计划
+        definition: 执行前已经确定采集对象、覆盖、触发、完成权威、失败处置、交付和完整性策略的不可变 FulfillmentPlan；执行代码不得补业务默认值。
+        modeling_basis: {kind: normative_responsibility, necessity: 没有完备计划，控制面与 Worker 会继续从配置缺省、插件名称和代码分支中临时作出业务决策。}
+        authority: 采集计划制定者
+        properties:
+          - {name: plan_revision, meaning: 标识全部计划语义的不可变版本，任务、命令、运行和回执均须携带。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 采集计划制定者}
+          - {name: assignment_id, meaning: 承担该类采集责任的稳定身份。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 采集计划制定者}
+          - {name: observation_demand, meaning: 所需业务观察、范围、时效与来源能力约束的闭合描述。, value_schema: {kind: schema_ref, ref: AcquisitionDemand.v1}, cardinality: exactly_one, mutability: immutable, authority: 采集请求者与计划制定者}
+          - {name: trigger_policy, meaning: 单次、周期、持续或命令触发及其时间语义，不含 timer 或消息协议。, value_schema: {kind: schema_ref, ref: TriggerPolicy.v1}, cardinality: exactly_one, mutability: immutable, authority: 采集计划制定者}
+          - {name: completion_policy, meaning: 何时以来源观察、入托、成功交付、覆盖闭合或 Manifest 验收结束责任。, value_schema: {kind: schema_ref, ref: CompletionPolicy.v1}, cardinality: exactly_one, mutability: immutable, authority: 采集计划制定者}
+          - {name: failure_policy, meaning: 分类、重试预算、退避、截止、部分完成和取消后的责任处置。, value_schema: {kind: schema_ref, ref: FailurePolicy.v1}, cardinality: exactly_one, mutability: immutable, authority: 采集计划制定者}
+          - {name: delivery_policy, meaning: 规范观察的路由、幂等范围、交付保证与批量物化证据要求。, value_schema: {kind: schema_ref, ref: DeliveryPolicy.v1}, cardinality: exactly_one, mutability: immutable, authority: 采集计划制定者}
+          - {name: integrity_policy, meaning: 流身份、覆盖、基线、finality、缓冲损失和恢复策略；未设置、禁用与数值零必须可区分。, value_schema: {kind: schema_ref, ref: IntegrityPolicy.v1}, cardinality: zero_or_one, mutability: immutable, authority: 采集计划制定者}
+
+      - id: data_acquisition.datainjector.acquisition_task
+        kind: entity
+        name: 采集任务
+        definition: 请求者与数据采集履约方之间的一项稳定责任；一次任务可经历多个有身份的执行尝试，但只能形成一个单调的最终结论。
+        modeling_basis: {kind: normative_responsibility, necessity: 必须有跨调度、派发、重试和验收稳定存在的责任身份，不能把数据库记录状态当作任务本身。}
+        authority: 任务治理者
+        identity:
+          type: assigned
+          components:
+            - {property: task_id, comparison: exact}
+          uniqueness_scope: data_acquisition.datainjector
+          collision_policy: reject
+        properties:
+          - {name: task_id, meaning: 任务的全局稳定身份。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 任务治理者}
+          - {name: plan_revision, meaning: 本任务获准执行的计划版本。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 任务治理者}
+          - {name: scheduled_at, meaning: 任务具备派发资格的领域时间，不代表已经派发。, value_schema: {kind: timestamp}, cardinality: exactly_one, mutability: controlled, authority: 任务治理者}
+          - {name: retry_budget, meaning: 尚可启动的新尝试数量及退避规则，不与单次设施重投混淆。, value_schema: {kind: schema_ref, ref: RetryBudget.v1}, cardinality: exactly_one, mutability: controlled, authority: 任务治理者}
+
+      - id: data_acquisition.datainjector.execution_run
+        kind: entity
+        name: 采集运行
+        definition: 某任务在指定 attempt、计划版本和委派版本下的一次履约尝试；它独立于任务最终结论并形成唯一终态证据。
+        modeling_basis: {kind: record_of_occurrence, necessity: task_id 单独不足以拒绝迟到回执、区分重试或证明某次实际执行。}
+        authority: 采集执行者
+        identity:
+          type: composite
+          components:
+            - {property: task_id, comparison: exact}
+            - {property: attempt, comparison: exact}
+            - {property: run_id, comparison: exact}
+          uniqueness_scope: data_acquisition.datainjector
+          collision_policy: record_conflict
+        properties:
+          - {name: task_id, meaning: 所履行任务的稳定身份。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 任务治理者}
+          - {name: attempt, meaning: 由任务治理者单调分配的执行代次。, value_schema: {kind: integer, constraints: {minimum: 1}}, cardinality: exactly_one, mutability: immutable, authority: 任务治理者}
+          - {name: run_id, meaning: 本次实际运行身份。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 采集执行者}
+          - {name: plan_revision, meaning: 本次运行采用的完整计划版本。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 任务治理者}
+          - {name: assignment_revision, meaning: 本次运行采用的 Worker 委派实际版本。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 采集执行者}
+
+      - id: data_acquisition.datainjector.dispatch_command
+        kind: value_object
+        name: 带栅栏的派发命令
+        definition: 把任务一次执行意图交给 Worker 的不可变命令，携带足以拒绝重复、迟到和错版本执行的全部身份。
+        modeling_basis: {kind: domain_construct, necessity: 当前只按 taskId 派发和回写会让旧回执覆盖新尝试，也无法判断 Worker 使用了哪个计划或委派版本。}
+        authority: 任务治理者
+        properties:
+          - {name: command_id, meaning: 本次派发责任的幂等身份。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 任务治理者}
+          - {name: task_id, meaning: 命令所属任务。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 任务治理者}
+          - {name: attempt, meaning: 命令获准启动的尝试代次。, value_schema: {kind: integer, constraints: {minimum: 1}}, cardinality: exactly_one, mutability: immutable, authority: 任务治理者}
+          - {name: plan_revision, meaning: 必须执行且不得在 Worker 内改写的计划版本。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 任务治理者}
+          - {name: assignment_revision, meaning: 允许接收命令的委派版本。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 委派治理者}
+          - {name: command_schema_version, meaning: 命令合同版本；不兼容时必须拒绝而非忽略未知字段。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 任务治理者}
+
+      - id: data_acquisition.datainjector.execution_report
+        kind: value_object
+        name: 运行结果报告
+        definition: Worker 对某一精确运行所观察到的阶段、终态、覆盖、交付和失败事实；报告成功不自动等于任务成功。
+        modeling_basis: {kind: record_of_occurrence, necessity: 控制面必须基于 attempt、run 和 revision 关联结果，并把执行、交付、覆盖和验收分别判断。}
+        authority: 采集执行者
+        properties:
+          - {name: run_identity, meaning: task、attempt 与 run 的完整关联身份。, value_schema: {kind: reference, target: data_acquisition.datainjector.execution_run}, cardinality: exactly_one, mutability: immutable, authority: 采集执行者}
+          - {name: stage, meaning: accepted、source_observed、projected、delivered 或 terminal 等已发生阶段。, value_schema: {kind: enum, values: [accepted, source_observed, projected, held, delivered, terminal]}, cardinality: exactly_one, mutability: immutable, authority: 采集执行者}
+          - {name: result, meaning: 此运行的终止分类；非 terminal 报告不得冒充终态。, value_schema: {kind: enum, values: [progress, completed, partially_completed, failed, cancelled, unknown]}, cardinality: exactly_one, mutability: immutable, authority: 采集执行者}
+          - {name: evidence, meaning: 覆盖、交付、Manifest、失败分类和未完成责任的类型化证据。, value_schema: {kind: schema_ref, ref: RunEvidence.v1}, cardinality: exactly_one, mutability: immutable, authority: 采集执行者及相应设施}
+
+      - id: data_acquisition.datainjector.manifest_claim
+        kind: value_object
+        name: 批量结果声明
+        definition: Worker 对离线批量运行所形成覆盖和工件作出的版本化声明；它是待验收证据，不是验收结论。
+        modeling_basis: {kind: record_of_occurrence, necessity: 当前生成 manifest 时直接写 completed，且字段合同在两侧不一致，必须分开声明与验收权威。}
+        authority: 采集执行者
+        properties:
+          - {name: schema_version, meaning: Manifest 合同版本。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 采集执行者}
+          - {name: run_identity, meaning: 该声明对应的精确运行。, value_schema: {kind: reference, target: data_acquisition.datainjector.execution_run}, cardinality: exactly_one, mutability: immutable, authority: 采集执行者}
+          - {name: coverage_claim, meaning: 声明已经闭合的数据范围与游标终止依据。, value_schema: {kind: schema_ref, ref: CoverageClaim.v1}, cardinality: exactly_one, mutability: immutable, authority: 采集执行者}
+          - {name: artifacts, meaning: 工件身份、记录数、大小与校验声明。, value_schema: {kind: list, items: {kind: schema_ref, ref: ArtifactDescriptor.v1}}, cardinality: exactly_one, mutability: immutable, authority: 采集执行者}
+
+      - id: data_acquisition.datainjector.stream_identity
+        kind: value_object
+        name: 数据流身份
+        definition: 由委派身份与稳定分区键共同确定的独立顺序空间；序列、去重、缓冲和恢复状态只能在同一身份内比较。
+        modeling_basis: {kind: domain_construct, necessity: 当前完整性引擎可能让多个 streamName 共用 expected 和 buffer，必须把分区身份提升为不可变语义。}
+        authority: 采集计划制定者与观察提供者
+        properties:
+          - {name: assignment_id, meaning: 产生该流的采集委派。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 采集计划制定者}
+          - {name: stream_key, meaning: 委派内独立序列空间的稳定键，unknown 不得作为默认值。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 观察提供者}
+
+      - id: data_acquisition.datainjector.task_accepted
+        kind: occurrence
+        name: 一项采集任务已被接受
+        definition: 任务治理者确认请求与完备计划有效，并开始承担后续调度或取消责任。
+        modeling_basis: {kind: record_of_occurrence, necessity: 接受必须是可追溯事实，不能由数据库存在或 HTTP 成功隐式推断。}
+        authority: 任务治理者
+        participants:
+          - {role: task, target: data_acquisition.datainjector.acquisition_task, cardinality: exactly_one}
+        properties:
+          - {name: event_id, meaning: 接受事实的幂等身份。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 任务治理者}
+          - {name: occurred_at, meaning: 任务责任开始的时间。, value_schema: {kind: timestamp}, cardinality: exactly_one, mutability: immutable, authority: 时间见证设施}
+        identity:
+          type: assigned
+          components:
+            - {property: event_id, comparison: exact}
+          uniqueness_scope: data_acquisition.datainjector
+          collision_policy: merge_as_same
+        time_semantics: {occurred_at: occurred_at}
+
+      - id: data_acquisition.datainjector.dispatch_accepted
+        kind: occurrence
+        name: 一次任务派发已被可靠接纳
+        definition: 派发设施已接管带栅栏命令的交付责任；它不表示 Worker 已接收，更不表示运行开始。
+        modeling_basis: {kind: record_of_occurrence, necessity: 当前先标 PROCESSING 再异步发送会在发送失败时制造永久假运行状态。}
+        authority: 命令交付设施
+        participants:
+          - {role: task, target: data_acquisition.datainjector.acquisition_task, cardinality: exactly_one}
+          - {role: command, target: data_acquisition.datainjector.dispatch_command, cardinality: exactly_one}
+        properties:
+          - {name: command_id, meaning: 被可靠接管的命令身份。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 任务治理者}
+          - {name: occurred_at, meaning: 设施接管责任的时间。, value_schema: {kind: timestamp}, cardinality: exactly_one, mutability: immutable, authority: 时间见证设施}
+        identity:
+          type: external
+          components:
+            - {property: command_id, comparison: exact}
+          uniqueness_scope: data_acquisition.datainjector
+          collision_policy: merge_as_same
+        time_semantics: {occurred_at: occurred_at}
+
+      - id: data_acquisition.datainjector.run_ended
+        kind: occurrence
+        name: 一次采集运行已结束
+        definition: Worker 对精确 run 形成 completed、partial、failed、cancelled 或 unknown 终态及其证据。
+        modeling_basis: {kind: record_of_occurrence, necessity: 运行终态必须带 fencing 身份且与任务最终结论分开。}
+        authority: 采集执行者
+        participants:
+          - {role: run, target: data_acquisition.datainjector.execution_run, cardinality: exactly_one}
+        properties:
+          - {name: event_id, meaning: 运行终态事实的幂等身份。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 采集执行者}
+          - {name: occurred_at, meaning: 运行停止承担新处理责任的时间。, value_schema: {kind: timestamp}, cardinality: exactly_one, mutability: immutable, authority: 采集执行者}
+        identity:
+          type: assigned
+          components:
+            - {property: event_id, comparison: exact}
+          uniqueness_scope: data_acquisition.datainjector
+          collision_policy: record_conflict
+        time_semantics: {occurred_at: occurred_at}
+
+      - id: data_acquisition.datainjector.manifest_accepted
+        kind: occurrence
+        name: 一份批量结果声明已通过验收
+        definition: 验收者确认 schema 兼容、覆盖闭合、记录统计和全部必要工件证据一致。
+        modeling_basis: {kind: record_of_occurrence, necessity: 必须区分 Worker 自述完成与控制面或消费方对数据工件的独立验收。}
+        authority: 结果验收者
+        participants:
+          - {role: claim, target: data_acquisition.datainjector.manifest_claim, cardinality: exactly_one}
+          - {role: task, target: data_acquisition.datainjector.acquisition_task, cardinality: exactly_one}
+        properties:
+          - {name: event_id, meaning: 验收事实身份。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 结果验收者}
+          - {name: occurred_at, meaning: 验收结论形成时间。, value_schema: {kind: timestamp}, cardinality: exactly_one, mutability: immutable, authority: 结果验收者}
+        identity:
+          type: assigned
+          components:
+            - {property: event_id, comparison: exact}
+          uniqueness_scope: data_acquisition.datainjector
+          collision_policy: merge_as_same
+        time_semantics: {occurred_at: occurred_at}
+
+      - id: data_acquisition.datainjector.task_fulfillment
+        kind: aggregate
+        name: 任务履约一致性边界
+        definition: 以任务为根，原子约束它所使用的计划、派发命令、运行身份、运行报告和批量声明，防止跨 attempt 或 revision 污染。
+        modeling_basis: {kind: normative_responsibility, necessity: 任务结论必须同时约束控制面与 Worker 形成的多种事实，而不能由任一单表状态独立决定。}
+        authority: 任务治理者
+        root: data_acquisition.datainjector.acquisition_task
+        members:
+          - data_acquisition.datainjector.acquisition_task
+          - data_acquisition.datainjector.execution_run
+          - data_acquisition.datainjector.acquisition_plan
+          - data_acquisition.datainjector.dispatch_command
+          - data_acquisition.datainjector.execution_report
+          - data_acquisition.datainjector.manifest_claim
+        reference_boundary: 聚合外只按 task_id、run identity、plan revision 或 occurrence identity 引用；不得持有可变实现对象。
+        rules:
+          - id: data_acquisition.datainjector.rule.current_run_fencing
+            kind: invariant
+            name: 只有当前运行证据可以推进任务
+            definition: 改变当前任务责任的报告必须同时匹配 task、attempt、run、plan revision 和 assignment revision。
+            condition: {compare: {left: {path: $.report.fencing_matches_current_run}, operator: ne, right: {literal: true}}}
+            violation:
+              outcome: stale_or_conflicting_report
+              meaning: 迟到、重复或错版本证据试图改写当前任务。
+              severity: critical
+              handling: {disposition: quarantine, responsibility: 任务治理者保留证据但不得改变任务或重试预算。}
+              evidence_requirements:
+                - {id: fencing_difference, meaning: 可查询不匹配的全部身份字段。, condition: {compare: {left: {path: $.report.fencing_difference_count}, operator: gt, right: {literal: 0}}}}
+              recovery_condition: {compare: {left: {path: $.report.fencing_matches_current_run}, operator: eq, right: {literal: true}}}
+
+    predicates:
+      - id: data_acquisition.datainjector.plan_is_closed
+        name: 采集计划已闭合全部执行决策
+        definition: 计划的需求、触发、完成、失败、交付及适用的完整性策略均有显式值，且不存在依赖代码缺省的决策。
+        modeling_basis: {kind: normative_responsibility, necessity: 用于阻止未闭合配置进入派发和执行。}
+        subject_type: data_acquisition.datainjector.acquisition_plan
+        parameters: []
+        truth_semantics:
+          world_assumption: open
+          asserted_when: 所有必需决策均由计划权威提供并通过兼容性校验。
+          denied_when: 至少一项必需决策缺失、冲突或不受支持。
+          unknown_when: 计划版本、来源能力或策略来源无法取得。
+          not_asserted_is_false: false
+        authority: 采集计划制定者
+
+      - id: data_acquisition.datainjector.task_is_due
+        name: 任务当前具备派发资格
+        definition: 任务已经被接受、未有当前有效派发、未终结或取消，且其计划时间与准入条件已经满足。
+        modeling_basis: {kind: normative_responsibility, necessity: 到达扫描窗口不等于业务上可派发。}
+        subject_type: data_acquisition.datainjector.acquisition_task
+        parameters: []
+        truth_semantics:
+          world_assumption: open
+          asserted_when: 当前有权任务投影证明所有派发前提成立。
+          denied_when: 任务已终结、取消、仍有有效尝试或计划时间未到。
+          unknown_when: 任务投影、当前时间或准入事实不可用。
+          not_asserted_is_false: false
+        authority: 任务治理者
+
+      - id: data_acquisition.datainjector.command_is_fenced
+        name: 派发命令具有完整执行栅栏
+        definition: command、task、attempt、plan revision、assignment revision 和 schema version 均存在并与当前任务一致。
+        modeling_basis: {kind: normative_responsibility, necessity: Worker 与控制面需要据此拒绝重复、迟到和错版本执行。}
+        subject_type: data_acquisition.datainjector.dispatch_command
+        parameters: []
+        truth_semantics:
+          world_assumption: open
+          asserted_when: 全部身份和版本由相应权威确认一致。
+          denied_when: 至少一项明确缺失、冲突或不兼容。
+          unknown_when: 当前任务或委派实际版本不可取得。
+          not_asserted_is_false: false
+        authority: 任务治理者与委派治理者
+
+      - id: data_acquisition.datainjector.run_completion_is_proven
+        name: 采集运行的完成责任已有充分证明
+        definition: 精确 run 已形成唯一终态，且计划要求的覆盖、交付及可选 Manifest 验收证据全部成立。
+        modeling_basis: {kind: normative_responsibility, necessity: 来源调用成功、入队或运行退出均不能单独证明履约完成。}
+        subject_type: data_acquisition.datainjector.execution_run
+        parameters: []
+        truth_semantics:
+          world_assumption: open
+          asserted_when: 当前运行的必需完成证据由各自权威形成且相互一致。
+          denied_when: 有权证据确认失败、部分完成或证据冲突。
+          unknown_when: 交付结果、覆盖闭合或验收结果仍未取得。
+          not_asserted_is_false: false
+        authority: 任务治理者
+
+      - id: data_acquisition.datainjector.manifest_is_accepted
+        name: 批量结果声明已经验收
+        definition: Manifest 合同版本、运行关联、覆盖、统计和工件真实性均已由验收者确认。
+        modeling_basis: {kind: normative_responsibility, necessity: 生成者的 completed 声明不能自证数据正确。}
+        subject_type: data_acquisition.datainjector.manifest_claim
+        parameters: []
+        truth_semantics:
+          world_assumption: open
+          asserted_when: 所有计划要求的证据均被独立验证且一致。
+          denied_when: 版本不兼容、工件缺失、统计或校验不一致。
+          unknown_when: 工件不可访问、校验不可完成或验收尚未发生。
+          not_asserted_is_false: false
+        authority: 结果验收者
+
+      - id: data_acquisition.datainjector.stream_disposition_is_accounted
+        name: 流观察或恢复责任已有明确去向
+        definition: 每次流观察均被下发、保管、抑制、显式降级或拒绝；每个缺口恢复意图均被接纳、合并或可靠保全。
+        modeling_basis: {kind: normative_responsibility, necessity: 防止空输出、TTL、容量淘汰或派发失败静默消灭数据与恢复责任。}
+        subject_type: data_acquisition.datainjector.stream_identity
+        parameters: []
+        truth_semantics:
+          world_assumption: open
+          asserted_when: 当前观察和全部恢复意图都有互斥的可追溯处置。
+          denied_when: 已确认存在静默丢弃、跨流污染或未归属恢复意图。
+          unknown_when: 托管、交付或恢复设施结果无法确认。
+          not_asserted_is_false: false
+        authority: 采集执行者
+
+  rules:
+    - id: data_acquisition.datainjector.rule.no_runtime_policy_defaults
+      kind: invariant
+      name: 确定性执行不得补采集策略
+      definition: 任何会改变覆盖、完成、重试、丢弃、交付或完整性语义的值必须来自已闭合计划，而不是配置零值、插件名或代码常量。
+      condition: {compare: {left: {path: $.runtime_policy_default_count}, operator: gt, right: {literal: 0}}}
+      violation:
+        outcome: undeclared_policy_used
+        meaning: 执行结果依赖计划外策略，无法由任务意图解释。
+        severity: critical
+        handling: {disposition: block, responsibility: 采集计划制定者补齐计划；执行者不得继续。}
+        evidence_requirements:
+          - {id: undeclared_fields, meaning: 能列出每个被补入的策略字段及代码来源。, condition: {compare: {left: {path: $.runtime_policy_default_count}, operator: gt, right: {literal: 0}}}}
+        recovery_condition: {compare: {left: {path: $.runtime_policy_default_count}, operator: eq, right: {literal: 0}}}
+
+    - id: data_acquisition.datainjector.rule.stage_success_is_not_task_success
+      kind: invariant
+      name: 中间阶段成功不得冒充任务完成
+      definition: 派发接纳、Worker 接纳、来源返回、入托、pipeline 退出和 Manifest 生成均不是任务成功，除非计划要求的最终证据全部成立。
+      condition:
+        all:
+          - {compare: {left: {path: $.task_claimed_success}, operator: eq, right: {literal: true}}}
+          - {compare: {left: {path: $.required_completion_evidence_satisfied}, operator: ne, right: {literal: true}}}
+      violation:
+        outcome: premature_task_success
+        meaning: 任务被过早终结，剩余覆盖、交付或验收责任被丢弃。
+        severity: critical
+        handling: {disposition: compensate, responsibility: 任务治理者撤销错误投影并恢复当前运行或重试责任。}
+        evidence_requirements:
+          - {id: missing_completion_evidence, meaning: 可查询尚未满足的计划证据清单。, condition: {compare: {left: {path: $.missing_completion_evidence_count}, operator: gt, right: {literal: 0}}}}
+        recovery_condition: {compare: {left: {path: $.required_completion_evidence_satisfied}, operator: eq, right: {literal: true}}}
+
+    - id: data_acquisition.datainjector.rule.accept_before_acknowledge
+      kind: invariant
+      name: 异步输入必须在责任被接纳或拒绝后确认
+      definition: 命令、状态、Manifest 和序列事件只有在责任已可靠接纳或拒绝证据已保存后才可对来源确认，处理异常不得无条件确认。
+      condition:
+        all:
+          - {compare: {left: {path: $.input_acknowledged}, operator: eq, right: {literal: true}}}
+          - {compare: {left: {path: $.responsibility_preserved}, operator: ne, right: {literal: true}}}
+      violation:
+        outcome: acknowledged_without_custody
+        meaning: 输入已不可重放，但领域责任没有任何接收者。
+        severity: critical
+        handling: {disposition: compensate, responsibility: 当前输入消费者保留并恢复未处理责任。}
+        evidence_requirements:
+          - {id: ack_without_receipt, meaning: 有确认事实但没有接纳或持久拒绝凭证。, condition: {compare: {left: {path: $.custody_receipt_present}, operator: eq, right: {literal: false}}}}
+        recovery_condition: {compare: {left: {path: $.responsibility_preserved}, operator: eq, right: {literal: true}}}
+
+    - id: data_acquisition.datainjector.rule.stream_state_isolation
+      kind: invariant
+      name: 所有完整性状态必须按完整流身份隔离
+      definition: expected、buffer、gap、dedupe、finality 和 recovery lane 必须由同一不可变 StreamIdentity 分区；前跳或淘汰必须声明损失范围。
+      condition:
+        any:
+          - {compare: {left: {path: $.cross_stream_state_effect}, operator: eq, right: {literal: true}}}
+          - {compare: {left: {path: $.silent_loss}, operator: eq, right: {literal: true}}}
+      violation:
+        outcome: integrity_responsibility_corrupted
+        meaning: 一个流污染另一流状态，或未闭合范围被静默删除。
+        severity: critical
+        handling: {disposition: quarantine, responsibility: 采集执行者隔离受影响流并建立显式恢复责任。}
+        evidence_requirements:
+          - {id: affected_stream_and_range, meaning: 受影响的完整流身份与序列范围可查询。, condition: {compare: {left: {path: $.affected_scope_known}, operator: eq, right: {literal: true}}}}
+        recovery_condition: {predicate: data_acquisition.datainjector.stream_disposition_is_accounted, subject: {path: $.stream}, truth_value: asserted}
+
+  capability_model:
+    roles:
+      - {id: data_acquisition.datainjector.acquisition_requester, name: 采集请求者, responsibilities: [声明需要观察的数据、覆盖范围、时效和可接受结果]}
+      - {id: data_acquisition.datainjector.plan_authority, name: 采集计划制定者, responsibilities: [闭合采集、失败、交付和完整性策略并发布不可变版本]}
+      - {id: data_acquisition.datainjector.task_governor, name: 任务治理者, responsibilities: [对任务准入、派发代次、重试和最终结论承担责任]}
+      - {id: data_acquisition.datainjector.acquisition_executor, name: 采集执行者, responsibilities: [严格按计划版本履行一次运行并报告有栅栏的事实]}
+      - {id: data_acquisition.datainjector.result_acceptor, name: 结果验收者, responsibilities: [独立验证覆盖、交付和批量工件证据]}
+      - {id: data_acquisition.datainjector.observation_consumer, name: 观察消费者, responsibilities: [依赖规范观察与明确的完整性处置而非内部插件结果]}
+
+    facility_requirements:
+      - id: data_acquisition.datainjector.atomic_task_custody
+        name: 任务状态原子保管设施需求
+        version: 1.0.0
+        requirement_intent:
+          purpose: 在并发控制面实例和故障恢复中保持单一当前 attempt 与单调任务投影。
+          responsibility: 以期望版本原子建立、读取或认领任务，冲突时不覆盖现值。
+          scope: 一项任务的一次状态变更或派发认领。
+        required_execution_mode: deterministic_code
+        interface:
+          inputs:
+            - {name: mutation, meaning: 带 task identity、expected version 和目标事实的变更。, value_schema: {kind: schema_ref, ref: TaskStateMutation.v1}, required: true}
+          outputs:
+            - {name: receipt, meaning: 新版本、冲突版本或不可用原因。, value_schema: {kind: schema_ref, ref: StateReceipt.v1}, required: true}
+        dispositions:
+          - {id: committed, meaning: 变更已原子提交。, responsibility_status: completed, evidence: [{id: version_advanced, meaning: 回执包含唯一新版本。, condition: {compare: {left: {path: $.receipt.committed}, operator: eq, right: {literal: true}}}}]}
+          - {id: not_committed, meaning: 冲突、不可用或状态不允许，原值未被覆盖。, responsibility_status: blocked, remaining_responsibility: 调用方读取现值并重新决定，或保留待恢复变更。, evidence: [{id: reason_known, meaning: 回执包含冲突或不可用分类。, condition: {compare: {left: {path: $.receipt.reason}, operator: ne, right: {literal: null}}}}]}
+        reactions:
+          - {on_disposition: committed, required_response: 只依据返回的新版本继续后继责任。}
+          - {on_disposition: not_committed, required_response: 禁止假定写入成功；重读或保全剩余责任。}
+        verification:
+          - {id: concurrent_claim_single_winner, meaning: 同一任务同一版本并发认领至多一个成功。, evidence: [{id: one_winner, meaning: 并发结果中 committed 数量不超过一。, condition: {compare: {left: {path: $.committed_count}, operator: lte, right: {literal: 1}}}}]}
+        implementation_exclusions: [数据库产品、表结构、ORM、锁和事务实现]
+
+      - id: data_acquisition.datainjector.domain_clock
+        name: 领域时间通知设施需求
+        version: 1.0.0
+        requirement_intent: {purpose: 即使没有新数据也能推进到期、退避、finality 和恢复责任。, responsibility: 按已给定时间点产生可关联且可去重的到期事实。, scope: 一项任务、运行、流会话或恢复会话的一个期限。}
+        required_execution_mode: deterministic_code
+        interface:
+          inputs:
+            - {name: deadline, meaning: 已由领域计划决定的绝对时间与关联身份。, value_schema: {kind: schema_ref, ref: DeadlineRegistration.v1}, required: true}
+          outputs:
+            - {name: registration, meaning: 到期通知已登记或无法承担的明确回执。, value_schema: {kind: schema_ref, ref: DeadlineReceipt.v1}, required: true}
+        dispositions:
+          - {id: registered, meaning: 设施承担按时形成通知的责任。, responsibility_status: completed, evidence: [{id: correlation_preserved, meaning: 回执保留输入关联身份。, condition: {compare: {left: {path: $.registration.correlation_ok}, operator: eq, right: {literal: true}}}}]}
+          - {id: unavailable, meaning: 到期责任未被设施接纳。, responsibility_status: blocked, remaining_responsibility: 调用方必须阻断依赖该期限的执行或移交给另一时间见证者。, evidence: [{id: unavailable_reason, meaning: 不可用原因可查询。, condition: {compare: {left: {path: $.registration.reason}, operator: ne, right: {literal: null}}}}]}
+        reactions:
+          - {on_disposition: registered, required_response: 保存登记身份并仅接收匹配的到期事实。}
+          - {on_disposition: unavailable, required_response: 不得改为依赖下一条数据触发；显式阻断或转移责任。}
+        verification:
+          - {id: fires_without_new_input, meaning: 无新业务输入时仍按登记时间形成通知。, evidence: [{id: independent_trigger, meaning: 到期与后继输入无因果依赖。, condition: {compare: {left: {path: $.requires_new_input}, operator: eq, right: {literal: false}}}}]}
+        implementation_exclusions: [timer、cron、扫描频率、线程和调度框架]
+
+      - id: data_acquisition.datainjector.command_custody
+        name: 派发命令可靠交接设施需求
+        version: 1.0.0
+        requirement_intent: {purpose: 让控制面只在命令责任已被可靠接管后推进派发状态。, responsibility: 幂等接纳带栅栏命令并返回明确责任接管结果；不解释任务成功。, scope: 一个 command_id 的交接。}
+        required_execution_mode: deterministic_code
+        interface:
+          inputs:
+            - {name: command, meaning: 带完整 fencing 的派发命令。, value_schema: {kind: reference, target: data_acquisition.datainjector.dispatch_command}, required: true}
+          outputs:
+            - {name: receipt, meaning: accepted、duplicate、rejected、unknown 或 unavailable 回执。, value_schema: {kind: schema_ref, ref: CommandCustodyReceipt.v1}, required: true}
+        dispositions:
+          - {id: accepted, meaning: 设施已承担后续可恢复交付责任。, responsibility_status: completed, evidence: [{id: custody_identity, meaning: 回执绑定同一 command_id。, condition: {compare: {left: {path: $.receipt.command_id}, operator: eq, right: {path: $.command.command_id}}}}]}
+          - {id: not_accepted, meaning: 设施未接管或结果未知。, responsibility_status: unknown, remaining_responsibility: 控制面保留派发责任，并按幂等 command_id 核验或重试。, evidence: [{id: non_acceptance_classified, meaning: 拒绝、不可用或 unknown 分类可查询。, condition: {compare: {left: {path: $.receipt.disposition}, operator: ne, right: {literal: accepted}}}}]}
+        reactions:
+          - {on_disposition: accepted, required_response: 才可记录 dispatch accepted；不得记录 run started。}
+          - {on_disposition: not_accepted, required_response: 保持任务可恢复且不得标记 processing。}
+        verification:
+          - {id: idempotent_handoff, meaning: 同一 command_id 重复提交不会产生两个执行责任。, evidence: [{id: one_command_responsibility, meaning: 同一命令只有一个有效交付责任。, condition: {compare: {left: {path: $.active_responsibility_count}, operator: eq, right: {literal: 1}}}}]}
+        implementation_exclusions: [Kafka、topic、producer、outbox 表和序列化格式]
+
+      - id: data_acquisition.datainjector.assignment_runtime
+        name: 委派版本切换设施需求
+        version: 1.0.0
+        requirement_intent: {purpose: 让 Worker 按明确 revision 和 readiness 合同激活、替换、停止或回滚采集委派。, responsibility: 执行已决定的切换步骤并报告每个委派的 actual revision 和存活责任。, scope: 一份期望委派计划的一次发布尝试。}
+        required_execution_mode: deterministic_code
+        interface:
+          inputs:
+            - {name: release_plan, meaning: 带 plan revision、逐委派 desired revision、移除语义、readiness 和回滚目标的计划。, value_schema: {kind: schema_ref, ref: AssignmentReleasePlan.v1}, required: true}
+          outputs:
+            - {name: release_result, meaning: 每个委派的 actual revision、动作、结果和剩余责任。, value_schema: {kind: schema_ref, ref: AssignmentReleaseResult.v1}, required: true}
+        dispositions:
+          - {id: applied, meaning: 所有目标委派都达到计划要求的 actual revision。, responsibility_status: completed, evidence: [{id: revisions_match, meaning: desired 与 actual revision 全部一致。, condition: {compare: {left: {path: $.release_result.mismatch_count}, operator: eq, right: {literal: 0}}}}]}
+          - {id: partial_or_failed, meaning: 至少一个委派未切换，旧版本、回滚结果和剩余责任均被保留。, responsibility_status: partially_completed, remaining_responsibility: 发布治理者依据显式原子性策略回滚整体或接受逐项结果并继续修复。, evidence: [{id: per_assignment_result, meaning: 每个委派均有 actual revision 与剩余责任。, condition: {compare: {left: {path: $.release_result.unaccounted_count}, operator: eq, right: {literal: 0}}}}]}
+        reactions:
+          - {on_disposition: applied, required_response: 以 actual revision 发布接收命令资格。}
+          - {on_disposition: partial_or_failed, required_response: 不得仅返回总体 error；按发布策略回滚或保留逐项责任。}
+        verification:
+          - {id: exact_revision_observable, meaning: Apply 与 Running 查询都能返回计划和 actual revision。, evidence: [{id: revisions_present, meaning: 结果不存在只有 role id 而无版本的条目。, condition: {compare: {left: {path: $.release_result.missing_revision_count}, operator: eq, right: {literal: 0}}}}]}
+        implementation_exclusions: [HTTP API、进程、goroutine、context、插件 registry 和固定启动等待时间]
+
+      - id: data_acquisition.datainjector.source_interaction
+        name: 数据源交互设施需求
+        version: 1.0.0
+        requirement_intent: {purpose: 机械执行已决定的单次、分页或持续来源交互并保留原始 provenance。, responsibility: 返回来源响应、传输处置和来源时间，不自行重试、补业务事实或判定覆盖完成。, scope: 计划中的一个 SourceSlice 或订阅会话。}
+        required_execution_mode: deterministic_code
+        interface:
+          inputs:
+            - {name: request, meaning: 已绑定来源能力、操作、参数、secret handle、deadline 与幂等身份的请求。, value_schema: {kind: schema_ref, ref: SourceInteractionRequest.v1}, required: true}
+          outputs:
+            - {name: result, meaning: 原始响应、provenance、来源游标及传输事实。, value_schema: {kind: schema_ref, ref: SourceInteractionResult.v1}, required: true}
+        dispositions:
+          - {id: responded, meaning: 来源形成可解码响应；尚未证明语义投影、交付或覆盖完成。, responsibility_status: completed, evidence: [{id: provenance_present, meaning: 响应含来源与请求关联。, condition: {compare: {left: {path: $.result.provenance_complete}, operator: eq, right: {literal: true}}}}]}
+          - {id: interaction_failed, meaning: 被限流、超时、拒绝、不可用、协议失败或取消。, responsibility_status: failed, remaining_responsibility: 运行履约能力按计划失败策略决定重试、部分完成或终止。, evidence: [{id: failure_class, meaning: 失败分类与是否知道外部副作用可查询。, condition: {compare: {left: {path: $.result.failure_class}, operator: ne, right: {literal: null}}}}]}
+        reactions:
+          - {on_disposition: responded, required_response: 将原始响应交给类型化解码和领域投影，不宣称任务成功。}
+          - {on_disposition: interaction_failed, required_response: 禁止设施自行采用代码退避或伪造默认值；交回计划决策。}
+        verification:
+          - {id: no_fabricated_fact, meaning: 缺失价格、时间、exchange、sequence 或游标时返回 unknown/缺失而非常量。, evidence: [{id: fabricated_count_zero, meaning: 没有设施生成的伪造业务字段。, condition: {compare: {left: {path: $.fabricated_fact_count}, operator: eq, right: {literal: 0}}}}]}
+        implementation_exclusions: [HTTP、JSON-RPC、WebSocket、SQL、SDK、连接池、认证 header 和重连库]
+
+      - id: data_acquisition.datainjector.observation_custody
+        name: 观察托管与背压设施需求
+        version: 1.0.0
+        requirement_intent: {purpose: 在来源、投影、完整性和交付阶段之间保全每条尚未终结的观察责任。, responsibility: 提供有界或持久托管、claim、ack、nack 与损失报告，绝不静默淘汰。, scope: 一条观察在一个处理阶段的 custody。}
+        required_execution_mode: deterministic_code
+        interface:
+          inputs:
+            - {name: custody_action, meaning: 带观察身份、阶段、保留期限和已决定溢出处置的操作。, value_schema: {kind: schema_ref, ref: ObservationCustodyAction.v1}, required: true}
+          outputs:
+            - {name: receipt, meaning: accepted、full、expired、evicted、duplicate 或 unavailable 及受影响身份。, value_schema: {kind: schema_ref, ref: ObservationCustodyReceipt.v1}, required: true}
+        dispositions:
+          - {id: preserved, meaning: 观察责任已入托或按幂等身份确认终结。, responsibility_status: completed, evidence: [{id: observation_accounted, meaning: 输入观察身份有唯一 custody 结果。, condition: {compare: {left: {path: $.receipt.accounted}, operator: eq, right: {literal: true}}}}]}
+          - {id: loss_or_unavailable, meaning: 无法托管或发生过期、淘汰，受影响观察和剩余责任已报告。, responsibility_status: partially_completed, remaining_responsibility: 运行履约或完整性责任方按计划降级、重试、恢复或失败，不得视为空输出。, evidence: [{id: affected_identity_known, meaning: 受影响观察或范围身份完整。, condition: {compare: {left: {path: $.receipt.affected_identity_known}, operator: eq, right: {literal: true}}}}]}
+        reactions:
+          - {on_disposition: preserved, required_response: 仅在最终处理成功后确认该 custody。}
+          - {on_disposition: loss_or_unavailable, required_response: 形成显式 loss disposition 与恢复或失败责任。}
+        verification:
+          - {id: no_silent_eviction, meaning: 满载、TTL 和关闭场景下被移除观察都有回执。, evidence: [{id: unreported_loss_zero, meaning: 未报告的移除数量为零。, condition: {compare: {left: {path: $.unreported_loss_count}, operator: eq, right: {literal: 0}}}}]}
+        implementation_exclusions: [channel、内存队列、DLQ slice、磁盘队列、buffer 和锁]
+
+      - id: data_acquisition.datainjector.result_publication
+        name: 规范观察与运行证据发布设施需求
+        version: 1.0.0
+        requirement_intent: {purpose: 按已经决定的路由、幂等和交付保证发布规范观察或运行证据。, responsibility: 返回 delivered、duplicate、rejected、timeout 或 unknown outcome，并保留关联身份。, scope: 一条观察、一个批次或一个领域发生的发布。}
+        required_execution_mode: deterministic_code
+        interface:
+          inputs:
+            - {name: publication, meaning: 规范 payload、语义路由、幂等键和交付要求。, value_schema: {kind: schema_ref, ref: PublicationRequest.v1}, required: true}
+          outputs:
+            - {name: receipt, meaning: 可验证的发布处置与目标确认。, value_schema: {kind: schema_ref, ref: PublicationReceipt.v1}, required: true}
+        dispositions:
+          - {id: delivered, meaning: 目标已按要求确认接收或识别为同一幂等结果。, responsibility_status: completed, evidence: [{id: delivery_identity, meaning: receipt 绑定 publication identity。, condition: {compare: {left: {path: $.receipt.identity_matches}, operator: eq, right: {literal: true}}}}]}
+          - {id: not_delivered, meaning: 拒绝、超时、不可用或结果未知，不能宣称交付完成。, responsibility_status: unknown, remaining_responsibility: 调用方按 delivery policy 幂等核验、重试、部分完成或失败。, evidence: [{id: delivery_uncertainty, meaning: 失败分类及外部结果是否未知可查询。, condition: {compare: {left: {path: $.receipt.disposition}, operator: ne, right: {literal: delivered}}}}]}
+        reactions:
+          - {on_disposition: delivered, required_response: 保存交付凭证并推进相应观察责任。}
+          - {on_disposition: not_delivered, required_response: unknown outcome 必须先核验再重试，禁止直接声明成功或失败。}
+        verification:
+          - {id: retry_is_idempotent, meaning: ack 丢失和重复提交不会产生第二个外部可见结果。, evidence: [{id: duplicate_visibility_zero, meaning: 同一幂等键的重复可见结果数量为零。, condition: {compare: {left: {path: $.duplicate_visible_count}, operator: eq, right: {literal: 0}}}}]}
+        implementation_exclusions: [Kafka、topic、partition、文件、控制台、状态 reporter 和 metrics]
+
+      - id: data_acquisition.datainjector.recovery_handoff
+        name: 连续性恢复责任交接设施需求
+        version: 1.0.0
+        requirement_intent: {purpose: 执行已决定的 range 或 snapshot 恢复计划，并让未接纳意图仍可恢复。, responsibility: 按 stream、recovery kind、session 和 attempt 交接恢复工作，关联异步结果并保全未派发义务。, scope: 一条流一种恢复形态的一次交接。}
+        required_execution_mode: deterministic_code
+        interface:
+          inputs:
+            - {name: recovery_work, meaning: 带流身份、缺失范围、恢复形态、session 和截止的计划。, value_schema: {kind: schema_ref, ref: RecoveryWorkPlan.v1}, required: true}
+          outputs:
+            - {name: receipt, meaning: accepted、merged、duplicate、no_target、full、timeout 或 preserved。, value_schema: {kind: schema_ref, ref: RecoveryHandoffReceipt.v1}, required: true}
+        dispositions:
+          - {id: accounted, meaning: 恢复工作已被执行者接纳、并入当前意图或可靠保全。, responsibility_status: completed, evidence: [{id: recovery_identity_preserved, meaning: stream、session 与 attempt 关联完整。, condition: {compare: {left: {path: $.receipt.correlation_complete}, operator: eq, right: {literal: true}}}}]}
+          - {id: unaccounted, meaning: 工作既未接纳也未保全。, responsibility_status: blocked, remaining_responsibility: 完整性责任方必须阻断前跳或显式升级，不能丢弃缺口责任。, evidence: [{id: failure_reason_known, meaning: 未接纳原因和原恢复范围仍可查询。, condition: {compare: {left: {path: $.receipt.original_scope_preserved}, operator: eq, right: {literal: true}}}}]}
+        reactions:
+          - {on_disposition: accounted, required_response: 执行成功仍只表示工作完成；等待重新注入数据闭合缺口或应用锚点。}
+          - {on_disposition: unaccounted, required_response: 建立显式 blocked 结果并保留原恢复责任。}
+        verification:
+          - {id: singleflight_scope, meaning: 同流同恢复形态至多一个 pending，新范围被最小覆盖合并。, evidence: [{id: pending_count, meaning: 并发 pending 数不超过一且无未归属范围。, condition: {all: [{compare: {left: {path: $.pending_count}, operator: lte, right: {literal: 1}}}, {compare: {left: {path: $.unaccounted_scope_count}, operator: eq, right: {literal: 0}}}]}}]}
+        implementation_exclusions: [channel、Kafka、HTTP、文件补偿、scheduler key 和 goroutine]
+
+    capabilities:
+      - id: data_acquisition.datainjector.accept_acquisition_task
+        name: 接受并建立采集任务
+        version: 1.0.0
+        definition: 校验请求与完备计划，在不提前消费执行成功语义的前提下建立任务身份、调度时间和重试预算。
+        semantic_signature:
+          intent: accept_acquisition
+          scope: 一次采集请求及其不可变计划版本。
+          accountable_role: data_acquisition.datainjector.task_governor
+          goal: {predicate: data_acquisition.datainjector.plan_is_closed, subject: {path: $.plan}, truth_value: asserted}
+        inputs:
+          - {name: request, meaning: 请求者声明的观察需求与期望时间。, value_schema: {kind: schema_ref, ref: AcquisitionRequest.v1}, required: true}
+          - {name: plan, meaning: 已由计划制定者闭合的执行计划。, value_schema: {kind: reference, target: data_acquisition.datainjector.acquisition_plan}, required: true}
+        outputs:
+          - {name: task, meaning: 接受时建立的任务；拒绝时为空。, value_schema: {kind: reference, target: data_acquisition.datainjector.acquisition_task}, required: false}
+          - {name: disposition, meaning: accepted、rejected 或 unknown。, value_schema: {kind: enum, values: [accepted, rejected, unknown]}, required: true}
+        facility_dependencies:
+          - {alias: task_custody, facility: data_acquisition.datainjector.atomic_task_custody, purpose: 原子建立任务身份与初始责任版本。, required: true}
+        authorization:
+          requester_roles: [data_acquisition.datainjector.acquisition_requester, data_acquisition.datainjector.plan_authority]
+          executor_roles: [data_acquisition.datainjector.task_governor]
+        execution:
+          mode: deterministic_code
+          behavior_contract:
+            - 必须先证明计划闭合、版本兼容且请求范围由计划覆盖
+            - 调度时间、retry budget 与完成权威必须从计划或请求显式取得
+            - 重复请求按幂等身份返回同一任务或明确冲突
+          policy_inputs:
+            - {name: plan, meaning: 所有准入和任务策略的唯一输入。, value_schema: {kind: reference, target: data_acquisition.datainjector.acquisition_plan}, required: true}
+          prohibited_assumptions: [不得把缺失计划时间默认为当前时间, 不得根据 task type 填 completion 或 retry 策略, 不得在此消费 Worker 资源配额]
+          verification:
+            - {id: accepted_plan_closed, meaning: 每个 accepted 结果都引用可复现的闭合计划版本。, evidence: [{id: plan_closed, meaning: 计划闭合命题成立。, condition: {predicate: data_acquisition.datainjector.plan_is_closed, subject: {path: $.plan}, truth_value: asserted}}]}
+        preserves: [data_acquisition.datainjector.rule.no_runtime_policy_defaults]
+        effects:
+          guaranteed: {compare: {left: {path: $.terminal_outcome_count}, operator: eq, right: {literal: 1}}}
+        outcomes:
+          - id: accepted
+            meaning: 任务责任已建立，等待明确时间与准入条件后派发。
+            responsibility_status: completed
+            establishes:
+              - {establish_entity: {type: data_acquisition.datainjector.acquisition_task, identity_bindings: {task_id: {path: $.task.task_id}}}}
+              - {emit_occurrence: {type: data_acquisition.datainjector.task_accepted, participants: {task: {path: $.task}}, property_bindings: {event_id: {path: $.event_id}, occurred_at: {path: $.occurred_at}}}}
+            evidence:
+              - {id: task_persisted, meaning: 任务身份、plan revision、时间与预算已原子保管。, condition: {compare: {left: {path: $.task_custody.committed}, operator: eq, right: {literal: true}}}}
+          - id: rejected_or_unknown
+            meaning: 请求、计划或保管责任无法被确认，未建立可派发任务。
+            responsibility_status: failed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.plan_is_closed, subject: {path: $.plan}, truth_value: unknown}}
+            evidence:
+              - {id: rejection_reason, meaning: 字段、版本、能力或保管失败原因可查询。, condition: {compare: {left: {path: $.reason}, operator: ne, right: {literal: null}}}}
+            remaining_responsibility: 请求者或计划制定者修正请求与计划；若保管结果 unknown，任务治理者先按幂等身份核验。
+
+      - id: data_acquisition.datainjector.dispatch_due_task
+        name: 派发一项到期任务
+        version: 1.0.0
+        definition: 原子认领一项真正到期的任务，为当前 attempt 形成带版本栅栏的命令，并仅在交付设施接管后记录派发已接受。
+        semantic_signature:
+          intent: dispatch_due_task
+          scope: 一项任务的一个 attempt。
+          accountable_role: data_acquisition.datainjector.task_governor
+          goal: {predicate: data_acquisition.datainjector.command_is_fenced, subject: {path: $.command}, truth_value: asserted}
+        inputs:
+          - {name: task, meaning: 待判断派发资格的任务。, value_schema: {kind: reference, target: data_acquisition.datainjector.acquisition_task}, required: true}
+          - {name: plan, meaning: 与 task.plan_revision 一致的完备计划。, value_schema: {kind: reference, target: data_acquisition.datainjector.acquisition_plan}, required: true}
+          - {name: assignment_revision, meaning: 当前有权接收命令的 Worker 委派版本。, value_schema: {kind: string, constraints: {min_length: 1}}, required: true}
+        outputs:
+          - {name: command, meaning: 已形成的带栅栏命令。, value_schema: {kind: reference, target: data_acquisition.datainjector.dispatch_command}, required: false}
+          - {name: disposition, meaning: dispatch_accepted、deferred 或 blocked。, value_schema: {kind: enum, values: [dispatch_accepted, deferred, blocked]}, required: true}
+        facility_dependencies:
+          - {alias: task_custody, facility: data_acquisition.datainjector.atomic_task_custody, purpose: 原子认领并防止多实例重复派发。, required: true}
+          - {alias: command_custody, facility: data_acquisition.datainjector.command_custody, purpose: 可靠交接带栅栏命令。, required: true}
+          - {alias: clock, facility: data_acquisition.datainjector.domain_clock, purpose: 提供到期或延后通知，不决定派发策略。, required: true}
+        authorization:
+          requester_roles: [data_acquisition.datainjector.task_governor]
+          executor_roles: [data_acquisition.datainjector.task_governor]
+          cancellation_roles: [data_acquisition.datainjector.task_governor]
+        execution:
+          mode: deterministic_code
+          behavior_contract:
+            - 只有 task_is_due 被 asserted 才能原子认领
+            - 命令必须携带 command、task、attempt、plan revision、assignment revision 和 schema version
+            - 只有 command custody accepted 才形成 dispatch accepted；此前绝不标记 processing
+            - 认领后交接失败必须释放、续期或保全认领责任
+          policy_inputs:
+            - {name: dispatch_policy, meaning: 来自计划的优先、公平、截止与延后规则。, value_schema: {kind: schema_ref, ref: DispatchPolicy.v1}, required: true}
+          prohibited_assumptions: [不得用无排序扫描代替优先策略, 不得用发送函数返回前的状态写入表示 Worker 已处理, 不得在消息设施中决定任务优先级]
+          verification:
+            - {id: claim_and_handoff_safe, meaning: 并发派发无重复，交接失败无永久 processing。, evidence: [{id: no_orphan_processing, meaning: 没有无 command custody 的 processing 投影。, condition: {compare: {left: {path: $.orphan_processing_count}, operator: eq, right: {literal: 0}}}}]}
+        preserves: [data_acquisition.datainjector.rule.accept_before_acknowledge]
+        effects:
+          guaranteed: {compare: {left: {path: $.terminal_outcome_count}, operator: eq, right: {literal: 1}}}
+        outcomes:
+          - id: dispatch_accepted
+            meaning: 带栅栏命令已被可靠交接，任务等待匹配 Worker 证据。
+            responsibility_status: completed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.command_is_fenced, subject: {path: $.command}, truth_value: asserted}}
+              - {emit_occurrence: {type: data_acquisition.datainjector.dispatch_accepted, participants: {task: {path: $.task}, command: {path: $.command}}, property_bindings: {command_id: {path: $.command.command_id}, occurred_at: {path: $.occurred_at}}}}
+            evidence:
+              - {id: custody_accepted, meaning: command custody 明确接管同一 command_id。, condition: {compare: {left: {path: $.command_receipt.accepted}, operator: eq, right: {literal: true}}}}
+          - id: deferred
+            meaning: 任务尚未到期、资源准入需等待或更高优先责任先行，已登记后续判断时间。
+            responsibility_status: partially_completed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.task_is_due, subject: {path: $.task}, truth_value: denied}}
+            evidence:
+              - {id: next_decision_time, meaning: 有明确的后续判断时间与原因。, condition: {compare: {left: {path: $.next_decision_at}, operator: ne, right: {literal: null}}}}
+            remaining_responsibility: 任务治理者在登记时间重新判断，任务不得被批量聚集后绕过准入。
+          - id: blocked
+            meaning: 认领、版本、命令构造或交接失败，派发责任仍被保全。
+            responsibility_status: blocked
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.command_is_fenced, subject: {path: $.command}, truth_value: unknown}}
+            evidence:
+              - {id: blocked_reason, meaning: 失败原因、当前 task version 与 claim 去向可查询。, condition: {compare: {left: {path: $.blocked_reason}, operator: ne, right: {literal: null}}}}
+            remaining_responsibility: 任务治理者核验 unknown 交接、释放或重试认领，不能遗留假 processing 状态。
+
+      - id: data_acquisition.datainjector.apply_assignment_plan
+        name: 应用 Worker 采集委派计划
+        version: 1.0.0
+        definition: 校验完整发布版本，按显式原子性、readiness、切换和回滚策略使每个委派达到可查询的 actual revision。
+        semantic_signature:
+          intent: apply_assignments
+          scope: 一份全量或明确增量语义的委派发布计划。
+          accountable_role: data_acquisition.datainjector.plan_authority
+          goal: {compare: {left: {path: $.release_result.unaccounted_count}, operator: eq, right: {literal: 0}}}
+        inputs:
+          - {name: release_plan, meaning: 带 plan revision、逐委派 revision、移除语义和切换策略的不可变计划。, value_schema: {kind: schema_ref, ref: AssignmentReleasePlan.v1}, required: true}
+        outputs:
+          - {name: release_result, meaning: 逐委派 actual revision、结果和剩余责任。, value_schema: {kind: schema_ref, ref: AssignmentReleaseResult.v1}, required: true}
+          - {name: disposition, meaning: applied、partial、rolled_back 或 failed。, value_schema: {kind: enum, values: [applied, partial, rolled_back, failed]}, required: true}
+        facility_dependencies:
+          - {alias: assignment_runtime, facility: data_acquisition.datainjector.assignment_runtime, purpose: 执行已决定的激活、切换、停止和回滚动作。, required: true}
+        authorization:
+          requester_roles: [data_acquisition.datainjector.plan_authority]
+          executor_roles: [data_acquisition.datainjector.acquisition_executor]
+          cancellation_roles: [data_acquisition.datainjector.plan_authority]
+        execution:
+          mode: deterministic_code
+          behavior_contract:
+            - 请求必须携带不可变 plan revision；全量计划的省略删除语义必须显式声明
+            - 每个结果返回 desired 与 actual revision，不能只返回 role id 和 status
+            - readiness 由计划合同判定，不能用固定存活等待替代
+            - rollback target 必须是精确且已验收的旧 revision
+            - 部分成功是否允许由计划决定，失败项必须保留旧实际版本和剩余责任
+          policy_inputs:
+            - {name: cutover_policy, meaning: 全局原子或逐项、启停顺序、readiness、停止期限和回滚条件。, value_schema: {kind: schema_ref, ref: AssignmentCutoverPolicy.v1}, required: true}
+          prohibited_assumptions: [不得把请求中省略的委派天然解释为删除, 不得把进程短时未退出解释为 ready, 不得用内存旧对象作为稳定 rollback 身份]
+          verification:
+            - {id: release_is_versioned, meaning: 每项 desired、actual 和 rollback 目标均具有 revision。, evidence: [{id: no_missing_revision, meaning: 缺失版本条目数为零。, condition: {compare: {left: {path: $.release_result.missing_revision_count}, operator: eq, right: {literal: 0}}}}]}
+        effects:
+          guaranteed: {compare: {left: {path: $.release_result.unaccounted_count}, operator: eq, right: {literal: 0}}}
+        outcomes:
+          - id: applied
+            meaning: 所有委派达到目标 actual revision 并满足 readiness。
+            responsibility_status: completed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.plan_is_closed, subject: {path: $.plan}, truth_value: asserted}}
+            evidence:
+              - {id: all_ready, meaning: 逐项 actual revision 与 readiness 证据完整。, condition: {compare: {left: {path: $.release_result.mismatch_count}, operator: eq, right: {literal: 0}}}}
+          - id: partial_or_rolled_back
+            meaning: 只完成部分委派，或已恢复到精确旧版本；逐项真实状态可查询。
+            responsibility_status: partially_completed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.plan_is_closed, subject: {path: $.plan}, truth_value: unknown}}
+            evidence:
+              - {id: actual_revisions, meaning: 所有委派的实际版本与剩余责任完整。, condition: {compare: {left: {path: $.release_result.unaccounted_count}, operator: eq, right: {literal: 0}}}}
+            remaining_responsibility: 发布治理者按 cutover policy 继续修复、接受部分结果或完成整体回滚。
+          - id: failed
+            meaning: 发布前验证失败或运行设施无法提供任何可信实际状态。
+            responsibility_status: failed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.plan_is_closed, subject: {path: $.plan}, truth_value: denied}}
+            evidence:
+              - {id: failure_scope, meaning: 失败发生在验证、激活、停止或回滚的具体阶段。, condition: {compare: {left: {path: $.failure_stage}, operator: ne, right: {literal: null}}}}
+            remaining_responsibility: 计划制定者修正发布计划；若实际状态 unknown，执行者先完成运行实例盘点。
+
+      - id: data_acquisition.datainjector.fulfill_acquisition_run
+        name: 履行一次采集运行
+        version: 1.0.0
+        definition: Worker 验证命令栅栏，严格按完备计划触发来源观察、规范投影、完整性处置和交付，并形成唯一运行终态证据。
+        semantic_signature:
+          intent: fulfill_run
+          scope: 一个 task、attempt、run、plan revision 与 assignment revision 的组合。
+          accountable_role: data_acquisition.datainjector.acquisition_executor
+          goal: {predicate: data_acquisition.datainjector.run_completion_is_proven, subject: {path: $.run}, truth_value: asserted}
+        inputs:
+          - {name: command, meaning: 控制面可靠派发的带栅栏命令。, value_schema: {kind: reference, target: data_acquisition.datainjector.dispatch_command}, required: true}
+          - {name: plan, meaning: 与命令 plan revision 完全一致的完备采集计划。, value_schema: {kind: reference, target: data_acquisition.datainjector.acquisition_plan}, required: true}
+        outputs:
+          - {name: run, meaning: 本次实际运行身份。, value_schema: {kind: reference, target: data_acquisition.datainjector.execution_run}, required: true}
+          - {name: report, meaning: 带精确 fencing 与分阶段证据的终态报告。, value_schema: {kind: reference, target: data_acquisition.datainjector.execution_report}, required: true}
+        facility_dependencies:
+          - {alias: source, facility: data_acquisition.datainjector.source_interaction, purpose: 执行计划已决定的来源交互。, required: true}
+          - {alias: custody, facility: data_acquisition.datainjector.observation_custody, purpose: 保全处理中的观察责任并报告背压损失。, required: true}
+          - {alias: publication, facility: data_acquisition.datainjector.result_publication, purpose: 发布规范观察和不可丢失的运行证据。, required: true}
+          - {alias: clock, facility: data_acquisition.datainjector.domain_clock, purpose: 在无新消息时驱动 deadline 与持续责任。, required: true}
+        authorization:
+          requester_roles: [data_acquisition.datainjector.task_governor]
+          executor_roles: [data_acquisition.datainjector.acquisition_executor]
+          cancellation_roles: [data_acquisition.datainjector.task_governor]
+        execution:
+          mode: deterministic_code
+          behavior_contract:
+            - 先验证 command schema、attempt、plan revision 与本地 actual assignment revision；不匹配则拒绝且不启动来源副作用
+            - accepted、source observed、projected、held、delivered 和 completed 是不同事实
+            - 来源响应必须保留 provenance；投影的 irrelevant、unrecognized、invalid、duplicate、held 和 dropped 都是显式处置
+            - strict completion 由 plan 决定，入队成功永远只代表 custody accepted
+            - 每个已接纳 run 必须恰好形成一个有证据的终态，tracker TTL、DLQ 满或 reporter 不可用不能消灭责任
+          policy_inputs:
+            - {name: trigger_policy, meaning: 运行的单次、周期、持续或命令触发语义。, value_schema: {kind: schema_ref, ref: TriggerPolicy.v1}, required: true}
+            - {name: completion_policy, meaning: 运行完成所需证据。, value_schema: {kind: schema_ref, ref: CompletionPolicy.v1}, required: true}
+            - {name: failure_policy, meaning: 阶段失败、重试、部分完成和取消处置。, value_schema: {kind: schema_ref, ref: FailurePolicy.v1}, required: true}
+            - {name: delivery_policy, meaning: 路由、幂等和交付保证。, value_schema: {kind: schema_ref, ref: DeliveryPolicy.v1}, required: true}
+          prohibited_assumptions: [不得根据 emitter、caller、handler 或 sink 名称推断业务完成语义, 不得用当前时间、默认 exchange、价格一或时间戳伪造来源事实, 不得用空输出同时表示 irrelevant、held、duplicate 和 error]
+          verification:
+            - {id: one_terminal_report, meaning: 每个 accepted run 恰好一个可恢复终态报告。, evidence: [{id: terminal_count, meaning: 终态数量为一。, condition: {compare: {left: {path: $.terminal_report_count}, operator: eq, right: {literal: 1}}}}]}
+            - {id: stages_not_conflated, meaning: 完成只由计划所需最终证据建立。, evidence: [{id: completion_proven, meaning: 完成命题由充分证据支持。, condition: {predicate: data_acquisition.datainjector.run_completion_is_proven, subject: {path: $.run}, truth_value: asserted}}]}
+        preserves:
+          - data_acquisition.datainjector.rule.no_runtime_policy_defaults
+          - data_acquisition.datainjector.rule.stage_success_is_not_task_success
+          - data_acquisition.datainjector.rule.accept_before_acknowledge
+        effects:
+          guaranteed: {compare: {left: {path: $.terminal_report_count}, operator: eq, right: {literal: 1}}}
+          forbidden: {compare: {left: {path: $.unreported_loss_count}, operator: gt, right: {literal: 0}}}
+        outcomes:
+          - id: completed
+            meaning: 当前 run 的覆盖、交付及计划要求的其他证据全部成立。
+            responsibility_status: completed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.run_completion_is_proven, subject: {path: $.run}, truth_value: asserted}}
+              - {emit_occurrence: {type: data_acquisition.datainjector.run_ended, participants: {run: {path: $.run}}, property_bindings: {event_id: {path: $.event_id}, occurred_at: {path: $.occurred_at}}}}
+            evidence:
+              - {id: completion_evidence, meaning: 覆盖、交付与可选 Manifest 证据满足计划。, condition: {predicate: data_acquisition.datainjector.run_completion_is_proven, subject: {path: $.run}, truth_value: asserted}}
+          - id: partially_completed
+            meaning: 一部分范围或观察已经交付，但计划目标未全部闭合，已保留剩余范围。
+            responsibility_status: partially_completed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.run_completion_is_proven, subject: {path: $.run}, truth_value: denied}}
+              - {emit_occurrence: {type: data_acquisition.datainjector.run_ended, participants: {run: {path: $.run}}, property_bindings: {event_id: {path: $.event_id}, occurred_at: {path: $.occurred_at}}}}
+            evidence:
+              - {id: remaining_coverage, meaning: 已完成和未完成覆盖、交付凭证与失败原因可查询。, condition: {compare: {left: {path: $.report.remaining_scope_known}, operator: eq, right: {literal: true}}}}
+            remaining_responsibility: 任务治理者按失败策略安排新 attempt，已交付部分必须保持幂等。
+          - id: failed_cancelled_or_unknown
+            meaning: 运行失败、取消或外部结果未知，未把中间成功升级为任务成功。
+            responsibility_status: failed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.run_completion_is_proven, subject: {path: $.run}, truth_value: unknown}}
+              - {emit_occurrence: {type: data_acquisition.datainjector.run_ended, participants: {run: {path: $.run}}, property_bindings: {event_id: {path: $.event_id}, occurred_at: {path: $.occurred_at}}}}
+            evidence:
+              - {id: terminal_failure_evidence, meaning: 失败阶段、分类、外部副作用确定性和剩余责任完整。, condition: {compare: {left: {path: $.report.evidence_complete}, operator: eq, right: {literal: true}}}}
+            remaining_responsibility: 任务治理者依据当前 attempt 的有栅栏报告决定核验、重试、部分接受或最终失败。
+
+      - id: data_acquisition.datainjector.reconcile_execution_report
+        name: 核对运行报告并推进任务
+        version: 1.0.0
+        definition: 控制面只接受与当前 run 完整匹配且满足合法迁移的报告，区分进展、完成、可重试失败、最终失败和迟到证据。
+        semantic_signature:
+          intent: reconcile_run
+          scope: 一份运行报告对其任务当前责任的影响。
+          accountable_role: data_acquisition.datainjector.task_governor
+          goal: {compare: {left: {path: $.unaccounted_report_count}, operator: eq, right: {literal: 0}}}
+        inputs:
+          - {name: task, meaning: 报告声称所属的当前任务。, value_schema: {kind: reference, target: data_acquisition.datainjector.acquisition_task}, required: true}
+          - {name: report, meaning: Worker 形成的带 run、attempt 与 revision 栅栏报告。, value_schema: {kind: reference, target: data_acquisition.datainjector.execution_report}, required: true}
+          - {name: plan, meaning: 当前任务采用的完备计划。, value_schema: {kind: reference, target: data_acquisition.datainjector.acquisition_plan}, required: true}
+        outputs:
+          - {name: disposition, meaning: progress_recorded、task_completed、retry_scheduled、task_failed 或 stale_ignored。, value_schema: {kind: enum, values: [progress_recorded, task_completed, retry_scheduled, task_failed, stale_ignored]}, required: true}
+          - {name: next_attempt, meaning: 仅 retry_scheduled 时形成的下一个 attempt 信息。, value_schema: {kind: schema_ref, ref: NextAttempt.v1}, required: false}
+        facility_dependencies:
+          - {alias: task_custody, facility: data_acquisition.datainjector.atomic_task_custody, purpose: 原子验证当前 run 并推进单调任务投影。, required: true}
+          - {alias: clock, facility: data_acquisition.datainjector.domain_clock, purpose: 登记计划决定的重试时间。, required: false}
+        authorization:
+          requester_roles: [data_acquisition.datainjector.acquisition_executor]
+          executor_roles: [data_acquisition.datainjector.task_governor]
+        execution:
+          mode: deterministic_code
+          behavior_contract:
+            - 必须匹配 task、attempt、run、plan revision、assignment revision 和 report schema version
+            - 重复与迟到报告保留为 observation，但不得改变当前任务或重复消费 retry budget
+            - 终态单调；任何旧 SUCCESS 都不能覆盖新 attempt 或已确认最终结果
+            - retryable 分类、预算、退避和截止只来自 plan；任务新 attempt 在原子提交后才生效
+            - 输入只有在状态变更或持久拒绝证据成功后才可确认
+          policy_inputs:
+            - {name: failure_policy, meaning: 失败分类、预算、退避、截止和最终处置。, value_schema: {kind: schema_ref, ref: FailurePolicy.v1}, required: true}
+          prohibited_assumptions: [不得仅按 task_id 更新状态, 不得只靠 HTTP 状态码决定 retryable, 不得在处理异常后无条件确认输入]
+          verification:
+            - {id: stale_report_has_no_effect, meaning: 迟到和错版本报告不改变当前 attempt。, evidence: [{id: current_unchanged, meaning: stale disposition 前后当前 run 身份一致。, condition: {compare: {left: {path: $.current_run_changed}, operator: eq, right: {literal: false}}}}]}
+        preserves:
+          - data_acquisition.datainjector.rule.current_run_fencing
+          - data_acquisition.datainjector.rule.stage_success_is_not_task_success
+          - data_acquisition.datainjector.rule.accept_before_acknowledge
+        effects:
+          guaranteed: {compare: {left: {path: $.terminal_outcome_count}, operator: eq, right: {literal: 1}}}
+        outcomes:
+          - id: progress_or_completed
+            meaning: 匹配报告被原子接受；仅充分完成证据可终结任务。
+            responsibility_status: completed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.run_completion_is_proven, subject: {path: $.report.run_identity}, truth_value: asserted}}
+            evidence:
+              - {id: fenced_transition, meaning: fencing 完整且状态迁移合法。, condition: {compare: {left: {path: $.report.fencing_matches_current_run}, operator: eq, right: {literal: true}}}}
+          - id: retry_scheduled
+            meaning: 当前运行失败且 retry policy 明确允许，预算已原子消费并登记下一 attempt 时间。
+            responsibility_status: partially_completed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.task_is_due, subject: {path: $.task}, truth_value: denied}}
+            evidence:
+              - {id: retry_accounted, meaning: 预算、失败分类、下一 attempt 和调度时间在同一变更中保存。, condition: {compare: {left: {path: $.next_attempt.persisted}, operator: eq, right: {literal: true}}}}
+            remaining_responsibility: 任务治理者在 next_attempt 时间重新判断派发资格。
+          - id: final_failure_or_stale
+            meaning: 预算耗尽形成最终失败，或报告迟到/冲突被保留但忽略。
+            responsibility_status: failed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.run_completion_is_proven, subject: {path: $.report.run_identity}, truth_value: unknown}}
+            evidence:
+              - {id: final_or_stale_reason, meaning: 明确区分 final failure 与 stale ignored，并保留身份差异。, condition: {compare: {left: {path: $.disposition_reason}, operator: ne, right: {literal: null}}}}
+            remaining_responsibility: 最终失败由请求者处理；stale 报告无需重试但保留审计证据。
+
+      - id: data_acquisition.datainjector.accept_manifest_claim
+        name: 验收批量采集结果
+        version: 1.0.0
+        definition: 独立校验 Manifest 合同、当前 run 关联、覆盖闭合、记录统计、工件存在性和必需校验，形成验收而不改写 Worker 实际执行事实。
+        semantic_signature:
+          intent: accept_batch_result
+          scope: 一个精确 run 的一份 Manifest claim。
+          accountable_role: data_acquisition.datainjector.result_acceptor
+          goal: {predicate: data_acquisition.datainjector.manifest_is_accepted, subject: {path: $.claim}, truth_value: asserted}
+        inputs:
+          - {name: task, meaning: Manifest 声称所属的任务。, value_schema: {kind: reference, target: data_acquisition.datainjector.acquisition_task}, required: true}
+          - {name: claim, meaning: Worker 形成的版本化批量结果声明。, value_schema: {kind: reference, target: data_acquisition.datainjector.manifest_claim}, required: true}
+          - {name: plan, meaning: 定义覆盖与证据要求的完备计划。, value_schema: {kind: reference, target: data_acquisition.datainjector.acquisition_plan}, required: true}
+        outputs:
+          - {name: disposition, meaning: accepted、rejected 或 unverifiable。, value_schema: {kind: enum, values: [accepted, rejected, unverifiable]}, required: true}
+          - {name: findings, meaning: 逐项版本、关联、覆盖、统计与工件核验结果。, value_schema: {kind: schema_ref, ref: ManifestFindings.v1}, required: true}
+        authorization:
+          requester_roles: [data_acquisition.datainjector.acquisition_executor, data_acquisition.datainjector.task_governor]
+          executor_roles: [data_acquisition.datainjector.result_acceptor]
+        execution:
+          mode: deterministic_code
+          behavior_contract:
+            - 必须先验证 Manifest schema version 与字段命名合同，再解释内容
+            - claim 的 run identity 必须与任务当前或明确待验收 run 匹配
+            - completed 只在覆盖闭合、记录统计及计划要求的每个工件校验均通过时成立
+            - 工件不可访问或 checksum 无法计算是 unverifiable，不得 fail-open
+            - 验收失败改变的是 acceptance 事实，不得篡改 Worker 已发生的执行终态
+          policy_inputs:
+            - {name: evidence_policy, meaning: 计划规定的覆盖、记录、checksum、工件可访问性和兼容规则。, value_schema: {kind: schema_ref, ref: ManifestEvidencePolicy.v1}, required: true}
+          prohibited_assumptions: [不得忽略 schema version, 不得因 output location 缺失跳过全部工件检查, 不得把 checksum 异常当作通过]
+          verification:
+            - {id: generator_cannot_self_accept, meaning: 验收权威与 Manifest claim 生成权威不同。, evidence: [{id: independent_authority, meaning: acceptance 不是从 claim.status 直接派生。, condition: {compare: {left: {path: $.accepted_from_claim_status_only}, operator: eq, right: {literal: false}}}}]}
+        preserves: [data_acquisition.datainjector.rule.stage_success_is_not_task_success]
+        effects:
+          guaranteed: {compare: {left: {path: $.terminal_outcome_count}, operator: eq, right: {literal: 1}}}
+        outcomes:
+          - id: accepted
+            meaning: Manifest 与全部必要工件证据通过独立验收。
+            responsibility_status: completed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.manifest_is_accepted, subject: {path: $.claim}, truth_value: asserted}}
+              - {emit_occurrence: {type: data_acquisition.datainjector.manifest_accepted, participants: {claim: {path: $.claim}, task: {path: $.task}}, property_bindings: {event_id: {path: $.event_id}, occurred_at: {path: $.occurred_at}}}}
+            evidence:
+              - {id: all_findings_pass, meaning: 所有 mandatory finding 明确为通过。, condition: {compare: {left: {path: $.findings.failed_or_unknown_count}, operator: eq, right: {literal: 0}}}}
+          - id: rejected
+            meaning: 有权核验确认版本、关联、覆盖、统计或工件证据不成立。
+            responsibility_status: failed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.manifest_is_accepted, subject: {path: $.claim}, truth_value: denied}}
+            evidence:
+              - {id: rejection_findings, meaning: 至少一个有权 finding 为失败。, condition: {compare: {left: {path: $.findings.failed_count}, operator: gt, right: {literal: 0}}}}
+            remaining_responsibility: 任务治理者依据计划决定补采、重试或最终失败；Worker 执行事实保持不变。
+          - id: unverifiable
+            meaning: 关键证据不可访问、权威未知或校验结果不确定，不能接受也不能断言数据错误。
+            responsibility_status: unknown
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.manifest_is_accepted, subject: {path: $.claim}, truth_value: unknown}}
+            evidence:
+              - {id: unknown_findings, meaning: 不可验证项目、原因和责任方可查询。, condition: {compare: {left: {path: $.findings.unknown_count}, operator: gt, right: {literal: 0}}}}
+            remaining_responsibility: 结果验收者恢复证据访问或由任务治理者显式裁决，不得默认通过。
+
+      - id: data_acquisition.datainjector.assure_stream_continuity
+        name: 决定流观察处置并协调恢复
+        version: 1.0.0
+        definition: 在一个不可变 StreamIdentity 内解释序列覆盖、重复、锚点和 finality，为每条观察形成下发、保管、抑制或声明损失的处置，并保全恢复责任。
+        semantic_signature:
+          intent: assure_stream_continuity
+          scope: 一条流的一次规范观察或一个关联恢复结果。
+          accountable_role: data_acquisition.datainjector.acquisition_executor
+          goal: {predicate: data_acquisition.datainjector.stream_disposition_is_accounted, subject: {path: $.stream}, truth_value: asserted}
+        inputs:
+          - {name: stream, meaning: 观察所属完整流身份。, value_schema: {kind: reference, target: data_acquisition.datainjector.stream_identity}, required: true}
+          - {name: observation, meaning: 带 sequence、可选 range、message identity、来源时间和 anchor 类型的规范观察。, value_schema: {kind: schema_ref, ref: SequencedObservation.v1}, required: false}
+          - {name: integrity_policy, meaning: 覆盖、基线、锚点、finality、期限、缓冲损失和恢复的闭合策略。, value_schema: {kind: schema_ref, ref: IntegrityPolicy.v1}, required: true}
+          - {name: recovery_result, meaning: 可选且带 stream、session、attempt 关联的恢复执行结果。, value_schema: {kind: schema_ref, ref: RecoveryWorkResult.v1}, required: false}
+        outputs:
+          - {name: disposition, meaning: delivered、held、duplicate、stale、invalid、degraded 或 recovery_accounted。, value_schema: {kind: enum, values: [delivered, held, duplicate, stale, invalid, degraded, recovery_accounted]}, required: true}
+          - {name: delivery_set, meaning: 严格按同流连续顺序可下发的观察集合。, value_schema: {kind: list, items: {kind: schema_ref, ref: CanonicalObservation.v1}}, required: true}
+          - {name: recovery_work, meaning: 需要交接或合并的恢复计划。, value_schema: {kind: schema_ref, ref: RecoveryWorkPlan.v1}, required: false}
+        facility_dependencies:
+          - {alias: custody, facility: data_acquisition.datainjector.observation_custody, purpose: 按流保管待定观察、幂等见证和损失范围。, required: true}
+          - {alias: recovery, facility: data_acquisition.datainjector.recovery_handoff, purpose: 交接、合并或保全已决定的恢复责任。, required: true}
+          - {alias: clock, facility: data_acquisition.datainjector.domain_clock, purpose: 独立驱动 soft、hard、finality 和恢复期限。, required: true}
+        authorization:
+          requester_roles: [data_acquisition.datainjector.acquisition_executor]
+          executor_roles: [data_acquisition.datainjector.acquisition_executor]
+        execution:
+          mode: deterministic_code
+          behavior_contract:
+            - expected、buffer、gap、dedupe、finality 与 recovery lane 全部按完整 StreamIdentity 隔离
+            - 首观察之前历史为 unknown；只有计划明确允许基线或权威锚点应用后才建立 expected
+            - equal 后 expected 加一；range 覆盖后移至末端下一位置；旧观察不倒退状态
+            - snapshot 到达、下发、恢复 success 与下游已应用是不同事实，只有有权应用确认可解除 gate
+            - finality 由同流后继事实推进，未达 finality 的观察必须保管，不能依赖先下发自身才能获得资格
+            - 恢复派发 accepted、恢复执行 success、数据重新注入、gap closed 四种事实不得合并
+            - hard deadline、max gap、TTL 或容量导致前跳时必须返回 skipped range 与 remaining recovery responsibility
+          policy_inputs:
+            - {name: integrity_policy, meaning: 所有模式、阈值、期限、失败预算和禁用语义的唯一来源。, value_schema: {kind: schema_ref, ref: IntegrityPolicy.v1}, required: true}
+          prohibited_assumptions: [不得用 profile 名称隐含多项策略, 不得把零值一律解释为缺省, 不得用 unknown stream key 建立共享状态, 不得把恢复请求 success 解释为连续性恢复]
+          verification:
+            - {id: all_stream_responsibility_accounted, meaning: 无跨流状态和静默丢失。, evidence: [{id: stream_accounted, meaning: 完整性处置命题成立。, condition: {predicate: data_acquisition.datainjector.stream_disposition_is_accounted, subject: {path: $.stream}, truth_value: asserted}}]}
+        preserves:
+          - data_acquisition.datainjector.rule.stream_state_isolation
+          - data_acquisition.datainjector.rule.no_runtime_policy_defaults
+        effects:
+          guaranteed: {predicate: data_acquisition.datainjector.stream_disposition_is_accounted, subject: {path: $.stream}, truth_value: asserted}
+          forbidden: {compare: {left: {path: $.silent_loss}, operator: eq, right: {literal: true}}}
+        outcomes:
+          - id: delivered
+            meaning: 观察已连续、非重复且满足锚点与 finality 资格，delivery_set 严格有序。
+            responsibility_status: completed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.stream_disposition_is_accounted, subject: {path: $.stream}, truth_value: asserted}}
+            evidence:
+              - {id: contiguous_delivery, meaning: 释放集合均属同流并从 expected 连续覆盖。, condition: {compare: {left: {path: $.delivery_set.contiguous}, operator: eq, right: {literal: true}}}}
+          - id: held_or_suppressed
+            meaning: 观察因缺口、等待锚点、未达 finality 而入托，或被有证据地判定重复、迟到、无关或非法。
+            responsibility_status: partially_completed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.stream_disposition_is_accounted, subject: {path: $.stream}, truth_value: asserted}}
+            evidence:
+              - {id: explicit_disposition, meaning: custody receipt 或抑制依据明确且未推进错误水位。, condition: {compare: {left: {path: $.disposition_reason}, operator: ne, right: {literal: null}}}}
+            remaining_responsibility: held 观察继续等待覆盖、锚点或后继确认；已证明的 duplicate、stale、irrelevant 或 invalid 无下发责任。
+          - id: recovery_accounted
+            meaning: 缺口恢复已成为唯一 pending、合并意图或可靠义务；执行 success 尚未声称 gap closed。
+            responsibility_status: partially_completed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.stream_disposition_is_accounted, subject: {path: $.stream}, truth_value: asserted}}
+            evidence:
+              - {id: recovery_correlation, meaning: stream、kind、session、attempt 和缺失范围完整，且 pending 新范围无遗漏。, condition: {compare: {left: {path: $.recovery_receipt.accounted}, operator: eq, right: {literal: true}}}}
+            remaining_responsibility: 等待重新注入数据闭合缺口或有权快照应用确认；迟到结果不得修改当前 session。
+          - id: degraded_with_declared_loss
+            meaning: 为避免无限停滞而按计划越过未闭合范围，损失与恢复义务已显式记录。
+            responsibility_status: partially_completed
+            establishes:
+              - {assert: {predicate: data_acquisition.datainjector.stream_disposition_is_accounted, subject: {path: $.stream}, truth_value: asserted}}
+            evidence:
+              - {id: skipped_range_and_obligation, meaning: skipped range、触发策略和 recovery responsibility 均可查询。, condition: {compare: {left: {path: $.skipped_range_and_obligation_present}, operator: eq, right: {literal: true}}}}
+            remaining_responsibility: 完整性责任方继续恢复已跳过范围；观察消费者必须区分该结果与完整交付。

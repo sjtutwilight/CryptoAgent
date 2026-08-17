@@ -378,7 +378,7 @@ services:
       - infra
 
   prometheus:
-    image: prom/prometheus:latest
+    image: ${PROMETHEUS_IMAGE:-prom/prometheus:latest}
     container_name: obs-prometheus
     env_file: *default-env-files
     ports:
@@ -414,7 +414,7 @@ services:
       - infra
 
   loki:
-    image: grafana/loki:3.3.1
+    image: ${LOKI_IMAGE:-grafana/loki:3.3.1}
     container_name: obs-loki
     env_file: *default-env-files
     ports:
@@ -432,7 +432,7 @@ services:
       - infra
 
   tempo:
-    image: grafana/tempo:2.6.1
+    image: ${TEMPO_IMAGE:-grafana/tempo:2.6.1}
     container_name: obs-tempo
     env_file: *default-env-files
     ports:
@@ -450,7 +450,7 @@ services:
       - infra
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.102.1
+    image: ${OTEL_COLLECTOR_IMAGE:-otel/opentelemetry-collector-contrib:0.102.1}
     container_name: obs-otel-collector
     env_file: *default-env-files
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
@@ -475,7 +475,7 @@ services:
       - infra
 
   codex-otel-metrics:
-    image: python:3.11-slim
+    image: ${CODEX_OTEL_METRICS_IMAGE:-python:3.11-slim}
     container_name: obs-codex-otel-metrics
     env_file: *default-env-files
     command:
@@ -499,7 +499,7 @@ services:
       - infra
 
   grafana:
-    image: grafana/grafana:latest
+    image: ${GRAFANA_IMAGE:-grafana/grafana:latest}
     container_name: obs-grafana
     env_file: *default-env-files
     ports:
@@ -520,7 +520,7 @@ services:
       - infra
 
   promtail:
-    image: grafana/promtail:3.3.1
+    image: ${PROMTAIL_IMAGE:-grafana/promtail:3.3.1}
     container_name: obs-promtail
     user: "root"
     env_file: *default-env-files
@@ -540,7 +540,7 @@ services:
           memory: "${PROMTAIL_MEM}"
 
   kafka-exporter:
-    image: danielqsj/kafka-exporter:v1.7.0
+    image: ${KAFKA_EXPORTER_IMAGE:-danielqsj/kafka-exporter:v1.7.0}
     container_name: obs-kafka-exporter
     env_file: *default-env-files
     command:

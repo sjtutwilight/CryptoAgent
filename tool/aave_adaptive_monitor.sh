@@ -22,15 +22,28 @@ STABLE_CYCLES=0
 STABLE_PROMOTE_THRESHOLD="${STABLE_PROMOTE_THRESHOLD:-2}"
 TOPIC_NO_GROWTH_FAIL_CYCLES="${TOPIC_NO_GROWTH_FAIL_CYCLES:-3}"
 ERROR_SCAN_WINDOW_SECONDS="${ERROR_SCAN_WINDOW_SECONDS:-120}"
+# 仅命中“高信号错误日志”时，自愈至少等待该连续失败轮次后再触发，减少无效 re-apply 抖动
+LOG_ONLY_RECOVER_FAIL_CYCLES="${LOG_ONLY_RECOVER_FAIL_CYCLES:-2}"
 
 ERROR_REGEX="${ERROR_REGEX:-panic|fatal|segmentation fault|concurrent write to websocket connection|role\\.stop|ws\\.read\\.error|handler\\.error|sink\\.error|pipeline\\.error|caller\\.error|websocket .*failed}"
+# 非 caller.error 的致命错误（直接判失败）
+FATAL_ERROR_REGEX="${FATAL_ERROR_REGEX:-panic|fatal|segmentation fault|concurrent write to websocket connection|role\\.stop|handler\\.error|sink\\.error|pipeline\\.error}"
+# 网络瞬时错误（仅在突发且伴随数据停滞时判失败）
+WS_TRANSIENT_REGEX="${WS_TRANSIENT_REGEX:-ws\\.read\\.error|ws\\.reconnect\\.error|websocket read failed|websocket reconnect failed|websocket: close 1006|unexpected EOF|i/o timeout|\\bEOF\\b}"
+WS_TRANSIENT_BURST_THRESHOLD="${WS_TRANSIENT_BURST_THRESHOLD:-6}"
 # caller.error 阈值：支持“连续轮次 + 时间窗口累计”双触发
-CALLER_ERROR_CONSEC_FAIL_CYCLES="${CALLER_ERROR_CONSEC_FAIL_CYCLES:-2}"
+CALLER_ERROR_CONSEC_FAIL_CYCLES="${CALLER_ERROR_CONSEC_FAIL_CYCLES:-3}"
 CALLER_ERROR_BURST_THRESHOLD="${CALLER_ERROR_BURST_THRESHOLD:-3}"
 CALLER_ERROR_COUNT_WINDOW_SECONDS="${CALLER_ERROR_COUNT_WINDOW_SECONDS:-600}"
 CALLER_ERROR_COUNT_THRESHOLD="${CALLER_ERROR_COUNT_THRESHOLD:-10}"
-# caller.error 降噪规则：仅忽略 retryable=true 且命中超时关键词的错误
+# caller.error 降噪规则：仅忽略 retryable=true 且命中“超时/网络瞬时”关键词的错误
 CALLER_TIMEOUT_NOISE_REGEX="${CALLER_TIMEOUT_NOISE_REGEX:-context deadline exceeded|client\\.timeout exceeded|timeout exceeded while awaiting headers|deadline exceeded}"
+CALLER_NETWORK_NOISE_REGEX="${CALLER_NETWORK_NOISE_REGEX:-unexpected EOF|\\bEOF\\b|i/o timeout|connection reset by peer|broken pipe|connection refused|tls handshake timeout}"
+# sink.error 中可重试的瞬时超时：只有突发或长窗累计时才判失败，避免单轮偶发误报
+SINK_TIMEOUT_NOISE_REGEX="${SINK_TIMEOUT_NOISE_REGEX:-context deadline exceeded|i/o timeout|timeout}"
+SINK_TIMEOUT_BURST_THRESHOLD="${SINK_TIMEOUT_BURST_THRESHOLD:-4}"
+SINK_TIMEOUT_COUNT_WINDOW_SECONDS="${SINK_TIMEOUT_COUNT_WINDOW_SECONDS:-600}"
+SINK_TIMEOUT_COUNT_THRESHOLD="${SINK_TIMEOUT_COUNT_THRESHOLD:-12}"
 # 收敛正则：避免把 trace/span 等十六进制或长数字中的“429”误判为风控
 # 仅匹配独立 429/418 或典型字段（status_code/code），并保留常见文本提示
 BINANCE_RISK_REGEX="${BINANCE_RISK_REGEX:-(\b429\b|\b418\b|status_code[^0-9A-Za-z]*429|code[^0-9A-Za-z]*-?1003|too many requests|too_many_requests|ip banned|banned until|rate limit|ratelimit)}"
@@ -59,6 +72,12 @@ RISK_PAUSE_COOLDOWN_SECONDS="${RISK_PAUSE_COOLDOWN_SECONDS:-1800}"
 ENABLE_EVENT_PUSH="${ENABLE_EVENT_PUSH:-true}"
 EVENT_PUSH_SCRIPT="${EVENT_PUSH_SCRIPT:-$ROOT_DIR/tool/monitor_event_push.sh}"
 PERIODIC_PUSH_SECONDS="${PERIODIC_PUSH_SECONDS:-900}"
+# diff topic 长空档保护：即使主巡检间隔较长，也会做短窗增量探针
+DIFF_TOPICS_CSV="${DIFF_TOPICS_CSV:-perp.orderbook.diff,spot.orderbook.diff}"
+DIFF_FRESHNESS_GUARD_MIN_INTERVAL_SECONDS="${DIFF_FRESHNESS_GUARD_MIN_INTERVAL_SECONDS:-300}"
+DIFF_FRESHNESS_PROBE_SECONDS="${DIFF_FRESHNESS_PROBE_SECONDS:-30}"
+DIFF_FRESHNESS_SAMPLE_INTERVAL_SECONDS="${DIFF_FRESHNESS_SAMPLE_INTERVAL_SECONDS:-5}"
+DIFF_FRESHNESS_MIN_GROWTH="${DIFF_FRESHNESS_MIN_GROWTH:-1}"
 
 STATE_DIR="${STATE_DIR:-$ROOT_DIR/runtime/data}"
 LOG_FILE="${LOG_FILE:-$STATE_DIR/aave_role_monitor_$(date +%Y%m%d_%H%M%S).log}"
@@ -94,14 +113,19 @@ TOPICS=(
 
 mkdir -p "$STATE_DIR" "$CODEX_OUTPUT_DIR"
 
-declare -A PREV_OFFSET
-declare -A NO_GROWTH_CYCLES
+declare -a PREV_OFFSET
+declare -a NO_GROWTH_CYCLES
 CONSEC_FAIL_CYCLES=0
 LAST_HEALTHY=true
 LAST_ERROR_HITS=""
 LAST_CALLER_ERROR_EFFECTIVE_HITS=""
 LAST_CALLER_ERROR_NOISE_HITS=""
 LAST_BINANCE_RISK_HITS=""
+LAST_WS_TRANSIENT_HITS=""
+LAST_SINK_TIMEOUT_HITS=""
+LAST_ERROR_TRIGGER_REASON=""
+LAST_ERROR_SUMMARY=""
+LAST_DIFF_ACTIVITY_REASON=""
 RISK_CRITICAL_THIS_CYCLE=false
 RISK_CRITICAL_REASON=""
 POST_FIX_VERIFY_REASON=""
@@ -123,6 +147,10 @@ LOCK_WITH_FLOCK=false
 IFS=',' read -r -a RISK_ROLE_IDS <<< "$RISK_ROLE_IDS_CSV"
 for i in "${!RISK_ROLE_IDS[@]}"; do
   RISK_ROLE_IDS[$i]="$(printf '%s' "${RISK_ROLE_IDS[$i]}" | xargs)"
+done
+IFS=',' read -r -a DIFF_TOPICS <<< "$DIFF_TOPICS_CSV"
+for i in "${!DIFF_TOPICS[@]}"; do
+  DIFF_TOPICS[$i]="$(printf '%s' "${DIFF_TOPICS[$i]}" | xargs)"
 done
 
 log() {
@@ -245,12 +273,33 @@ get_recent_error_hits() {
   docker logs --since "${interval}s" "$WORKER_CONTAINER" 2>&1 | grep -Ei "$ERROR_REGEX" | tail -n 500 || true
 }
 
-is_retryable_timeout_caller_error_line() {
+is_retryable_noise_caller_error_line() {
   local line="$1"
   [[ "$line" == *"\"event\":\"caller.error\""* ]] || return 1
   printf '%s\n' "$line" | grep -Eiq '"retryable":[[:space:]]*true' || return 1
-  printf '%s\n' "$line" | grep -Eiq -- "$CALLER_TIMEOUT_NOISE_REGEX" || return 1
-  return 0
+  if printf '%s\n' "$line" | grep -Eiq -- "$CALLER_TIMEOUT_NOISE_REGEX"; then
+    return 0
+  fi
+  if printf '%s\n' "$line" | grep -Eiq -- "$CALLER_NETWORK_NOISE_REGEX"; then
+    return 0
+  fi
+  return 1
+}
+
+is_fatal_non_caller_line() {
+  local line="$1"
+  printf '%s\n' "$line" | grep -Eiq -- "$FATAL_ERROR_REGEX"
+}
+
+is_ws_transient_line() {
+  local line="$1"
+  printf '%s\n' "$line" | grep -Eiq -- "$WS_TRANSIENT_REGEX"
+}
+
+is_sink_timeout_transient_line() {
+  local line="$1"
+  [[ "$line" == *"\"event\":\"sink.error\""* ]] || return 1
+  printf '%s\n' "$line" | grep -Eiq -- "$SINK_TIMEOUT_NOISE_REGEX"
 }
 
 count_effective_caller_error_hits() {
@@ -264,7 +313,7 @@ count_effective_caller_error_hits() {
   }
   while IFS= read -r line; do
     [[ -n "$line" ]] || continue
-    if is_retryable_timeout_caller_error_line "$line"; then
+    if is_retryable_noise_caller_error_line "$line"; then
       continue
     fi
     count=$((count + 1))
@@ -272,29 +321,57 @@ count_effective_caller_error_hits() {
   echo "$count"
 }
 
+count_recent_sink_timeout_hits() {
+  local interval="$1"
+  local hits
+  hits="$(docker logs --since "${interval}s" "$WORKER_CONTAINER" 2>&1 | grep -E '"event":"sink\.error"' || true)"
+  if [[ -z "$hits" ]]; then
+    echo 0
+  else
+    printf '%s\n' "$hits" | grep -Ei -- "$SINK_TIMEOUT_NOISE_REGEX" | wc -l | awk '{print $1}'
+  fi
+}
+
 evaluate_recent_errors() {
   local interval="$1"
   local update_consecutive="${2:-true}"
+  local diff_activity_failed="${3:-false}"
+  local ws_transient_burst_threshold="$WS_TRANSIENT_BURST_THRESHOLD"
+  local sink_timeout_burst_threshold="$SINK_TIMEOUT_BURST_THRESHOLD"
+  local sink_timeout_count_threshold="$SINK_TIMEOUT_COUNT_THRESHOLD"
   local hits line
-  local non_caller_text=""
+  local fatal_non_caller_text=""
+  local ws_transient_text=""
+  local sink_timeout_text=""
   local caller_effective_text=""
   local caller_noise_text=""
+  local fatal_non_caller_count=0
+  local ws_transient_count=0
+  local sink_timeout_count=0
   local caller_effective_count=0
   local caller_noise_count=0
   local caller_effective_long_count=0
+  local sink_timeout_long_count=0
   local should_fail=false
   local -a trigger_reasons=()
+  [[ "$ws_transient_burst_threshold" =~ ^[0-9]+$ ]] || ws_transient_burst_threshold=6
+  [[ "$sink_timeout_burst_threshold" =~ ^[0-9]+$ ]] || sink_timeout_burst_threshold=4
+  [[ "$sink_timeout_count_threshold" =~ ^[0-9]+$ ]] || sink_timeout_count_threshold=12
 
   hits="$(get_recent_error_hits "$interval")"
   LAST_ERROR_HITS=""
   LAST_CALLER_ERROR_EFFECTIVE_HITS=""
   LAST_CALLER_ERROR_NOISE_HITS=""
+  LAST_WS_TRANSIENT_HITS=""
+  LAST_SINK_TIMEOUT_HITS=""
+  LAST_ERROR_TRIGGER_REASON=""
+  LAST_ERROR_SUMMARY=""
 
   if [[ -n "$hits" ]]; then
     while IFS= read -r line; do
       [[ -n "$line" ]] || continue
       if [[ "$line" == *"\"event\":\"caller.error\""* ]]; then
-        if is_retryable_timeout_caller_error_line "$line"; then
+        if is_retryable_noise_caller_error_line "$line"; then
           caller_noise_count=$((caller_noise_count + 1))
           caller_noise_text+="${line}"$'\n'
         else
@@ -309,7 +386,27 @@ evaluate_recent_errors() {
         continue
       fi
 
-      non_caller_text+="${line}"$'\n'
+      if is_sink_timeout_transient_line "$line"; then
+        sink_timeout_count=$((sink_timeout_count + 1))
+        sink_timeout_text+="${line}"$'\n'
+        continue
+      fi
+
+      if is_fatal_non_caller_line "$line"; then
+        fatal_non_caller_count=$((fatal_non_caller_count + 1))
+        fatal_non_caller_text+="${line}"$'\n'
+        continue
+      fi
+
+      if is_ws_transient_line "$line"; then
+        ws_transient_count=$((ws_transient_count + 1))
+        ws_transient_text+="${line}"$'\n'
+        continue
+      fi
+
+      # 未明确分类的非 caller.error 命中，按高风险处理，避免漏报。
+      fatal_non_caller_count=$((fatal_non_caller_count + 1))
+      fatal_non_caller_text+="${line}"$'\n'
     done <<< "$hits"
   fi
 
@@ -322,18 +419,22 @@ evaluate_recent_errors() {
   fi
 
   caller_effective_long_count="$(count_effective_caller_error_hits "$CALLER_ERROR_COUNT_WINDOW_SECONDS")"
+  sink_timeout_long_count="$(count_recent_sink_timeout_hits "$SINK_TIMEOUT_COUNT_WINDOW_SECONDS")"
 
   LAST_CALLER_ERROR_EFFECTIVE_HITS="$(printf '%s' "$caller_effective_text" | sed '/^$/d' | tail -n 50)"
   LAST_CALLER_ERROR_NOISE_HITS="$(printf '%s' "$caller_noise_text" | sed '/^$/d' | tail -n 50)"
-  LAST_ERROR_HITS="$(printf '%s\n%s' "$non_caller_text" "$caller_effective_text" | sed '/^$/d' | tail -n 50)"
+  LAST_WS_TRANSIENT_HITS="$(printf '%s' "$ws_transient_text" | sed '/^$/d' | tail -n 50)"
+  LAST_SINK_TIMEOUT_HITS="$(printf '%s' "$sink_timeout_text" | sed '/^$/d' | tail -n 50)"
+  LAST_ERROR_HITS="$(printf '%s\n%s\n%s' "$fatal_non_caller_text" "$caller_effective_text" "$sink_timeout_text" | sed '/^$/d' | tail -n 50)"
+  LAST_ERROR_SUMMARY="fatal_non_caller=${fatal_non_caller_count}, ws_transient=${ws_transient_count}, sink_timeout=${sink_timeout_count}, caller_effective=${caller_effective_count}, caller_noise=${caller_noise_count}, caller_long=${caller_effective_long_count}, sink_long=${sink_timeout_long_count}"
 
   if [[ -n "$LAST_CALLER_ERROR_NOISE_HITS" ]]; then
-    log "caller.error 降噪：忽略 retryable=true 的超时类错误 ${caller_noise_count} 条"
+    log "caller.error 降噪：忽略 retryable=true 的超时/网络瞬时类错误 ${caller_noise_count} 条"
   fi
 
-  if [[ -n "$non_caller_text" ]]; then
+  if (( fatal_non_caller_count > 0 )); then
     should_fail=true
-    trigger_reasons+=("非caller.error高信号错误")
+    trigger_reasons+=("非caller.error致命错误${fatal_non_caller_count}条")
   fi
 
   if (( caller_effective_count > 0 )); then
@@ -352,19 +453,118 @@ evaluate_recent_errors() {
     should_fail=true
     trigger_reasons+=("caller.error连续${CONSEC_CALLER_ERROR_CYCLES}轮(阈值${CALLER_ERROR_CONSEC_FAIL_CYCLES})")
   fi
+  if (( ws_transient_count > 0 )); then
+    log "网络瞬时错误观测: window=${interval}s ws_transient=${ws_transient_count}, diff_activity_failed=${diff_activity_failed}"
+  fi
+  if (( ws_transient_count >= ws_transient_burst_threshold )) && [[ "$diff_activity_failed" == "true" ]]; then
+    should_fail=true
+    trigger_reasons+=("ws瞬时错误突发${ws_transient_count}条(阈值${ws_transient_burst_threshold})且diff短窗无增量")
+  fi
+  if (( sink_timeout_count > 0 )); then
+    log "sink.timeout观测: window=${interval}s sink_timeout=${sink_timeout_count}, diff_activity_failed=${diff_activity_failed}"
+  fi
+  if (( sink_timeout_count >= sink_timeout_burst_threshold )) && [[ "$diff_activity_failed" == "true" ]]; then
+    should_fail=true
+    trigger_reasons+=("sink超时突发${sink_timeout_count}条(阈值${sink_timeout_burst_threshold})且diff短窗无增量")
+  fi
+  if (( sink_timeout_long_count >= sink_timeout_count_threshold )); then
+    should_fail=true
+    trigger_reasons+=("sink超时${SINK_TIMEOUT_COUNT_WINDOW_SECONDS}s内${sink_timeout_long_count}次(阈值${sink_timeout_count_threshold})")
+  fi
 
   if [[ "$should_fail" == "true" ]]; then
+    LAST_ERROR_TRIGGER_REASON="$(join_reasons "${trigger_reasons[@]}")"
     if (( ${#trigger_reasons[@]} > 0 )); then
-      log "检测到高信号错误日志触发条件: $(join_reasons "${trigger_reasons[@]}")"
+      log "检测到高信号错误日志触发条件: $LAST_ERROR_TRIGGER_REASON"
     else
       log "检测到高信号错误日志："
     fi
+    log "错误摘要: $LAST_ERROR_SUMMARY"
     if [[ -n "$LAST_ERROR_HITS" ]]; then
       printf '%s\n' "$LAST_ERROR_HITS" | tail -n 20 | sed 's/^/  /' | tee -a "$LOG_FILE"
+    fi
+    if [[ -n "$LAST_WS_TRANSIENT_HITS" ]]; then
+      printf '%s\n' "$LAST_WS_TRANSIENT_HITS" | tail -n 10 | sed 's/^/  /' | tee -a "$LOG_FILE"
+    fi
+    if [[ -n "$LAST_SINK_TIMEOUT_HITS" ]]; then
+      printf '%s\n' "$LAST_SINK_TIMEOUT_HITS" | tail -n 10 | sed 's/^/  /' | tee -a "$LOG_FILE"
     fi
     return 1
   fi
 
+  return 0
+}
+
+probe_diff_topic_activity() {
+  local interval="$1"
+  local guard_min_interval="$DIFF_FRESHNESS_GUARD_MIN_INTERVAL_SECONDS"
+  local probe_window="$DIFF_FRESHNESS_PROBE_SECONDS"
+  local sample_interval="$DIFF_FRESHNESS_SAMPLE_INTERVAL_SECONDS"
+  local min_growth="$DIFF_FRESHNESS_MIN_GROWTH"
+  local cycles i topic topic_idx curr growth
+  local -a stalled_topics=()
+  local -a start_offsets=()
+  local -a end_offsets=()
+
+  LAST_DIFF_ACTIVITY_REASON=""
+  [[ "$interval" =~ ^[0-9]+$ ]] || interval=120
+  [[ "$guard_min_interval" =~ ^[0-9]+$ ]] || guard_min_interval=300
+  [[ "$probe_window" =~ ^[0-9]+$ ]] || probe_window=30
+  [[ "$sample_interval" =~ ^[0-9]+$ ]] || sample_interval=5
+  [[ "$min_growth" =~ ^[0-9]+$ ]] || min_growth=1
+  (( probe_window > 0 )) || probe_window=30
+  (( sample_interval > 0 )) || sample_interval=5
+  (( min_growth > 0 )) || min_growth=1
+
+  if (( interval < guard_min_interval )); then
+    return 0
+  fi
+  if (( ${#DIFF_TOPICS[@]} == 0 )); then
+    return 0
+  fi
+
+  for topic_idx in "${!DIFF_TOPICS[@]}"; do
+    topic="${DIFF_TOPICS[$topic_idx]}"
+    [[ -n "$topic" ]] || continue
+    curr="$(sum_topic_offsets "$topic")"
+    if [[ "$curr" == "-1" ]]; then
+      LAST_DIFF_ACTIVITY_REASON="diff短窗探针读取失败:$topic"
+      return 1
+    fi
+    start_offsets[$topic_idx]="$curr"
+    end_offsets[$topic_idx]="$curr"
+  done
+
+  cycles=$((probe_window / sample_interval))
+  (( cycles > 0 )) || cycles=1
+  for ((i=1; i<=cycles; i++)); do
+    sleep "$sample_interval"
+    for topic_idx in "${!DIFF_TOPICS[@]}"; do
+      topic="${DIFF_TOPICS[$topic_idx]}"
+      [[ -n "$topic" ]] || continue
+      curr="$(sum_topic_offsets "$topic")"
+      if [[ "$curr" == "-1" ]]; then
+        LAST_DIFF_ACTIVITY_REASON="diff短窗探针读取失败:$topic"
+        return 1
+      fi
+      end_offsets[$topic_idx]="$curr"
+    done
+  done
+
+  for topic_idx in "${!DIFF_TOPICS[@]}"; do
+    topic="${DIFF_TOPICS[$topic_idx]}"
+    [[ -n "$topic" ]] || continue
+    growth=$(( ${end_offsets[$topic_idx]:-0} - ${start_offsets[$topic_idx]:-0} ))
+    log "diff短窗探针 topic=$topic start=${start_offsets[$topic_idx]:-0} end=${end_offsets[$topic_idx]:-0} growth=$growth window=${probe_window}s"
+    if (( growth < min_growth )); then
+      stalled_topics+=("$topic(growth=$growth,window=${probe_window}s)")
+    fi
+  done
+
+  if (( ${#stalled_topics[@]} > 0 )); then
+    LAST_DIFF_ACTIVITY_REASON="diff短窗无增量:$(join_reasons "${stalled_topics[@]}")"
+    return 1
+  fi
   return 0
 }
 
@@ -456,10 +656,10 @@ periodic_push_due() {
 observe_topic_growth_after_fix() {
   local observe_seconds="$1"
   local check_cycles="$2"
-  local interval i topic start curr
+  local interval i topic topic_idx start curr
   local -a growth_reasons=()
-  local -A start_offsets=()
-  local -A end_offsets=()
+  local -a start_offsets=()
+  local -a end_offsets=()
 
   [[ "$observe_seconds" =~ ^[0-9]+$ ]] || observe_seconds=180
   [[ "$check_cycles" =~ ^[0-9]+$ ]] || check_cycles=3
@@ -469,9 +669,11 @@ observe_topic_growth_after_fix() {
   interval=$((observe_seconds / check_cycles))
   (( interval > 0 )) || interval=1
 
-  for topic in "${TOPICS[@]}"; do
+  for topic_idx in "${!TOPICS[@]}"; do
+    topic="${TOPICS[$topic_idx]}"
     start="$(sum_topic_offsets "$topic")"
-    start_offsets["$topic"]="$start"
+    start_offsets[$topic_idx]="$start"
+    end_offsets[$topic_idx]="$start"
     if [[ "$start" == "-1" ]]; then
       POST_FIX_VERIFY_REASON="topic偏移读取失败:$topic"
       return 1
@@ -481,9 +683,10 @@ observe_topic_growth_after_fix() {
 
   for ((i=1; i<=check_cycles; i++)); do
     sleep "$interval"
-    for topic in "${TOPICS[@]}"; do
+    for topic_idx in "${!TOPICS[@]}"; do
+      topic="${TOPICS[$topic_idx]}"
       curr="$(sum_topic_offsets "$topic")"
-      end_offsets["$topic"]="$curr"
+      end_offsets[$topic_idx]="$curr"
       if [[ "$curr" == "-1" ]]; then
         POST_FIX_VERIFY_REASON="topic偏移读取失败:$topic"
         return 1
@@ -492,9 +695,10 @@ observe_topic_growth_after_fix() {
     done
   done
 
-  for topic in "${TOPICS[@]}"; do
-    start="${start_offsets[$topic]}"
-    curr="${end_offsets[$topic]:-${start_offsets[$topic]}}"
+  for topic_idx in "${!TOPICS[@]}"; do
+    topic="${TOPICS[$topic_idx]}"
+    start="${start_offsets[$topic_idx]:--1}"
+    curr="${end_offsets[$topic_idx]:-${start_offsets[$topic_idx]:--1}}"
     if (( curr <= start )); then
       growth_reasons+=("topic无增量:$topic(start=$start,end=$curr)")
     fi
@@ -783,8 +987,8 @@ recover_runtime() {
     return 1
   fi
 
-  # diff 连续无增量时，先停掉 diff role，避免 apply=unchanged 无法重建卡死状态机。
-  if [[ "$reason" == *"topic无新数据:perp.orderbook.diff"* ]] || [[ "$reason" == *"topic无新数据:spot.orderbook.diff"* ]]; then
+  # diff 连续无增量或短窗无增量时，先停掉 diff role，避免 apply=unchanged 无法重建卡死状态机。
+  if [[ "$reason" == *"topic无新数据:perp.orderbook.diff"* ]] || [[ "$reason" == *"topic无新数据:spot.orderbook.diff"* ]] || [[ "$reason" == *"diff短窗无增量:"* ]]; then
     stop_resp="$(printf '%s' '{"role_ids":["rec-binance-perp-aave-orderbook-diff","rec-binance-spot-aave-orderbook-diff"]}' | \
       docker exec -i "$WORKER_CONTAINER" sh -lc \
         "curl -sS -X POST http://127.0.0.1:8090/api/roles/stop -H 'Content-Type: application/json' --data-binary @-" || true)"
@@ -831,9 +1035,12 @@ main_loop() {
   push_event "monitor_started" "info" "AAVE巡检已启动" "log_file=$LOG_FILE; pid=$$; interval=${INTERVAL_STEPS[$STEP_INDEX]}s"
 
   while true; do
-    local interval healthy topic curr prev delta reason_text
+    local interval healthy topic topic_idx curr prev delta reason_text fail_reason_item
+    local diff_activity_failed=false
     local skip_recover=false
     local codex_triggered=false
+    local only_log_signal_failure=false
+    local skip_recover_reason=""
     local -a fail_reasons=()
     TOTAL_CYCLES=$((TOTAL_CYCLES + 1))
     interval="${INTERVAL_STEPS[$STEP_INDEX]}"
@@ -850,9 +1057,10 @@ main_loop() {
     fi
 
     if [[ "$healthy" == true ]]; then
-      for topic in "${TOPICS[@]}"; do
+      for topic_idx in "${!TOPICS[@]}"; do
+        topic="${TOPICS[$topic_idx]}"
         curr="$(sum_topic_offsets "$topic")"
-        prev="${PREV_OFFSET[$topic]:--1}"
+        prev="${PREV_OFFSET[$topic_idx]:--1}"
 
         if [[ "$curr" == "-1" ]]; then
           healthy=false
@@ -862,32 +1070,42 @@ main_loop() {
         fi
 
         if [[ "$prev" == "-1" ]]; then
-          PREV_OFFSET["$topic"]="$curr"
-          NO_GROWTH_CYCLES["$topic"]=0
+          PREV_OFFSET[$topic_idx]="$curr"
+          NO_GROWTH_CYCLES[$topic_idx]=0
           log "topic=$topic offset=$curr delta=INIT"
           continue
         fi
 
         delta=$((curr - prev))
-        PREV_OFFSET["$topic"]="$curr"
+        PREV_OFFSET[$topic_idx]="$curr"
 
         if (( delta > 0 )); then
-          NO_GROWTH_CYCLES["$topic"]=0
+          NO_GROWTH_CYCLES[$topic_idx]=0
         else
-          NO_GROWTH_CYCLES["$topic"]=$(( ${NO_GROWTH_CYCLES[$topic]:-0} + 1 ))
+          NO_GROWTH_CYCLES[$topic_idx]=$(( ${NO_GROWTH_CYCLES[$topic_idx]:-0} + 1 ))
         fi
 
-        log "topic=$topic offset=$curr delta=$delta no_growth_cycles=${NO_GROWTH_CYCLES[$topic]}"
+        log "topic=$topic offset=$curr delta=$delta no_growth_cycles=${NO_GROWTH_CYCLES[$topic_idx]}"
 
-        if (( NO_GROWTH_CYCLES[$topic] >= TOPIC_NO_GROWTH_FAIL_CYCLES )); then
+        if (( NO_GROWTH_CYCLES[$topic_idx] >= TOPIC_NO_GROWTH_FAIL_CYCLES )); then
           healthy=false
-          fail_reasons+=("topic无新数据:$topic(${NO_GROWTH_CYCLES[$topic]}轮)")
+          fail_reasons+=("topic无新数据:$topic(${NO_GROWTH_CYCLES[$topic_idx]}轮)")
         fi
       done
 
-      if ! evaluate_recent_errors "$ERROR_SCAN_WINDOW_SECONDS" "true"; then
+      if ! probe_diff_topic_activity "$interval"; then
+        diff_activity_failed=true
         healthy=false
-        fail_reasons+=("高信号错误日志")
+        fail_reasons+=("$LAST_DIFF_ACTIVITY_REASON")
+      fi
+
+      if ! evaluate_recent_errors "$ERROR_SCAN_WINDOW_SECONDS" "true" "$diff_activity_failed"; then
+        healthy=false
+        if [[ -n "$LAST_ERROR_TRIGGER_REASON" ]]; then
+          fail_reasons+=("高信号错误日志:$LAST_ERROR_TRIGGER_REASON")
+        else
+          fail_reasons+=("高信号错误日志")
+        fi
       fi
 
       if ! evaluate_binance_risk; then
@@ -927,12 +1145,29 @@ main_loop() {
       LAST_HEALTHY=false
       reason_text="$(join_reasons "${fail_reasons[@]}")"
       LAST_REASON_TEXT="$reason_text"
+      only_log_signal_failure=true
+      if (( ${#fail_reasons[@]} == 0 )); then
+        only_log_signal_failure=false
+      else
+        for fail_reason_item in "${fail_reasons[@]}"; do
+          if [[ "$fail_reason_item" != 高信号错误日志* ]]; then
+            only_log_signal_failure=false
+            break
+          fi
+        done
+      fi
 
       log "本轮失败: $reason_text, consecutive_failures=$CONSEC_FAIL_CYCLES"
       emit_event "cycle_failed" "critical" "reasons=$reason_text; consecutive_failures=$CONSEC_FAIL_CYCLES; interval=${interval}s"
       write_status_snapshot "degraded" "$reason_text"
       maybe_send_alert "AAVE巡检异常" "reasons=$reason_text, consecutive_failures=$CONSEC_FAIL_CYCLES"
       push_event "monitor_failure" "critical" "AAVE巡检异常" "reasons=$reason_text; consecutive_failures=$CONSEC_FAIL_CYCLES; interval=${interval}s" "true"
+      # 仅日志信号且仍处于早期失败轮次时先观察，避免连续触发无效 roles apply。
+      if [[ "$only_log_signal_failure" == "true" ]] && (( CONSEC_FAIL_CYCLES < LOG_ONLY_RECOVER_FAIL_CYCLES )); then
+        skip_recover=true
+        skip_recover_reason="仅高信号日志早期失败，进入观察窗口"
+        log "仅命中高信号错误日志且连续失败${CONSEC_FAIL_CYCLES}轮(<${LOG_ONLY_RECOVER_FAIL_CYCLES})，先观察并跳过自动自愈"
+      fi
 
       if [[ "$RISK_CRITICAL_THIS_CYCLE" == "true" ]]; then
         maybe_send_alert "AAVE_BINANCE_RISK_CRITICAL" "reason=$RISK_CRITICAL_REASON" true
@@ -940,6 +1175,7 @@ main_loop() {
         pause_high_risk_roles || true
         if [[ "$ENABLE_RISK_ROLE_PAUSE" == "true" ]]; then
           skip_recover=true
+          skip_recover_reason="Binance风控关键风险+高风险role暂停"
           log "Binance 风控关键风险已命中且已启用高风险 role 暂停，跳过自动 re-apply/restart"
         fi
         run_codex_escalation "Binance风控关键风险: $RISK_CRITICAL_REASON" "$interval"
@@ -958,8 +1194,13 @@ main_loop() {
           emit_event "recover_failed" "critical" "reason=$reason_text"
         fi
       else
-        log "本轮已跳过自动自愈，等待 OpenClaw/Codex 处理"
-        emit_event "recover_skipped" "warn" "reason=$reason_text"
+        if [[ -n "$skip_recover_reason" ]]; then
+          log "本轮已跳过自动自愈: $skip_recover_reason"
+          emit_event "recover_skipped" "warn" "reason=$reason_text; skip_reason=$skip_recover_reason"
+        else
+          log "本轮已跳过自动自愈，等待 OpenClaw/Codex 处理"
+          emit_event "recover_skipped" "warn" "reason=$reason_text"
+        fi
       fi
 
       if [[ "$codex_triggered" != "true" ]] && (( CONSEC_FAIL_CYCLES >= CODEX_TRIGGER_FAIL_CYCLES )); then

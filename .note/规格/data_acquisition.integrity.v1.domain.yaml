@@ -1,0 +1,525 @@
+---
+"$schema": ./data_acquisition.v6.schema.json
+artifact_id: data_acquisition.integrity.domain_artifact
+artifact_kind: hierarchical_domain_artifact
+schema_version: 6.0.0
+artifact_version:
+  version: 1.1.0
+  status: draft
+  change_type: minor
+  change_summary: 按模块粒度提取一个流数据完整性领域，只建模实现该模块所需的核心本体、规则、能力和设施边界。
+  effective_from:
+  supersedes:
+    artifact_id: data_acquisition.integrity.domain_artifact
+    version: 1.0.0
+project: data_acquisition
+
+domain:
+  id: data_acquisition.integrity
+  domain_level: lv1
+  name: 流数据完整性治理
+  purpose: 在观察可能乱序、重复、缺失或依赖权威锚点时，为每条有身份的数据流形成可解释的下发处置，并保留未完成的恢复责任。
+  scope:
+    includes:
+      - 解释观察的流身份与序列坐标
+      - 判断连续、覆盖、迟到、重复、缺口和等待锚点
+      - 应用权威锚点并释放连续待定观察
+      - 协调范围恢复或快照恢复责任
+    excludes:
+      - 数据源协议、endpoint、请求参数和认证信息
+      - HTTP、WebSocket、channel、文件、数据库和部署实现
+      - 下游存储、订单簿计算和其他 DataInjector 模块
+
+  ontology:
+    elements:
+      - id: data_acquisition.integrity.stream_identity
+        kind: value_object
+        name: 数据流身份
+        definition: 由采集责任标识和流分区键共同确定的顺序空间；序列位置只允许在同一身份内比较。
+        modeling_basis:
+          kind: domain_construct
+          necessity: 用于隔离 expected、待定观察、幂等见证和恢复会话，避免跨流状态污染。
+        authority: 采集计划与观察提供者
+        properties:
+          - {name: responsibility_id, meaning: 承担该流采集责任的稳定标识，不允许用 unknown 静默补齐。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 采集计划}
+          - {name: stream_key, meaning: 在采集责任内区分独立顺序空间的稳定键。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 观察提供者}
+
+      - id: data_acquisition.integrity.sequence_interval
+        kind: value_object
+        name: 序列闭区间
+        definition: 由起止位置描述的连续序列范围，用于观察覆盖、缺口和范围恢复。
+        modeling_basis:
+          kind: domain_construct
+          necessity: 单点序列不足以表达范围覆盖、缺失窗口和恢复范围。
+        authority: 完整性治理者
+        properties:
+          - {name: start, meaning: 区间首个位置。, value_schema: {kind: integer, constraints: {minimum: 0}}, cardinality: exactly_one, mutability: immutable, authority: 区间形成者}
+          - {name: end, meaning: 区间最后位置，必须不小于 start。, value_schema: {kind: integer, constraints: {minimum: 0}}, cardinality: exactly_one, mutability: immutable, authority: 区间形成者}
+
+      - id: data_acquisition.integrity.sequenced_observation
+        kind: value_object
+        name: 带序列坐标的观察
+        definition: 已解析出所属流、主序列、可选覆盖区间和可选业务身份的观察；它尚不代表可对下游下发。
+        modeling_basis:
+          kind: real_world_phenomenon
+          necessity: 完整性模块处理来源观察的顺序语义，而不是某个代码消息类型。
+        authority: 观察提供者声明，完整性治理者校验
+        properties:
+          - {name: stream, meaning: 观察所属数据流。, value_schema: {kind: reference, target: data_acquisition.integrity.stream_identity}, cardinality: exactly_one, mutability: immutable, authority: 采集计划与观察提供者}
+          - {name: sequence, meaning: 观察主序列位置。, value_schema: {kind: integer, constraints: {minimum: 0}}, cardinality: exactly_one, mutability: immutable, authority: 观察提供者}
+          - {name: coverage, meaning: 观察证明覆盖的序列区间；缺失时只按单点解释。, value_schema: {kind: reference, target: data_acquisition.integrity.sequence_interval}, cardinality: zero_or_one, mutability: immutable, authority: 观察提供者}
+          - {name: message_identity, meaning: 来源提供的完整幂等身份；部分字段不得拼成有效身份。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: zero_or_one, mutability: immutable, authority: 观察提供者}
+          - {name: arrived_at, meaning: 观察进入完整性边界的时间。, value_schema: {kind: timestamp}, cardinality: exactly_one, mutability: immutable, authority: 时间见证设施}
+
+      - id: data_acquisition.integrity.integrity_policy
+        kind: value_object
+        name: 流完整性策略
+        definition: 执行前已确定的覆盖、基线、放行、期限、资源预算和恢复策略；确定性代码不得自行补默认值。
+        modeling_basis:
+          kind: normative_responsibility
+          necessity: 现有 Config 和 profile 混合多项独立意图，必须把策略作为显式输入移出机制代码。
+        authority: 采集责任所有者
+        properties:
+          - {name: coverage_mode, meaning: 观察证明覆盖 expected 的方式。, value_schema: {kind: enum, values: [exact_next, inclusive_interval, predecessor_linked]}, cardinality: exactly_one, mutability: immutable, authority: 采集责任所有者}
+          - {name: baseline_mode, meaning: 首观察建立当前基线，或在权威锚点前保持暂缓。, value_schema: {kind: enum, values: [accept_first_observation, require_authoritative_anchor]}, cardinality: exactly_one, mutability: immutable, authority: 采集责任所有者}
+          - {name: visibility_mode, meaning: 立即可见、快照应用后可见或达到确认深度后可见。, value_schema: {kind: enum, values: [immediate, after_snapshot_applied, after_confirmation_depth]}, cardinality: exactly_one, mutability: immutable, authority: 采集责任所有者}
+          - {name: snapshot_mode, meaning: 快照参与主线门控，或作为不阻塞增量的旁路。, value_schema: {kind: enum, values: [mainline_gate, sidechannel_nonblocking]}, cardinality: exactly_one, mutability: immutable, authority: 采集责任所有者}
+          - {name: recovery_mode, meaning: 通过缺失范围或权威快照恢复连续性。, value_schema: {kind: enum, values: [range, snapshot]}, cardinality: exactly_one, mutability: immutable, authority: 采集责任所有者}
+          - {name: limits, meaning: eager gap、恢复跨度、软硬期限、head lag、确认深度、去重窗口、失败预算和冷却期等有单位参数；零、disabled 与 omitted 必须可区分。, value_schema: {kind: map, values: {kind: any}}, cardinality: exactly_one, mutability: immutable, authority: 采集责任所有者}
+
+      - id: data_acquisition.integrity.recovery_plan
+        kind: value_object
+        name: 连续性恢复计划
+        definition: 针对一条流的范围或快照恢复责任，包含可选缺失范围和当前 session identity，不包含协议请求细节。
+        modeling_basis:
+          kind: normative_responsibility
+          necessity: 恢复意图必须与 Scheduler 命令、transport 和请求参数分离。
+        authority: 完整性治理者
+        properties:
+          - {name: stream, meaning: 需要恢复的数据流。, value_schema: {kind: reference, target: data_acquisition.integrity.stream_identity}, cardinality: exactly_one, mutability: immutable, authority: 流完整性会话}
+          - {name: kind, meaning: 范围恢复或快照恢复。, value_schema: {kind: enum, values: [range, snapshot]}, cardinality: exactly_one, mutability: immutable, authority: 流完整性策略}
+          - {name: scope, meaning: range 恢复的缺失闭区间；snapshot 恢复可为空。, value_schema: {kind: reference, target: data_acquisition.integrity.sequence_interval}, cardinality: zero_or_one, mutability: controlled, authority: 完整性治理者}
+          - {name: session_id, meaning: 当前恢复执行及异步结果的关联标识。, value_schema: {kind: string, constraints: {min_length: 1}}, cardinality: exactly_one, mutability: immutable, authority: 完整性治理者}
+
+      - id: data_acquisition.integrity.stream_integrity_session
+        kind: entity
+        name: 流完整性会话
+        definition: 一条数据流的完整性责任实例，统一拥有连续性水位、缺口、待定观察、锚点等待和恢复 pending 的一致性边界。
+        modeling_basis:
+          kind: domain_construct
+          necessity: 现有实现用单一 engineState 处理可变 streamName；没有按流会话会产生跨流状态污染。
+        authority: 完整性治理者
+        distinguishing_conditions:
+          - 身份是完整数据流身份，而不是 Handler 或 SequenceEngine 实例
+          - 不同流会话可并发，但不得共享 expected、buffer、gap 或 recovery pending
+        properties:
+          - {name: stream, meaning: 会话唯一负责的数据流。, value_schema: {kind: reference, target: data_acquisition.integrity.stream_identity}, cardinality: exactly_one, mutability: immutable, authority: 采集计划}
+          - {name: expected_next, meaning: 下一条需要被连续覆盖的位置；未建立基线时不存在。, value_schema: {kind: integer, constraints: {minimum: 0}}, cardinality: zero_or_one, mutability: controlled, authority: 完整性治理者}
+          - {name: seen_max, meaning: 已观察到的最大序列位置。, value_schema: {kind: integer, constraints: {minimum: 0}}, cardinality: zero_or_one, mutability: controlled, authority: 完整性治理者}
+          - {name: open_gaps, meaning: 尚未由同流观察或权威锚点闭合的缺失区间。, value_schema: {kind: array, items: {kind: reference, target: data_acquisition.integrity.sequence_interval}}, cardinality: zero_or_more, mutability: controlled, authority: 完整性治理者}
+          - {name: active_recovery, meaning: 当前唯一 pending 的恢复计划；结果必须与其 session identity 匹配。, value_schema: {kind: reference, target: data_acquisition.integrity.recovery_plan}, cardinality: zero_or_one, mutability: controlled, authority: 完整性治理者}
+        identity:
+          type: external
+          components:
+            - {property: stream, comparison: value_semantics}
+          uniqueness_scope: data_acquisition.integrity
+          collision_policy: reject
+
+    predicates:
+      - id: data_acquisition.integrity.observation_is_interpretable
+        name: 观察的流身份和序列坐标可被解释
+        definition: 观察包含完整流身份和合法主序列，可选覆盖区间起点不晚于终点。
+        modeling_basis: {kind: normative_responsibility, necessity: 非法或部分坐标必须形成正式结果，不能静默降级。}
+        subject_type: data_acquisition.integrity.sequenced_observation
+        parameters: []
+        truth_semantics:
+          world_assumption: open
+          asserted_when: 必填坐标完整合法且来源权威已知。
+          denied_when: 必填身份或序列缺失、非法，或区间边界矛盾。
+          unknown_when: 字段映射或来源权威尚未解析。
+          not_asserted_is_false: false
+        authority: 完整性治理者
+
+      - id: data_acquisition.integrity.session_is_stream_isolated
+        name: 完整性会话的全部状态只属于一个数据流
+        definition: 连续性水位、缺口、待定观察、幂等见证和恢复 pending 均与会话的完整流身份一致。
+        modeling_basis: {kind: normative_responsibility, necessity: 否则一个流会推进、清理或阻塞另一个流。}
+        subject_type: data_acquisition.integrity.stream_integrity_session
+        parameters: []
+        truth_semantics:
+          world_assumption: open
+          asserted_when: 全部附属状态都有相同 stream identity。
+          denied_when: 发现任一跨流共享或改写状态。
+          unknown_when: 附属状态缺少可验证流身份。
+          not_asserted_is_false: false
+        authority: 完整性治理者
+
+      - id: data_acquisition.integrity.observation_is_deliverable
+        name: 观察已经取得下游可见资格
+        definition: 观察满足连续性、快照应用或确认深度策略，且没有有效重复身份见证。
+        modeling_basis: {kind: normative_responsibility, necessity: 下游可见性不能由 gate 返回值隐式表达。}
+        subject_type: data_acquisition.integrity.sequenced_observation
+        parameters: []
+        truth_semantics:
+          world_assumption: open
+          asserted_when: 策略要求的资格事实成立且观察非重复。
+          denied_when: 有权事实表明仍等待、迟到或重复。
+          unknown_when: 快照应用、确认深度或幂等身份权威不明。
+          not_asserted_is_false: false
+        authority: 完整性治理者
+
+      - id: data_acquisition.integrity.recovery_is_accounted
+        name: 恢复意图或结果已有明确去向
+        definition: 恢复计划已派发、已合并、已保全、已明确拒绝，或异步结果已与当前 pending 正确关联。
+        modeling_basis: {kind: normative_responsibility, necessity: 调度去重、派发失败和乱序结果都不能让恢复责任静默消失。}
+        subject_type: data_acquisition.integrity.recovery_plan
+        parameters: []
+        truth_semantics:
+          world_assumption: open
+          asserted_when: 存在派发、合并、义务保全、责任转移或相关联结果证据。
+          denied_when: 新恢复范围或执行结果没有任何后继责任。
+          unknown_when: 派发结果或 session identity 不完整。
+          not_asserted_is_false: false
+        authority: 完整性治理者
+
+  rules:
+    - id: data_acquisition.integrity.rule.stream_state_isolation
+      kind: invariant
+      name: 不同数据流不得共享完整性状态
+      definition: expected、buffer、gap、dedupe、gate 和 recovery pending 必须按完整流身份隔离。
+      condition: {compare: {left: {path: $.state.stream}, operator: ne, right: {path: $.session.stream}}}
+      violation: {disposition: cross_stream_contamination, meaning: 一个流的观察正在改变另一条流的完整性结论。, severity: critical, handling: block}
+
+    - id: data_acquisition.integrity.rule.no_silent_advance
+      kind: invariant
+      name: 跳过未闭合位置必须声明数据损失
+      definition: hard deadline、max gap、TTL 或容量边界导致前跳或淘汰时，必须记录受影响区间并保留恢复责任。
+      condition:
+        all:
+          - {compare: {left: {path: $.uncovered_data_removed_or_skipped}, operator: eq, right: {literal: true}}}
+          - {compare: {left: {path: $.loss_declared}, operator: eq, right: {literal: false}}}
+      violation: {disposition: silent_integrity_loss, meaning: 不连续状态被错误表现为正常推进或自然过期。, severity: critical, handling: compensate}
+
+    - id: data_acquisition.integrity.rule.snapshot_application_precedes_release
+      kind: invariant
+      name: 快照应用确认必须先于解除快照门控
+      definition: 快照收到、下发和恢复执行 success 都不能替代下游应用成功。
+      condition:
+        all:
+          - {compare: {left: {path: $.policy.visibility_mode}, operator: eq, right: {literal: after_snapshot_applied}}}
+          - {compare: {left: {path: $.anchor_applied}, operator: ne, right: {literal: true}}}
+          - {compare: {left: {path: $.observation_released}, operator: eq, right: {literal: true}}}
+      violation: {disposition: released_before_anchor, meaning: 下游可能收到没有可用基线的增量观察。, severity: critical, handling: block}
+
+    - id: data_acquisition.integrity.rule.finality_comes_from_successors
+      kind: invariant
+      name: 确认深度只能由后继观察建立
+      definition: 目标观察必须先保管，再由同流后继观察形成确认资格；不能用已下发事件推进其自身门控。
+      condition: {compare: {left: {path: $.confirmation_depends_on_prior_delivery}, operator: eq, right: {literal: true}}}
+      violation: {disposition: circular_finality_gate, meaning: 观察必须先下发才能取得下发资格，导致永久闭锁或丢数。, severity: critical, handling: block}
+
+    - id: data_acquisition.integrity.rule.recovery_facts_are_separate
+      kind: invariant
+      name: 恢复意图不得丢失且执行成功不得冒充连续性恢复
+      definition: pending 新范围必须被覆盖、合并或明确拒绝；派发接受和请求 success 都不能直接建立缺口闭合或锚点应用。
+      condition:
+        any:
+          - {compare: {left: {path: $.new_recovery_scope_unaccounted}, operator: eq, right: {literal: true}}}
+          - {compare: {left: {path: $.restored_claimed_from_execution_only}, operator: eq, right: {literal: true}}}
+      violation: {disposition: recovery_responsibility_corrupted, meaning: 恢复意图被静默去重，或请求层成功被错误升级为完整性成功。, severity: critical, handling: compensate}
+
+  capability_model:
+    roles:
+      - {id: data_acquisition.integrity.integrity_governor, name: 完整性治理者, responsibilities: [对每条流的完整性处置和剩余恢复责任承担最终责任]}
+      - {id: data_acquisition.integrity.observation_provider, name: 观察提供者, responsibilities: [提供有权且可解释的流身份与序列坐标]}
+      - {id: data_acquisition.integrity.downstream_consumer, name: 下游数据消费者, responsibilities: [只依赖明确获准下发的观察，并确认快照是否应用成功]}
+      - {id: data_acquisition.integrity.recovery_executor, name: 恢复执行者, responsibilities: [执行恢复计划并报告相关联结果，不声称连续性已经恢复]}
+
+    facility_requirements:
+      - id: data_acquisition.integrity.integrity_state_support
+        name: 完整性状态保管与期限通知设施需求
+        version: 1.0.0
+        definition: 按流保管待定观察和幂等见证、连续提取，并在无新观察时形成期限通知；不规定缓存、数据库或定时器实现。
+        requirement_intent:
+          purpose: 未取得最终处置的观察不能丢失、阻塞其他流或依赖下一条观察才能推进期限责任。
+          responsibility: 按完整流身份隔离状态、连续提取、报告淘汰范围，并产生可关联的到期通知。
+          scope: 一个流完整性会话的待定状态和责任期限。
+          subjects: [data_acquisition.integrity.stream_integrity_session, data_acquisition.integrity.sequenced_observation]
+          non_goals: [决定业务连续性和前跳策略, 选择存储与调度产品]
+        required_execution_mode: deterministic_code
+        interface:
+          inputs:
+            - {name: session, meaning: 待操作的流完整性会话。, value_schema: {kind: reference, target: data_acquisition.integrity.stream_integrity_session}, required: true}
+            - {name: operation, meaning: 保管、连续提取、清理、检查身份或登记期限。, value_schema: {kind: enum, values: [hold, drain, cleanup, witness_identity, register_deadline]}, required: true}
+          outputs:
+            - {name: result, meaning: 状态支持设施形成的结果。, value_schema: {kind: enum, values: [preserved, drained, duplicate, deadline_registered, loss_reported, rejected]}, required: true}
+            - {name: affected_range, meaning: 提取、清理或淘汰影响的范围。, value_schema: {kind: reference, target: data_acquisition.integrity.sequence_interval}, required: false}
+        dispositions:
+          - id: state_responsibility_preserved
+            meaning: 状态已按流保管、连续提取或期限已登记，没有未声明损失。
+            establishes:
+              - assert: {predicate: data_acquisition.integrity.session_is_stream_isolated, subject: {path: $.session}, truth_value: asserted}
+            evidence:
+              - {id: same_stream, meaning: 所有状态和结果均属于输入会话。, condition: {compare: {left: {path: $.affected_stream}, operator: eq, right: {path: $.session.stream}}}}
+          - id: state_responsibility_not_preserved
+            meaning: 设施无法保管状态或登记期限，已报告受影响范围和剩余责任。
+            establishes:
+              - assert: {predicate: data_acquisition.integrity.session_is_stream_isolated, subject: {path: $.session}, truth_value: unknown}
+            evidence:
+              - {id: failure_scope, meaning: 失败原因和受影响范围可观察。, condition: {compare: {left: {path: $.failure_reason}, operator: ne, right: {literal: null}}}}
+        reactions:
+          - id: on_state_loss_or_unavailable
+            scenario: 尚未形成最终处置的状态无法继续保管，或期限通知无法登记。
+            when: {compare: {left: {path: $.result}, operator: eq, right: {literal: rejected}}}
+            must_result_in: state_responsibility_not_preserved
+            preserves: [data_acquisition.integrity.rule.no_silent_advance]
+        preserves: [data_acquisition.integrity.rule.stream_state_isolation, data_acquisition.integrity.rule.no_silent_advance]
+        verification:
+          - {id: no_cross_stream_effect, meaning: 任何操作只影响输入会话所属流。, condition: {compare: {left: {path: $.cross_stream_effect_count}, operator: eq, right: {literal: 0}}}}
+          - {id: independent_deadline, meaning: 期限通知不依赖新观察到来。, condition: {compare: {left: {path: $.deadline_requires_new_observation}, operator: eq, right: {literal: false}}}}
+        implementation_exclusions: [map、heap、Redis、数据库或队列产品, timer、cron、锁和进程拓扑]
+
+      - id: data_acquisition.integrity.recovery_responsibility_handoff
+        name: 恢复责任交接与保全设施需求
+        version: 1.0.0
+        definition: 把恢复计划交给执行者；未被接受时可靠保全义务并支持重放。不规定 transport、目标名称或持久化产品。
+        requirement_intent:
+          purpose: 恢复派发失败不能令缺口责任消失。
+          responsibility: 按流和 session identity 交接恢复计划，返回明确结果，并保全未被接受的义务。
+          scope: 已由完整性治理者形成的范围或快照恢复计划。
+          subjects: [data_acquisition.integrity.stream_integrity_session, data_acquisition.integrity.recovery_plan]
+          non_goals: [构造 provider 协议请求, 选择 channel、文件或数据库, 把派发成功当作连续性恢复]
+        required_execution_mode: deterministic_code
+        interface:
+          inputs:
+            - {name: session, meaning: 恢复所属流会话。, value_schema: {kind: reference, target: data_acquisition.integrity.stream_integrity_session}, required: true}
+            - {name: plan, meaning: 需要交接或保全的恢复计划。, value_schema: {kind: reference, target: data_acquisition.integrity.recovery_plan}, required: true}
+          outputs:
+            - {name: result, meaning: 恢复责任交接结果。, value_schema: {kind: enum, values: [accepted, preserved_for_replay, rejected]}, required: true}
+          errors:
+            - {name: handoff_error, meaning: 没有执行者、容量不足、超时或保全不可用。, value_schema: {kind: enum, values: [no_executor, capacity_full, deadline_exceeded, custody_unavailable]}, required: false}
+        dispositions:
+          - id: responsibility_accepted
+            meaning: 一个恢复执行者已承担该 session 的执行责任。
+            establishes:
+              - assert: {predicate: data_acquisition.integrity.recovery_is_accounted, subject: {path: $.plan}, truth_value: asserted}
+            evidence:
+              - {id: accepted_session, meaning: 交接结果保留完整流与 session identity。, condition: {compare: {left: {path: $.accepted_session_id}, operator: eq, right: {path: $.plan.session_id}}}}
+          - id: responsibility_not_accepted
+            meaning: 没有执行者承担计划；义务已可靠保全或形成明确拒绝和责任转移。
+            establishes:
+              - assert: {predicate: data_acquisition.integrity.recovery_is_accounted, subject: {path: $.plan}, truth_value: unknown}
+            evidence:
+              - {id: remaining_responsibility, meaning: 原计划、失败原因和后继责任均可观察。, condition: {compare: {left: {path: $.remaining_responsibility}, operator: ne, right: {literal: null}}}}
+        reactions:
+          - id: on_handoff_failure
+            scenario: 恢复计划未被执行者接受。
+            when: {compare: {left: {path: $.result}, operator: ne, right: {literal: accepted}}}
+            must_result_in: responsibility_not_accepted
+            preserves: [data_acquisition.integrity.rule.recovery_facts_are_separate]
+        preserves: [data_acquisition.integrity.rule.recovery_facts_are_separate]
+        verification:
+          - {id: no_silent_loss, meaning: 所有未接受计划都有可恢复义务或明确责任接收者。, condition: {compare: {left: {path: $.unaccounted_plan_count}, operator: eq, right: {literal: 0}}}}
+        implementation_exclusions: [HTTP、WebSocket、channel、queue 和目标命名, 文件、数据库或消息主题]
+
+    capabilities:
+      - id: data_acquisition.integrity.decide_observation_disposition
+        name: 决定一次观察的完整性处置
+        version: 1.0.0
+        definition: 在一个流会话内解释观察坐标，结合连续性、重复身份、锚点和确认策略形成下发、暂缓、忽略、拒绝或降级处置。
+        intent:
+          purpose: 使每次观察都形成互斥、可追溯的终止结论，不把未知历史或资源淘汰包装为完整成功。
+          scope: 一条有身份数据流的一次观察。
+          accountable_role: data_acquisition.integrity.integrity_governor
+          goal: {predicate: data_acquisition.integrity.observation_is_deliverable, subject: {path: $.observation}, truth_value: asserted}
+          non_goals: [访问 provider, 构造恢复协议请求, 推断首观察之前的历史完整]
+        inputs:
+          - {name: observation, meaning: 待处置观察。, value_schema: {kind: reference, target: data_acquisition.integrity.sequenced_observation}, required: true}
+          - {name: session, meaning: 必须与观察同流的完整性会话。, value_schema: {kind: reference, target: data_acquisition.integrity.stream_integrity_session}, required: true}
+          - {name: policy, meaning: 执行前已闭合的流完整性策略。, value_schema: {kind: reference, target: data_acquisition.integrity.integrity_policy}, required: true}
+        authorization:
+          requester_roles: [data_acquisition.integrity.observation_provider]
+          executor_roles: [data_acquisition.integrity.integrity_governor]
+        facility_dependencies:
+          - {alias: state_support, facility: data_acquisition.integrity.integrity_state_support, purpose: 保管待定观察、幂等见证、连续提取并触发期限。, required: true}
+        preserves:
+          - data_acquisition.integrity.rule.stream_state_isolation
+          - data_acquisition.integrity.rule.no_silent_advance
+          - data_acquisition.integrity.rule.snapshot_application_precedes_release
+          - data_acquisition.integrity.rule.finality_comes_from_successors
+        effects:
+          guaranteed: {compare: {left: {path: $.terminal_disposition_count}, operator: eq, right: {literal: 1}}}
+          forbidden: {compare: {left: {path: $.undisclosed_loss}, operator: eq, right: {literal: true}}}
+        outcomes:
+          - id: delivered
+            meaning: 观察证明连续且取得可见资格，已按同流顺序下发。
+            establishes:
+              - assert: {predicate: data_acquisition.integrity.observation_is_deliverable, subject: {path: $.observation}, truth_value: asserted}
+            evidence:
+              - {id: deliverable, meaning: 同流、连续性覆盖、非重复和门控资格均有证据。, condition: {predicate: data_acquisition.integrity.observation_is_deliverable, subject: {path: $.observation}, truth_value: asserted}}
+          - id: held
+            meaning: 观察因缺口、等待权威锚点或确认深度而按流保管，当前不可见。
+            establishes:
+              - assert: {predicate: data_acquisition.integrity.observation_is_deliverable, subject: {path: $.observation}, truth_value: unknown}
+            evidence:
+              - {id: held_in_custody, meaning: 观察仍在同流保管且 expected 未跨越缺口。, condition: {compare: {left: {path: $.custody_result}, operator: eq, right: {literal: preserved}}}}
+            remaining_responsibility: 完整性治理者等待覆盖观察、权威锚点、确认深度或恢复结果。
+          - id: ignored_or_invalid
+            meaning: 观察已被确认迟到、重复或坐标非法，不改变连续性水位，也不并入默认流。
+            establishes:
+              - assert: {predicate: data_acquisition.integrity.observation_is_interpretable, subject: {path: $.observation}, truth_value: unknown}
+            evidence:
+              - {id: rejection_reason, meaning: 保存迟到位置、重复身份见证或坐标问题。, condition: {compare: {left: {path: $.rejection_reason}, operator: ne, right: {literal: null}}}}
+          - id: advanced_with_declared_loss
+            meaning: 硬期限、head lag 或保留边界要求避免无限停滞，会话显式越过未闭合范围。
+            establishes:
+              - assert: {predicate: data_acquisition.integrity.session_is_stream_isolated, subject: {path: $.session}, truth_value: asserted}
+            evidence:
+              - {id: loss_range, meaning: 记录跳过区间、触发策略和剩余恢复责任。, condition: {compare: {left: {path: $.skipped_range}, operator: ne, right: {literal: null}}}}
+            remaining_responsibility: 完整性治理者继续恢复被跳过区间；下游必须区分该结果与完整成功。
+        execution:
+          mode: deterministic_code
+          behavior_contract:
+            - 先确认观察与会话具有相同完整流身份，再读取或改变状态
+            - equal 后 expected 加一；覆盖后移到覆盖末端下一位置；迟到观察不倒退状态
+            - 后继但不覆盖 expected 的观察建立缺口并进入待定保管
+            - snapshot mainline 只在权威应用确认后解除；sidechannel 不阻塞主流
+            - finality 由同流后继观察建立，不能由已下发事件推进
+            - 任何前跳或淘汰都形成带声明损失的独立结果
+          policy_inputs:
+            - {name: policy, meaning: 所有模式和阈值均由该策略给出。, value_schema: {kind: reference, target: data_acquisition.integrity.integrity_policy}, required: true}
+          prohibited_assumptions:
+            - 不得用 profile 名称推断多项正交策略
+            - 不得把零值一律当作缺省并填入代码默认值
+            - 不得用 unknown/default 补齐流身份
+            - 不得把 TTL、容量淘汰或指标窗口过期解释为缺口闭合
+          verification:
+            - {predicate: data_acquisition.integrity.session_is_stream_isolated, subject: {path: $.session}, truth_value: asserted}
+            - {compare: {left: {path: $.terminal_disposition_count}, operator: eq, right: {literal: 1}}}
+        external:
+          audience_roles: [data_acquisition.integrity.observation_provider, data_acquisition.integrity.downstream_consumer]
+
+      - id: data_acquisition.integrity.apply_authoritative_anchor
+        name: 应用权威锚点
+        version: 1.0.0
+        definition: 消费下游快照应用确认，按显式单调性策略重设同流基线，并仅释放锚点后的连续待定观察。
+        intent:
+          purpose: 解除快照门控，同时避免跨流、无权或无声明回退的锚定。
+          scope: 一个流完整性会话和一次下游快照应用确认。
+          accountable_role: data_acquisition.integrity.integrity_governor
+          goal: {compare: {left: {path: $.session.expected_next}, operator: gt, right: {path: $.anchor.last_sequence}}}
+          non_goals: [请求快照, 把 BackfillResult.snapshot_seq 作为应用确认, 释放锚点后仍不连续的观察]
+        inputs:
+          - {name: session, meaning: 需要被锚定的同流会话。, value_schema: {kind: reference, target: data_acquisition.integrity.stream_integrity_session}, required: true}
+          - {name: anchor_last_sequence, meaning: 有权下游确认已应用快照的最后序列。, value_schema: {kind: integer, constraints: {minimum: 0}}, required: true}
+          - {name: acceptance, meaning: 只允许单调前进、允许权威回退或要求重组审查。, value_schema: {kind: enum, values: [monotonic_only, authoritative_rewind_allowed, reorg_review_required]}, required: true}
+        authorization:
+          requester_roles: [data_acquisition.integrity.downstream_consumer]
+          executor_roles: [data_acquisition.integrity.integrity_governor]
+        facility_dependencies:
+          - {alias: state_support, facility: data_acquisition.integrity.integrity_state_support, purpose: 清理锚点前观察并连续提取锚点后的待定观察。, required: true}
+        preserves: [data_acquisition.integrity.rule.stream_state_isolation, data_acquisition.integrity.rule.snapshot_application_precedes_release]
+        effects:
+          guaranteed: {compare: {left: {path: $.anchor_stream}, operator: eq, right: {path: $.session.stream}}}
+          forbidden: {compare: {left: {path: $.unapproved_rewind}, operator: eq, right: {literal: true}}}
+        outcomes:
+          - id: anchor_applied
+            meaning: 同流有权锚点被接受，expected 设为锚点后一位，仅释放后续连续观察。
+            establishes:
+              - assert: {predicate: data_acquisition.integrity.session_is_stream_isolated, subject: {path: $.session}, truth_value: asserted}
+            evidence:
+              - {id: anchor_and_drain, meaning: 流身份、权威、回退策略和释放连续性均通过。, condition: {compare: {left: {path: $.released_set_contiguous}, operator: eq, right: {literal: true}}}}
+          - id: anchor_rejected_or_unknown
+            meaning: 锚点流身份、权威或回退策略不满足要求，会话保持不变。
+            establishes:
+              - assert: {predicate: data_acquisition.integrity.session_is_stream_isolated, subject: {path: $.session}, truth_value: unknown}
+            evidence:
+              - {id: anchor_issue, meaning: 记录不匹配流、缺失权威或回退冲突。, condition: {compare: {left: {path: $.anchor_issue}, operator: ne, right: {literal: null}}}}
+            remaining_responsibility: 下游修正应用确认或责任所有者裁决回退；原门控继续有效。
+        execution:
+          mode: deterministic_code
+          behavior_contract:
+            - 只接受与会话同流且由有权下游形成的应用确认
+            - 回退必须服从显式 acceptance，不得无校验重写 expected
+            - 清理不晚于锚点的观察，只连续释放锚点后的待定观察
+          policy_inputs:
+            - {name: acceptance, meaning: 锚点单调性与回退策略。, value_schema: {kind: enum, values: [monotonic_only, authoritative_rewind_allowed, reorg_review_required]}, required: true}
+          prohibited_assumptions: [不得把快照到达、下发或恢复 success 当作应用确认, 不得忽略锚点所属流, 不得默认允许向后重置]
+          verification:
+            - {compare: {left: {path: $.cross_stream_anchor}, operator: eq, right: {literal: false}}}
+            - {compare: {left: {path: $.released_set_contiguous}, operator: eq, right: {literal: true}}}
+        external:
+          audience_roles: [data_acquisition.integrity.downstream_consumer]
+
+      - id: data_acquisition.integrity.coordinate_recovery
+        name: 协调连续性恢复责任
+        version: 1.0.0
+        definition: 为缺口或锚点等待形成恢复计划，保证单飞、pending 意图合并、结果关联、失败冷却和派发失败后的义务保全。
+        intent:
+          purpose: 避免重复恢复执行，同时确保每个缺口意图和异步结果都有明确去向。
+          scope: 一条流的一种恢复形态。
+          accountable_role: data_acquisition.integrity.integrity_governor
+          goal: {predicate: data_acquisition.integrity.recovery_is_accounted, subject: {path: $.plan}, truth_value: asserted}
+          non_goals: [构造 provider 请求, 验证恢复数据内容, 把执行 success 当作缺口闭合]
+        inputs:
+          - {name: session, meaning: 恢复所属流完整性会话。, value_schema: {kind: reference, target: data_acquisition.integrity.stream_integrity_session}, required: true}
+          - {name: plan, meaning: 需要派发或合并的恢复计划。, value_schema: {kind: reference, target: data_acquisition.integrity.recovery_plan}, required: true}
+          - {name: policy, meaning: 失败预算、冷却、单飞合并和派发失败策略。, value_schema: {kind: reference, target: data_acquisition.integrity.integrity_policy}, required: true}
+          - {name: result, meaning: 可选异步执行结果，只在关联当前 pending 时消费。, value_schema: {kind: map, values: {kind: any}}, required: false}
+        authorization:
+          requester_roles: [data_acquisition.integrity.integrity_governor, data_acquisition.integrity.recovery_executor]
+          executor_roles: [data_acquisition.integrity.integrity_governor]
+        facility_dependencies:
+          - {alias: handoff, facility: data_acquisition.integrity.recovery_responsibility_handoff, purpose: 交接恢复计划或可靠保全未派发义务。, required: true}
+          - {alias: state_support, facility: data_acquisition.integrity.integrity_state_support, purpose: 形成 pending 结果期限和失败冷却到期通知。, required: true}
+        preserves: [data_acquisition.integrity.rule.recovery_facts_are_separate, data_acquisition.integrity.rule.stream_state_isolation]
+        effects:
+          guaranteed: {predicate: data_acquisition.integrity.recovery_is_accounted, subject: {path: $.plan}, truth_value: asserted}
+          forbidden: {compare: {left: {path: $.restored_claimed_from_execution_only}, operator: eq, right: {literal: true}}}
+        outcomes:
+          - id: pending_or_merged
+            meaning: 计划已被执行者接受成为唯一 pending，或已合并为当前结果后的最小覆盖计划。
+            establishes:
+              - assert: {predicate: data_acquisition.integrity.recovery_is_accounted, subject: {path: $.plan}, truth_value: asserted}
+            evidence:
+              - {id: singleflight_accounted, meaning: 同一流同一恢复形态至多一个 pending，且新范围有明确去向。, condition: {all: [{compare: {left: {path: $.pending_count}, operator: lte, right: {literal: 1}}}, {compare: {left: {path: $.new_scope_accounted}, operator: eq, right: {literal: true}}}]}}
+            remaining_responsibility: 当前执行者报告结果；完整性治理者随后验证缺口覆盖或锚点应用。
+          - id: dispatch_failed_but_accounted
+            meaning: 没有执行者接受计划，但义务已可靠保全或责任已明确转移。
+            establishes:
+              - assert: {predicate: data_acquisition.integrity.recovery_is_accounted, subject: {path: $.plan}, truth_value: unknown}
+            evidence:
+              - {id: obligation_preserved, meaning: 原计划、失败原因和重放或责任转移信息可恢复。, condition: {compare: {left: {path: $.remaining_responsibility}, operator: ne, right: {literal: null}}}}
+            remaining_responsibility: 完整性治理者持续重放义务，或由已记录的接收者承担。
+          - id: execution_result_applied_continuity_unverified
+            meaning: 相关联执行结果已收敛 pending；即使 success，连续性仍等待缺口覆盖或锚点应用。
+            establishes:
+              - assert: {predicate: data_acquisition.integrity.recovery_is_accounted, subject: {path: $.plan}, truth_value: asserted}
+            evidence:
+              - {id: correlation_without_false_success, meaning: 结果匹配当前 session，且没有从执行状态直接推出连续性恢复。, condition: {compare: {left: {path: $.restored_claimed_from_execution_only}, operator: eq, right: {literal: false}}}}
+            remaining_responsibility: 完整性治理者继续消费重新注入观察或锚点应用确认。
+          - id: cooldown_or_stale_result
+            meaning: 失败预算耗尽进入冷却，或结果不属于当前 pending；未完成范围保持可追踪。
+            establishes:
+              - assert: {predicate: data_acquisition.integrity.recovery_is_accounted, subject: {path: $.plan}, truth_value: unknown}
+            evidence:
+              - {id: blocked_reason, meaning: 记录冷却截止时间或结果关联冲突。, condition: {compare: {left: {path: $.blocked_reason}, operator: ne, right: {literal: null}}}}
+            remaining_responsibility: 冷却到期后重新评估；旧结果不得改写当前 active recovery。
+        execution:
+          mode: deterministic_code
+          behavior_contract:
+            - 以完整流身份和恢复形态确定单飞边界，不使用 unknown/default 身份
+            - 只有交接设施明确 accepted 后才建立 pending
+            - pending 新范围必须覆盖、合并或明确拒绝，不能静默去重
+            - 只消费流身份与 session_id 均匹配的当前结果
+            - 执行 success 只收敛会话，不建立缺口闭合或锚点应用
+            - 派发失败必须保全义务或明确转移责任
+          policy_inputs:
+            - {name: policy, meaning: 恢复形态、失败预算、冷却和派发失败策略。, value_schema: {kind: reference, target: data_acquisition.integrity.integrity_policy}, required: true}
+          prohibited_assumptions: [不得根据恢复类型选择具体实现目标, 不得把调度返回 nil 推断为范围已经履行, 不得裁剪补偿义务而不形成结果]
+          verification:
+            - {compare: {left: {path: $.pending_count}, operator: lte, right: {literal: 1}}}
+            - {compare: {left: {path: $.unaccounted_recovery_intent_count}, operator: eq, right: {literal: 0}}}
+            - {compare: {left: {path: $.restored_claimed_from_execution_only}, operator: eq, right: {literal: false}}}
+        external:
+          audience_roles: [data_acquisition.integrity.recovery_executor, data_acquisition.integrity.downstream_consumer]

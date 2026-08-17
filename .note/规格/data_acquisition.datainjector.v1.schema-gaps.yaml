@@ -1,0 +1,175 @@
+audit_id: data_acquisition.datainjector.v1.schema_gap_audit
+artifact: ./data_acquisition.datainjector.v1.domain.yaml
+schema: ./data_acquisition.v6.schema.json
+scope:
+  includes: [datainjector/control-plane-service, datainjector/worker]
+  excludes: [其他服务, OpenSpec change, 具体基础设施设计]
+
+modeling_decisions:
+  domain_granularity:
+    decision: 仅建立一个“数据采集履约”领域，不按 control-plane、worker、目录或插件拆子域。
+    reason: 两个进程共同推进同一个 Task→Run→Evidence 责任链；内部虽有不同能力权威，但没有必要为本次模块范围制造多层领域树。
+  capability_boundary:
+    decision: Capability 表达带业务目的的确定性决策与责任闭合；Facility Requirement 只承接已经决定的计划，返回机械处置和剩余责任。
+    examples:
+      - capability: 派发一项到期任务
+        facility: 派发命令可靠交接
+        distinction: 前者决定何时、哪个 attempt、哪个版本可派发；后者只保证给定 command_id 的接纳和可恢复交付。
+      - capability: 履行一次采集运行
+        facility: 数据源交互
+        distinction: 前者决定完成、失败和观察处置；后者只执行给定请求并报告传输事实。
+      - capability: 决定流观察处置并协调恢复
+        facility: 连续性恢复责任交接
+        distinction: 前者决定 gap、合并、降级和剩余责任；后者不拥有 singleflight、阈值或恢复成功语义。
+  strategy_representation:
+    decision: 将带参数的策略收敛到不可变 AcquisitionPlan 及其 typed policy 输入，而没有滥用 schema 中只能返回字符串的 Strategy candidate。
+    consequence: 确定性代码只能读取计划，不允许依据零值、插件名称或代码常量补业务策略。
+
+schema_gaps:
+  - id: capability_output_has_no_production_path
+    severity: p0
+    schema_locations: ["$defs.capability.outputs", "$defs.outcome", "$defs.process_step.resolve_outcome"]
+    problem: Capability 声明了 typed outputs，capability_call 也可绑定结果，但 outcome 与 resolve_outcome 都不能为各终止路径绑定输出值。
+    impact: 无法形式证明 accepted 返回哪个 Task、partial 返回哪些 actual revisions、retry 返回哪个 next attempt；目前只能由行为合同和证据文字补足。
+    proposal:
+      - 为 outcome 增加 output_bindings
+      - 或为 resolve_outcome、failure_route、cancellation_route 增加 output_bindings
+      - 校验每条终止路径产生全部 required outputs 且类型相容
+
+  - id: deterministic_policy_input_has_no_typed_source
+    severity: p0
+    schema_locations: ["$defs.capability_execution.policy_inputs", "$defs.strategy.candidates", "$defs.process_step.apply_strategy"]
+    problem: policy_inputs 只有端口声明，不能绑定 Capability input、计划属性或 Strategy result；Strategy candidate 又只是无类型 local_id。
+    impact: retry backoff、quota budget、finality depth、gap deadline、buffer loss policy 等参数无法由校验器证明已从计划流入代码。
+    proposal:
+      - 增加 policy_input_bindings
+      - Strategy 增加 result_schema，candidate 改为含 id、meaning、value 的对象
+      - 显式区分 omitted、disabled 和数值零
+
+  - id: entity_projection_cannot_be_updated
+    severity: p1
+    schema_locations: ["$defs.effect_template"]
+    problem: effect 只能 assert、emit occurrence、establish entity 或 transition lifecycle，不能声明有权的数值与时间属性投影更新。
+    impact: retry budget、scheduled_at、expected_next、gap interval、actual revision 等核心状态变化只能写进自然语言合同。
+    proposal:
+      - 增加基于 expected version 的 update_entity 或 project_state effect
+      - 要求更新来源、旧值约束和新值类型可验证
+
+  - id: facility_has_no_async_responsibility_stream
+    severity: p1
+    schema_locations: ["$defs.facility_requirement", "$defs.facility_interface", "$defs.facility_disposition"]
+    problem: Facility 只能返回一次同步 disposition，不能声明接纳订阅或命令后持续产生的 observation、delivery、disconnect 和最终失败 occurrence。
+    impact: command accepted 之后的 eventual delivery、持续订阅的数据流与状态报告责任无法归属于设施合同。
+    workaround: 当前模型把 Facility disposition 限定为“是否接纳责任”，把后续结果建成 Capability 可消费的领域事实。
+    proposal: 增加 asynchronous_emissions 或 continuing_responsibility，声明 occurrence 类型、correlation、顺序、重复、终止与失败语义。
+
+  - id: long_lived_wait_and_policy_deadline_not_expressible
+    severity: p1
+    schema_locations: ["$defs.process_step.wait_for_occurrence", "$defs.process_execution"]
+    problem: wait_for_occurrence 强制字面 ISO duration；不能等待到 cancellation，也不能从计划的 deadline 输入绑定期限。
+    impact: 持续 Role、流订阅、动态 retry deadline 和无新消息时的完整性期限无法精确写成 Process。
+    workaround: 主模型把长驻监听放入 Facility，把单次命令或观察处置建成 Capability。
+    proposal: timeout 接受 value_operand，并支持 until_cancelled 或由竞争 occurrence 终止。
+
+  - id: quantified_identity_and_order_constraints_missing
+    severity: p2
+    schema_locations: ["$defs.expression"]
+    problem: expression 缺少按 key 唯一性、量词、有序集合和单调版本关系。
+    impact: “每个 attempt 最多一个有效 claim”“每个 run 恰好一个终态”“delivery_set 严格连续”只能通过命名验证要求表达。
+    proposal: 增加 forall、exists、unique_by、ordered_by、monotonic 等受限表达式，而不是任意代码表达式。
+
+  - id: external_contract_has_no_typed_port_projection
+    severity: p2
+    schema_locations: ["$defs.external_contract"]
+    problem: External Contract 只有 accepted_intents、assertion surface 与 expose/hide，不能明确投影 Capability 的 typed request/result ports。
+    impact: command、status 和 Manifest 的跨版本字段兼容仍需另行约定。
+    proposal: 增加 capability port projection 与字段兼容规则，或规定合同自动继承所属 Capability ports。
+
+brownfield_conflicts:
+  - id: dispatch_before_delivery_acceptance
+    desired_semantics: 只有命令交付设施 accepted 后才记录 dispatch accepted，Worker started 是后续独立事实。
+    current_behavior: Timer 先把 Task 改成 PROCESSING，再异步发送；发送失败只记日志。
+    evidence:
+      - datainjector/control-plane-service/src/main/java/com/crypto/control/service/TimerProducerService.java:77
+      - datainjector/control-plane-service/src/main/java/com/crypto/control/service/TimerProducerService.java:101
+
+  - id: status_has_no_attempt_fencing
+    desired_semantics: 状态必须匹配 task、attempt、run、plan revision 和 assignment revision，终态单调。
+    current_behavior: Control DTO 不接收 Worker 已发送的 attempt、runId、roleId 和 stage，只按 taskId 覆写；未知字段被忽略。
+    evidence:
+      - datainjector/control-plane-service/src/main/java/com/crypto/control/dto/TaskStatusUpdate.java:19
+      - datainjector/control-plane-service/src/main/java/com/crypto/control/service/TaskStatusListenerService.java:84
+      - datainjector/worker/internal/observability/status/reporter.go:16
+
+  - id: asynchronous_input_is_acknowledged_on_failure
+    desired_semantics: 状态和 sequence 输入只有在领域责任已持久接纳或拒绝证据已隔离后才能确认。
+    current_behavior: 两个 listener 在解析或处理异常后仍确认输入，责任可能永久丢失。
+    evidence:
+      - datainjector/control-plane-service/src/main/java/com/crypto/control/service/TaskStatusListenerService.java:47
+      - datainjector/control-plane-service/src/main/java/com/crypto/control/service/SequenceGapDetectorService.java:65
+
+  - id: task_completion_levels_are_conflated
+    desired_semantics: source responded、custody accepted、delivered、run completed 和 task completed 是不同事实。
+    current_behavior: Worker 可在消息仅入队后报告 SUCCESS；Control 随即把任务置 SUCCESS。
+    evidence:
+      - datainjector/worker/internal/role/role.go:661
+      - datainjector/control-plane-service/src/main/java/com/crypto/control/service/TaskStatusListenerService.java:99
+
+  - id: assignment_release_has_no_revision
+    desired_semantics: Apply 请求和逐委派结果都携带 plan、desired、actual 与 rollback revision。
+    current_behavior: Apply 只有 roles 数组，省略项被解释为删除；结果只有 role、action、status、error，Running 只返回 role ID。
+    evidence:
+      - datainjector/worker/internal/api/server.go:89
+      - datainjector/worker/internal/api/server.go:100
+      - datainjector/worker/internal/role/manager.go:83
+      - datainjector/worker/internal/role/manager.go:223
+
+  - id: manifest_contract_and_authority_are_broken
+    desired_semantics: Worker 只形成 ManifestClaim，独立验收者决定 accepted、rejected 或 unverifiable。
+    current_behavior: Worker 使用 snake_case 且生成器恒写 completed；Control DTO 使用 camelCase、未校验版本，工件不可访问或 checksum 异常时可能通过，且没有真实上报入口。
+    evidence:
+      - datainjector/worker/internal/manifest/types.go:5
+      - datainjector/worker/internal/manifest/generator.go:38
+      - datainjector/control-plane-service/src/main/java/com/crypto/control/dto/ManifestReport.java:20
+      - datainjector/control-plane-service/src/main/java/com/crypto/control/service/ManifestValidatorService.java:57
+
+  - id: quota_cost_is_not_accounted
+    desired_semantics: 准入窗口消费 cost units，并在派发或执行时保持预约的一致性。
+    current_behavior: 限流判断 current+cost，却只登记一个集合成员；只在创建时检查，多个延期任务可同时派发。
+    evidence:
+      - datainjector/control-plane-service/src/main/java/com/crypto/control/service/RateLimiterService.java:35
+      - datainjector/control-plane-service/src/main/java/com/crypto/control/service/MainProcessorService.java:60
+
+  - id: worker_config_mixes_policy_and_mechanism
+    desired_semantics: AcquisitionPlan 闭合策略，设施绑定只选择 connector、custody 和 publisher。
+    current_behavior: RoleConfig 同时包含业务 domain、触发、caller、queue、完整性 flags、handler 和 sink，并在 Validate 中写入业务默认值。
+    evidence:
+      - datainjector/worker/internal/config/config.go:11
+      - datainjector/worker/internal/config/config.go:197
+
+  - id: stream_integrity_state_is_not_partitioned
+    desired_semantics: 所有 expected、buffer、gap、dedupe、finality 与 recovery lane 按完整 StreamIdentity 分区。
+    current_behavior: 一个 SequenceEngine 只有一份 state 与 buffer，却会随消息改写 streamName。
+    evidence:
+      - datainjector/worker/internal/handler/integrity/sequence_engine.go:31
+      - datainjector/worker/internal/handler/integrity/sequence_engine.go:611
+
+  - id: recovery_success_is_not_continuity_restoration
+    desired_semantics: 派发 accepted、请求 success、恢复数据注入、gap closed 和 snapshot applied 分别记录。
+    current_behavior: Worker 回补请求成功并入队即可报告 success；Control gap detector 在回补任务创建后立即推进 expected。
+    evidence:
+      - datainjector/worker/internal/role/role.go:998
+      - datainjector/control-plane-service/src/main/java/com/crypto/control/service/SequenceGapDetectorService.java:94
+
+validation:
+  json_schema:
+    status: passed
+    command: npx --yes ajv-cli@5 validate --spec=draft2020 --strict=false -s .note/规格/data_acquisition.v6.schema.json -d /tmp/datainjector-domain.json
+  semantic_review:
+    status: performed
+    checks:
+      - 单一 Domain 层级且所有 semantic id 以 owner domain 为前缀
+      - Capability 与 Facility Requirement 分别承担决策责任和机械责任
+      - 非 completed outcome 与 disposition 均声明 remaining responsibility
+      - Task、Run、Command、Manifest 与 Stream 使用不同身份和成功语义
+      - 原始 secret、endpoint、topic、存储产品和代码插件名未进入领域事实
